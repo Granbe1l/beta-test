@@ -1,11 +1,13 @@
-name: Capture real Streamlit UI screenshots
+name: Capture Streamlit UI with verified GitHub snapshot
 on:
   push:
     branches:
-      - review/project-delivery-monitor-streamlit
+      - main
     paths:
-      - scripts/capture_ui.py
       - .github/workflows/ui-screenshots.yml
+      - streamlit_app.py
+      - src/ui/**
+      - data/github_public_snapshot.json.gz
   workflow_dispatch:
 permissions:
   contents: read
@@ -13,40 +15,32 @@ jobs:
   screenshot:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      MAX_REPOS: '3'
-      MAX_CANDIDATES: '8'
-      MAX_PAGES_PER_SOURCE: '2'
-      SEARCH_PAGES_PER_QUERY: '1'
-      PER_PAGE: '30'
-      BACKFILL_DAYS: '90'
-      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install UI and screenshot dependencies
+      - name: Install Streamlit and real-browser dependencies
         run: python -m pip install -r requirements.txt playwright
+      - name: Verify real GitHub snapshot and counts
+        run: |
+          python - <<'PY'
+          from src.analytics.snapshot import read_snapshot
+          rows,selection,meta=read_snapshot()
+          assert len(rows)>0 and selection and selection.get("candidates",0)>0
+          assert sum(len(r["issue_rows"])+len(r["pr_rows"]) for r in rows)>0
+          print("Verified capture",meta["generated_at"],"repositories",len(rows))
+          PY
       - name: Check Chrome availability
         run: |
-          if command -v google-chrome >/dev/null; then
-            google-chrome --version
-          else
-            python -m playwright install chromium
-          fi
-      - name: Initialize temporary database
-        run: python scripts/init_db.py
-      - name: Attempt bounded public GitHub collection
-        run: |
-          python scripts/run_sync.py --discover || echo "Collection incomplete; screenshots must show true unavailable / partial statuses."
-      - name: Capture actual browser screenshots
+          if command -v google-chrome >/dev/null; then google-chrome --version; else python -m playwright install chromium; fi
+      - name: Capture rendered desktop and mobile screenshot
         run: python scripts/capture_ui.py
-      - name: Upload PNG screenshots (not deployment)
+      - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: streamlit-purple-ui-actual-screenshots
+          name: project-delivery-populated-ui-screenshots
           path: docs/screenshots/*.png
           if-no-files-found: warn
-          retention-days: 7
+          retention-days: 14
