@@ -1,0 +1,52 @@
+name: GitHub data synchronization
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+    - cron: '43 3 * * 0'
+  workflow_dispatch:
+    inputs:
+      discover:
+        description: 'Run initial curated discovery if selection is empty'
+        type: boolean
+        default: false
+      reconcile:
+        description: 'Reconcile from initial backfill window'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: project-delivery-monitor-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Verify production configuration
+        run: |
+          test -n "$DATABASE_URL" || { echo 'Missing DATABASE_URL GitHub secret'; exit 1; }
+          case "$DATABASE_URL" in postgresql* ) echo 'PostgreSQL config present';; * ) echo 'DATABASE_URL must point to PostgreSQL'; exit 1;; esac
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Execute bounded read-only sync
+        env:
+          DISCOVER: ${{ github.event.inputs.discover }}
+          RECONCILE: ${{ github.event.inputs.reconcile }}
+          EVENT_CRON: ${{ github.event.schedule }}
+        run: |
+          args=""
+          if [ "$DISCOVER" = 'true' ]; then args="$args --discover"; fi
+          if [ "$RECONCILE" = 'true' ] || [ "$EVENT_CRON" = '43 3 * * 0' ]; then args="$args --reconcile"; fi
+          python scripts/run_sync.py $args
+      - name: Data coverage audit
+        if: success()
+        run: python scripts/audit.py
