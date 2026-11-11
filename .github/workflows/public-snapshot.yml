@@ -1,0 +1,68 @@
+name: Refresh public GitHub snapshot
+on:
+  push:
+    branches:
+      - review/project-delivery-monitor-streamlit
+    paths:
+      - src/**
+      - scripts/build_public_snapshot.py
+      - .github/workflows/public-snapshot.yml
+      - streamlit_app.py
+  schedule:
+    - cron: '27 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: public-snapshot-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      DATABASE_URL: sqlite:///local.sqlite3
+      GITHUB_TOKEN: ${{ github.token }}
+      MAX_REPOS: '10'
+      MAX_CANDIDATES: '36'
+      SEARCH_PAGES_PER_QUERY: '1'
+      MAX_PAGES_PER_SOURCE: '6'
+      PER_PAGE: '100'
+      BACKFILL_DAYS: '120'
+      COMPARISON_DAYS: '90'
+      STALE_HOURS: '12'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Bounded read-only collection using GitHub REST API
+        shell: bash
+        run: |
+          python scripts/init_db.py
+          python scripts/run_sync.py --discover || echo 'Some sources incomplete: snapshot explicitly retains coverage status'
+          python scripts/build_public_snapshot.py
+          python scripts/audit.py > snapshot-audit.json
+      - name: Preserve evidence and counts
+        uses: actions/upload-artifact@v4
+        with:
+          name: github-source-snapshot-audit
+          path: |
+            data/github_public_snapshot.json.gz
+            snapshot-audit.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Update actual public snapshot in this repository
+        shell: bash
+        run: |
+          git config user.name 'Candy Ristyan'
+          git config user.email '103526238+Granbe1l@users.noreply.github.com'
+          git add data/github_public_snapshot.json.gz
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'data: refresh verified public GitHub snapshot [skip ci]'
+          git push origin HEAD:${{ github.ref_name }}

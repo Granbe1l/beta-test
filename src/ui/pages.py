@@ -16,6 +16,7 @@ import streamlit as st
 
 from src.analytics.findings import findings_for_repo, portfolio_findings
 from src.analytics.metrics import calculate_issues, calculate_prs, comparable_metrics, utc
+from src.ui.charts import category_counts, observed_age_bands, observed_merge_times, source_coverage_counts
 from src.ui.filters import issue_age_days, filter_work_items, filter_pull_requests, filter_workflow_runs, page_slice
 from src.ui.theme import (
     INK, PURPLE, PURPLE_DARK, LAVENDER,
@@ -191,33 +192,50 @@ def overview(reports, selection):
                 finding(item, "REVIEW CANDIDATE")
     else:
         empty_state("No evidence-backed key findings yet", "A finding appears only after complete, current source collection and sufficient sample size.")
-    section("Activity at a glance", "Two contextual comparisons; neither chart scores project quality.")
-    df = pd.DataFrame(comparable_metrics(chosen))
+    section("Activity at a glance", "Real public GitHub records, explicitly labelled when collection is incomplete.")
+    all_issues = [item for r in chosen for item in r["issue_rows"]]
+    all_prs = [item for r in chosen for item in r["pr_rows"]]
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("**Observed issue aging**")
-        if not df.empty:
-            valid = df.dropna(subset=["30+ day issues (%)"])
+        bands = observed_age_bands(all_issues)
+        sample_count = sum(bands.values())
+        if sample_count:
+            st.markdown(f"**Observed open issue ages · n={sample_count:,}**")
+            if any(r["status"]["issues"] != "complete" for r in chosen):
+                st.caption("⚠️ Partial collection: distribution of retrieved records ONLY; not the entire backlog.")
+            fig = px.bar(x=list(bands), y=list(bands.values()), color=list(bands),
+                         labels={"x":"Issue age","y":"Observed open issues"},
+                         color_discrete_sequence=PALETTE)
+            fig.update_layout(showlegend=False)
+            st.plotly_chart(chart_style(fig, 295), use_container_width=True)
         else:
-            valid = pd.DataFrame()
-        if not valid.empty:
-            fig = px.bar(valid.sort_values("30+ day issues (%)"), x="30+ day issues (%)", y="Repository", orientation="h",
-                         hover_data=["Open issue sample (n)"], color_discrete_sequence=[PURPLE])
-            st.plotly_chart(chart_style(fig, 300), use_container_width=True)
-        else:
-            empty_state("Issue age chart unavailable", "Requires a current, complete issue sample with at least five observed open issues per repository.")
+            categories = category_counts(chosen)
+            st.markdown("**Sample composition by software category**")
+            fig = px.bar(x=list(categories), y=list(categories.values()), color=list(categories),
+                         labels={"x":"Project category","y":"Selected repositories"},
+                         color_discrete_sequence=PALETTE)
+            fig.update_layout(showlegend=False)
+            st.plotly_chart(chart_style(fig, 295), use_container_width=True)
     with c2:
-        st.markdown("**Median time to merge**")
-        if not df.empty:
-            valid = df.dropna(subset=["Median merge (days)"])
+        durations = observed_merge_times(all_prs)
+        merges = sum(durations.values())
+        if merges:
+            st.markdown(f"**Observed merge durations · n={merges:,} · 90d**")
+            if any(r["status"]["pull_requests"] != "complete" for r in chosen):
+                st.caption("⚠️ Retrieved subset; no project-wide median claimed without complete coverage.")
+            fig = px.bar(x=list(durations), y=list(durations.values()), color=list(durations),
+                         labels={"x":"Merge duration","y":"Observed PR merges"},
+                         color_discrete_sequence=PALETTE)
+            fig.update_layout(showlegend=False)
+            st.plotly_chart(chart_style(fig, 295), use_container_width=True)
         else:
-            valid = pd.DataFrame()
-        if not valid.empty:
-            fig = px.bar(valid.sort_values("Median merge (days)"), x="Median merge (days)", y="Repository", orientation="h",
-                         hover_data=["Merged PR sample (n)"], color_discrete_sequence=["#9871DF"])
-            st.plotly_chart(chart_style(fig, 300), use_container_width=True)
-        else:
-            empty_state("PR merge-time chart unavailable", "Requires at least five verified PR merges within the observation window per repository.")
+            coverage = {k:v for k,v in source_coverage_counts(chosen).items() if v}
+            st.markdown("**Data source coverage**")
+            fig = px.bar(x=list(coverage), y=list(coverage.values()), color=list(coverage),
+                         labels={"x":"Collection status","y":"Repository/source checkpoints"},
+                         color_discrete_sequence=PALETTE)
+            fig.update_layout(showlegend=False)
+            st.plotly_chart(chart_style(fig, 295), use_container_width=True)
     section("Suggested next reviews")
     if findings:
         for f in findings:
@@ -289,6 +307,10 @@ def issues_backlog(reports):
         return
     source_warning(r, "issues")
     dist = r["issues"]["age_distribution"]
+    if dist is None and r["issue_rows"]:
+        bands = observed_age_bands(r["issue_rows"])
+        dist = dict(zip(("0–6d","7–29d","30–89d","90d+"), bands.values()))
+        st.caption("⚠️ Only observed records are charted because the issues source is incomplete or stale.")
     labels = ["0–6 days", "7–29 days", "30–89 days", "90+ days"]
     keys = ["0–6d", "7–29d", "30–89d", "90d+"]
     card_grid([(label, fmt_short(dist.get(key)) if dist is not None else "—", "Observed open issues", "○")
@@ -341,6 +363,9 @@ def pull_request_review(reports):
     ])
     section("Merge duration distribution", "Only PRs actually merged within the observation period are included.")
     buckets = p["merge_distribution"]
+    if buckets is None and r["pr_rows"]:
+        buckets = observed_merge_times(r["pr_rows"])
+        st.caption("⚠️ Observed merged PR subset only; do not infer repository-wide completion times.")
     if buckets:
         fig = px.bar(x=list(buckets), y=list(buckets.values()), labels={"x": "Time to merge", "y": "Merged PRs"},
                      color=list(buckets), color_discrete_sequence=PALETTE)
@@ -377,7 +402,9 @@ def cicd_activity(reports):
          "Known conclusions denominator", "◉"),
     ])
     section("Workflow results · recent 30 days", "Daily counts by workflow conclusion, not a software-quality score.")
-    if ci["trend_valid"]:
+    if ci["trend_valid"] or r["ci_rows"]:
+        if not ci["trend_valid"]:
+            st.caption("⚠️ Partial GitHub Actions coverage: timeline shows retrieved runs only.")
         now = datetime.now(timezone.utc)
         since = now - timedelta(days=30)
         daily = Counter()
