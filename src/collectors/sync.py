@@ -133,10 +133,32 @@ def record_observations(session: Session, repo_id: int, now=None):
     return True
 
 
-def synchronize(session: Session, client: GitHubClient, settings: Settings, reconcile=False) -> list[dict]:
+def synchronize(session: Session, client: GitHubClient, settings: Settings, reconcile=False,
+                initial_batch_size: int | None = None, run_at=None) -> list[dict]:
     result = []
     repos = list(session.scalars(select(Repository).where(Repository.selected.is_(True)).order_by(Repository.full_name)))
+    if initial_batch_size is not None and initial_batch_size > 0:
+        # Bootstrap previously unseen repositories gradually. Once all have
+        # a checkpoint, incrementally refresh all selected repos each cycle.
+        first_time = [r for r in repos if not any(
+            session.get(SyncCheckpoint, (r.id, source)) is not None
+            for source in SOURCES
+        )]
+        if first_time:
+            repos = first_time[:initial_batch_size]
+        elif repos:
+            # Rotate traversal order to avoid starving later repositories
+            # when the GitHub API request budget is exhausted.
+            slot = int((run_at or utcnow()).timestamp() // (6 * 3600))
+            offset = (slot * 17) % len(repos)
+            repos = repos[offset:] + repos[:offset]
     for repo in repos:
+        # Stop before exhausting the allocated API quota; never mark unvisited
+        # repositories as failed or advance their last-success timestamps.
+        budget = getattr(client, "max_requests", None)
+        if budget is not None and getattr(client, "request_count", 0) + 3 * settings.max_pages + 5 >= budget:
+            print("Collector request budget reached: unvisited repositories retain prior checkpoints")
+            break
         for source in SOURCES:
             result.append(sync_one(session, client, repo, source, settings, reconcile=reconcile))
         record_observations(session, repo.id)

@@ -40,8 +40,8 @@ class Settings:
         return cls(
             database_url=os.getenv("DATABASE_URL") or f"sqlite:///{ROOT / 'local.sqlite3'}",
             github_token=os.getenv("GITHUB_TOKEN") or None,
-            max_repos=_int("MAX_REPOS", 20),
-            max_candidates=_int("MAX_CANDIDATES", 75),
+            max_repos=_int("MAX_REPOS", 75),
+            max_candidates=_int("MAX_CANDIDATES", 320),
             max_pages=_int("MAX_PAGES_PER_SOURCE", 6),
             search_pages=_int("SEARCH_PAGES_PER_QUERY", 2),
             per_page=_int("PER_PAGE", 100),
@@ -64,10 +64,14 @@ LANGUAGE_GROUPS = {
     "Rust": "Systems & tooling", "Java": "Enterprise applications",
     "C#": "Enterprise applications", "Ruby": "Web applications",
     "C++": "Systems & tooling", "Kotlin": "Mobile applications",
+    "Swift": "Mobile applications", "Dart": "Mobile applications",
+    "PHP": "Web applications", "C": "Systems & tooling",
 }
 
 SEARCH_QUERIES = (
     "language:Python", "language:TypeScript", "language:Go",
     "language:Rust", "language:Java", "language:Kotlin",
-    "language:C++", "language:Ruby",
+    "language:C++", "language:Ruby", "language:Swift",
+    "language:PHP", "language:C#", "language:JavaScript",
+    "language:Dart", "language:C",
 )

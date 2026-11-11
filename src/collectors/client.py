@@ -24,8 +24,10 @@ class PageResult:
 
 
 class GitHubClient:
-    def __init__(self, token=None, timeout=20, max_retries=4, session=None, sleeper=time.sleep):
+    def __init__(self, token=None, timeout=20, max_retries=4, session=None, sleeper=time.sleep, max_requests=None):
         self.session = session or requests.Session()
+        self.max_requests = max_requests
+        self.request_count = 0
         self.timeout = timeout
         self.max_retries = max_retries
         self.sleep = sleeper
@@ -44,6 +46,9 @@ class GitHubClient:
                 raise ValueError("Expected GitHub API path")
             url = API_BASE + path
         for attempt in range(self.max_retries + 1):
+            if self.max_requests is not None and self.request_count >= self.max_requests:
+                raise GitHubAPIError("GitHub API request budget exhausted; retain previous checkpoints")
+            self.request_count += 1
             try:
                 res = self.session.get(url, params=params, timeout=self.timeout)
             except (requests.Timeout, requests.ConnectionError) as exc:

@@ -1,30 +1,29 @@
-name: Refresh public GitHub snapshot
+name: Refresh curated public GitHub snapshot
 on:
   push:
-    branches:
-      - review/project-delivery-monitor-streamlit
+    branches: [main]
     paths:
       - src/**
-      - scripts/build_public_snapshot.py
+      - scripts/run_sync.py
+      - scripts/restore_public_snapshot.py
       - .github/workflows/public-snapshot.yml
-      - streamlit_app.py
   schedule:
     - cron: '27 */6 * * *'
   workflow_dispatch:
 permissions:
   contents: write
 concurrency:
-  group: public-snapshot-${{ github.ref }}
+  group: public-snapshot-main
   cancel-in-progress: false
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
     env:
       DATABASE_URL: sqlite:///local.sqlite3
       GITHUB_TOKEN: ${{ github.token }}
-      MAX_REPOS: '10'
-      MAX_CANDIDATES: '36'
+      MAX_REPOS: '75'
+      MAX_CANDIDATES: '320'
       SEARCH_PAGES_PER_QUERY: '1'
       MAX_PAGES_PER_SOURCE: '6'
       PER_PAGE: '100'
@@ -41,28 +40,29 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Bounded read-only collection using GitHub REST API
+      - name: Restore last validated public snapshot
+        run: python scripts/restore_public_snapshot.py
+      - name: Expand to up to 75 vetted repos and sync within API budget
         shell: bash
         run: |
-          python scripts/init_db.py
-          python scripts/run_sync.py --discover || echo 'Some sources incomplete: snapshot explicitly retains coverage status'
+          python scripts/run_sync.py --expand --initial-batch 12 --max-requests 850 || echo 'Some sources incomplete or budget-limited; retained previous evidence and checkpoint.'
           python scripts/build_public_snapshot.py
           python scripts/audit.py > snapshot-audit.json
-      - name: Preserve evidence and counts
+      - name: Preserve evidence and coverage audit
         uses: actions/upload-artifact@v4
         with:
-          name: github-source-snapshot-audit
+          name: github-75-repo-source-audit
           path: |
             data/github_public_snapshot.json.gz
             snapshot-audit.json
           if-no-files-found: error
           retention-days: 14
-      - name: Update actual public snapshot in this repository
+      - name: Commit only generated public snapshot
         shell: bash
         run: |
           git config user.name 'Candy Ristyan'
           git config user.email '103526238+Granbe1l@users.noreply.github.com'
           git add data/github_public_snapshot.json.gz
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'data: refresh verified public GitHub snapshot [skip ci]'
-          git push origin HEAD:${{ github.ref_name }}
+          git commit -m 'data: update verified GitHub sample [skip ci]'
+          git push origin HEAD:main

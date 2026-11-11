@@ -81,7 +81,7 @@ scripts/audit.py               Counts and verifiable status
 2. Search is constrained by `MAX_CANDIDATES`, `SEARCH_PAGES_PER_QUERY`, and a per-language quota, **not** a GitHub-wide crawl. Deduplicate by stable GitHub repository ID.
 3. Validate repository metadata: public, nonfork, nonarchived, >=50 stars, last push <=90 days, issues enabled, language recognized.
 4. Probe a **bounded** slice of GitHub `/issues?state=all` and `/pulls?state=all` for independent issues and any PRs. A negative bounded probe is an **uncertain rejection**, not proof there has never been an issue. A follow-up collector determines the actual extractable sample.
-5. Diversify across broad language categories and star-size tiers (`50–499`, `500–4,999`, `5,000+`) by round-robin. Fill leftover slots with eligible candidates if diversity constraints cannot fill the cap. Select **at most 20**.
+5. Diversify across broad language categories and star-size tiers (`50–499`, `500–4,999`, `5,000+`) by round-robin. Fill leftover slots with eligible candidates if diversity constraints cannot fill the cap. Select **at most 75**.
 6. Record GitHub search queries, timestamps, candidates, selection reasons, and URLs in `SelectionRun` and `Candidate`. The selected set persists until explicitly curated again; routine sync never adds repositories automatically.
 
 **Sampling limitation:** Search result ordering, API result caps, bounded activity probes, and platform/language choices create selection bias. Even 20 selected repositories **cannot** represent all of GitHub.
@@ -213,3 +213,15 @@ The repository contains `data/github_public_snapshot.json.gz`, a **read-only rea
 **Streamlit Cloud setup:** select repository `Granbe1l/beta-test`, branch `main`, app file `streamlit_app.py`. No database credential is necessary in snapshot mode. The UI explicitly displays capture time and marks partial/stale source data. It uses real retrieved records to draw observed aging and merge-time charts while suppressing complete-coverage claims. GitHub Actions requests bounded public data every six hours; GitHub may delay or disable schedules.
 
 For production data and historical incremental synchronization, provision managed PostgreSQL, set a secure `DATABASE_URL`, initialize the schema, then run the separate checkpointed collector. The **snapshot workflow re-collects a bounded observation window**, whereas the PostgreSQL collector implements incremental upserts. The PostgreSQL workflow is manual/opt-in until a database is configured, avoiding misleading failed scheduled runs. Snapshots contain no fixture records or credentials.
+
+
+## Scaling selected GitHub repositories to 75
+
+- **Target: up to 75 curated public repositories** with verified metadata and eligibility, not a representative sample of all GitHub. The existing ten and their evidence records are preserved.
+- Each scheduled GitHub Actions run restores the previous public snapshot into an ephemeral SQLite collector, retaining upsert IDs and per-source checkpoints.
+- Candidate discovery is bounded and audited; expanding selection is allowed only after GitHub Search and standalone-issue/PR eligibility checks.
+- The initial source collection is staged (up to **12 previously unseen repositories per run**). After seeding, the collector attempts incremental updates across the full selection each six-hour run, respecting an **850-request cap** and limited endpoint pagination.
+- **A six-hour scheduled run does not guarantee that every repository is refreshed or has complete data every six hours.** GitHub may also delay scheduled runs. The collection order rotates if the request budget is limiting.
+- No full GitHub clone, fake production data, or hidden completeness claims. The dashboard labels incomplete, stale, failed, or unavailable data.
+
+Operational commands for the snapshot workflow: `python scripts/restore_public_snapshot.py`, `python scripts/run_sync.py --expand --initial-batch 12 --max-requests 850`, and `python scripts/build_public_snapshot.py`. The dashboard reads the generated public snapshot. PostgreSQL remains optional until its managed service and credentials are provisioned.

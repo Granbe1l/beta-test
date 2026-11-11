@@ -86,13 +86,19 @@ def probe_activity(client: GitHubClient, full_name: str) -> str | None:
     return None
 
 
-def select_repositories(client: GitHubClient, session: Session, settings: Settings, now: datetime | None = None) -> dict:
+def select_repositories(client: GitHubClient, session: Session, settings: Settings, now: datetime | None = None, *,
+                        existing_ids: set[int] | None = None, additional_limit: int | None = None) -> dict:
     now = now or utcnow()
+    existing_ids = existing_ids or set()
+    additional_limit = additional_limit if additional_limit is not None else settings.max_repos
     run = SelectionRun(started_at=now, parameters={
         "search_queries": list(SEARCH_QUERIES), "stars_min": 50,
         "freshness_days": settings.freshness_days, "max_candidates": settings.max_candidates,
         "max_repos": settings.max_repos, "search_pages": settings.search_pages,
         "selection": "round-robin across primary-language group and stars tier",
+        "purpose": "expansion" if existing_ids else "initial",
+        "discovered_at": now.isoformat(),
+        "preserved_existing": len(existing_ids),
         "source": "GitHub REST Search API /search/repositories",
     })
     session.add(run)
@@ -124,20 +130,26 @@ def select_repositories(client: GitHubClient, session: Session, settings: Settin
     filtered = []
     reasons = {}
     for repo in unique:
+        if repo["id"] in existing_ids:
+            reasons[repo["id"]] = "already selected; retained without re-probing"
+            continue
         reason = validate_candidate(repo, now, settings.freshness_days)
         if not reason:
             try: reason = probe_activity(client, repo["full_name"])
             except GitHubAPIError: reason = "eligibility probe failed"
         if reason: reasons[repo["id"]] = reason
         else: filtered.append(repo)
-    chosen = diversified_sample(filtered, settings.max_repos)
+    chosen = diversified_sample(filtered, additional_limit)
     chosen_ids = {r["id"] for r in chosen}
     for repo in unique:
-        selected = repo["id"] in chosen_ids
+        is_retained = repo["id"] in existing_ids
+        selected = repo["id"] in chosen_ids or is_retained
         decision = "selected" if selected else "rejected"
-        reason = "met activity filters; category/size diversified" if selected else reasons.get(repo["id"], "valid but outside sample cap/diversity limit")
+        reason = ("retained from previous approved sample" if is_retained else
+                  "met activity filters; category/size diversified" if selected else
+                  reasons.get(repo["id"], "valid but outside sample cap/diversity limit"))
         session.add(Candidate(selection_run_id=run.id, repo_id=repo["id"], full_name=repo["full_name"], url=repo["html_url"], category=category(repo), stars=repo.get("stargazers_count", 0), decision=decision, reason=reason))
-        if selected:
+        if selected and not is_retained:
             upsert_repository(session, {
                 "id": repo["id"], "full_name": repo["full_name"], "owner": repo["owner"]["login"],
                 "name": repo["name"], "url": repo["html_url"], "language": repo.get("language"),
@@ -147,9 +159,35 @@ def select_repositories(client: GitHubClient, session: Session, settings: Settin
                 "archived": False, "selected": True, "selected_at": now, "selection_run_id": run.id,
             })
     run.candidate_count = len(unique)
-    run.accepted_count = len(chosen)
+    run.accepted_count = len(chosen) + len(existing_ids)
     run.completed_at = utcnow()
     run.status = "partial" if errors else "complete"
-    run.notes = "; ".join(errors) if errors else ("Eligible candidates fewer than target" if len(chosen) < settings.max_repos else None)
+    run.notes = "; ".join(errors) if errors else ("Eligible candidates fewer than target" if len(chosen) < additional_limit else None)
     session.commit()
-    return {"selection_run": run.id, "candidates": len(unique), "eligible": len(filtered), "selected": [r["full_name"] for r in chosen], "errors": errors}
+    return {"selection_run": run.id, "candidates": len(unique), "eligible": len(filtered), "selected": [r["full_name"] for r in chosen], "retained": len(existing_ids), "errors": errors}
+
+
+def expand_repositories(client: GitHubClient, session: Session, settings: Settings, now: datetime | None = None):
+    """Expand an existing curated selection, never deleting previously selected rows.
+
+    Search may yield fewer than requested: record the shortfall, never invent repos.
+    """
+    from sqlalchemy import select
+    existing = list(session.scalars(select(Repository).where(Repository.selected.is_(True))))
+    if len(existing) >= settings.max_repos:
+        return {"selected_total": len(existing), "added": 0, "note": "target met"}
+    result = select_repositories(
+        client, session, settings, now=now, existing_ids={repo.id for repo in existing},
+        additional_limit=settings.max_repos - len(existing),
+    )
+    run = session.get(SelectionRun, result["selection_run"])
+    for old in existing:
+        if session.query(Candidate).filter_by(selection_run_id=run.id, repo_id=old.id).first() is not None:
+            continue
+        session.add(Candidate(
+            selection_run_id=run.id, repo_id=old.id, full_name=old.full_name,
+            url=old.url, category=old.category, stars=old.stars,
+            decision="selected", reason="retained from previous approved sample"))
+    session.commit()
+    count = len(list(session.scalars(select(Repository).where(Repository.selected.is_(True)))))
+    return {**result, "added": len(result["selected"]), "selected_total": count}
