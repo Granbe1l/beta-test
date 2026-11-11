@@ -19,7 +19,7 @@ small,.muted {color:var(--muted);}
 .hero {background:linear-gradient(100deg,#102b46,#1b5275);border-radius:14px;padding:25px 30px;color:#fff;margin-bottom:17px;}
 .hero h1 {color:#fff!important;margin:0 0 5px 0;font-size:1.85rem!important;}
 .hero p {color:#d9e9f5;margin:0;font-size:0.95rem;}
-.eyebrow {color:#a6d8fa;font-size:.72em;letter-spacing:.14em;font-weight:700;margin-bottom:8px;}
+.eyebrow {color:#a6d8fa;font-size:.72rem;letter-spacing:.14em;font-weight:700;margin-bottom:8px;}
 .stat {background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:19px 18px;min-height:120px;}
 .stat .value {font-size:1.8rem;font-weight:760;color:var(--ink);line-height:1.15;overflow-wrap:anywhere;}
 .stat .label {color:var(--muted);font-size:.79rem;margin-top:8px;}
