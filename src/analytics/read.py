@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from src.database.models import Repository, Issue, PullRequest, WorkflowRun, SyncCheckpoint, SelectionRun, Candidate
+from src.database.models import Repository, Issue, PullRequest, WorkflowRun, SyncCheckpoint, SelectionRun, Candidate, Observation
 from src.analytics.metrics import calculate_issues, calculate_prs, calculate_ci, closure_change, utc
 
 
@@ -29,6 +29,7 @@ def load_reports(session: Session, now: datetime | None = None, observation_days
         issues = [source_row(v) for v in session.scalars(select(Issue).where(Issue.repo_id == repo.id))]
         prs = [source_row(v) for v in session.scalars(select(PullRequest).where(PullRequest.repo_id == repo.id))]
         ci = [source_row(v) for v in session.scalars(select(WorkflowRun).where(WorkflowRun.repo_id == repo.id))]
+        observations = [source_row(v) for v in session.scalars(select(Observation).where(Observation.repo_id == repo.id).order_by(Observation.measured_at.desc()).limit(30))]
         ic = cps.get("issues")
         pc = cps.get("pull_requests")
         cc = cps.get("workflow_runs")
@@ -37,7 +38,7 @@ def load_reports(session: Session, now: datetime | None = None, observation_days
         c = calculate_ci(ci, now, observation_days, statuses["workflow_runs"] == "complete", cc.coverage_start if cc else None)
         change = closure_change(issues, now, statuses["issues"] == "complete", ic.coverage_start if ic else None)
         reports.append({"repository": source_row(repo), "issues": i, "prs": p, "ci": c,
-                        "closure": change, "issue_rows": issues, "pr_rows": prs, "ci_rows": ci,
+                        "closure": change, "issue_rows": issues, "pr_rows": prs, "ci_rows": ci, "observations": observations,
                         "status": statuses, "coverage_ok": all(v == "complete" for v in statuses.values()),
                         "last_success": (min(utc(cps[s].last_success_at) for s in statuses)
                                          if all(cps.get(s) and cps[s].last_success_at for s in statuses) else None),

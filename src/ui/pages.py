@@ -1,260 +1,510 @@
-"""Five compact dashboard views; data is always sourced from persisted records."""
+"""Six evidence-first Streamlit screens following the purple operational UI reference.
+
+No synthetic production data, no quality rankings, no client-side JavaScript.
+Cross-repository comparisons live within Project details, methodology under Risks.
+"""
 from __future__ import annotations
-from datetime import datetime, timezone
-from src.analytics.metrics import calculate_issues, calculate_prs, calculate_ci
+
+from collections import Counter
+from datetime import datetime, timedelta, timezone
 import math
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+
 from src.analytics.findings import findings_for_repo, portfolio_findings
-from src.analytics.metrics import comparable_metrics
-from src.ui.theme import hero, stat, insight, empty_state
+from src.analytics.metrics import calculate_issues, calculate_prs, comparable_metrics, utc
+from src.ui.filters import issue_age_days, filter_work_items, filter_pull_requests, filter_workflow_runs, page_slice
+from src.ui.theme import (
+    INK, PURPLE, PURPLE_DARK, LAVENDER,
+    page_header, stat, section, finding, empty_state, esc,
+)
 
-NAVY = "#16334c"
-BLUE = "#418fbb"
+PALETTE = [PURPLE, "#AE8CF2", "#DED0FC", "#8B6FC8"]
+PER_PAGE = 10
 
 
-def fmt_num(n): return "Not Available" if n is None else f"{n:,}"
-def fmt_pct(n): return "Insufficient Data" if n is None else f"{n:.0f}%"
-def fmt_days(n): return "Insufficient Data" if n is None else f"{n:.1f} days"
+def fmt_num(value):
+    return "Not Available" if value is None else f"{value:,}"
+
+
+def fmt_pct(value):
+    return "Insufficient Data" if value is None else f"{value:.0f}%"
+
+
+def fmt_days(value):
+    return "Insufficient Data" if value is None else f"{value:.1f} days"
+
+
+def fmt_short(value):
+    return "—" if value is None else f"{value:,}"
+
+
 def at_time(value):
-    return value.strftime("%d %b %Y, %H:%M UTC") if value else "Not Available"
+    return utc(value).strftime("%d %b %Y · %H:%M UTC") if value else "Not available"
 
 
-def chart_style(fig, height=310):
-    fig.update_layout(height=height, font=dict(family="sans-serif", color=NAVY, size=12),
-                      paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                      margin=dict(l=10,r=10,t=30,b=15),showlegend=True,legend=dict(orientation="h",y=-.3))
-    fig.update_xaxes(showgrid=False)
-    fig.update_yaxes(gridcolor="#e4edf3", zeroline=False)
+def status_for(reports):
+    if not reports:
+        return "unavailable"
+    if all(r["coverage_ok"] for r in reports):
+        return "complete"
+    values = [value for report in reports for value in report["status"].values()]
+    if "failed" in values:
+        return "failed"
+    if "stale" in values:
+        return "stale"
+    return "partial"
+
+
+def source_available(report, source):
+    return report["status"].get(source) == "complete"
+
+
+def chart_style(fig, height=290, showlegend=False):
+    fig.update_layout(
+        height=height, margin=dict(l=8, r=14, t=22, b=16),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="sans-serif", color=INK, size=11),
+        colorway=PALETTE, showlegend=showlegend,
+        legend=dict(orientation="h", y=-.28),
+        hoverlabel=dict(bgcolor="white", font_color=INK),
+        bargap=.28,
+    )
+    fig.update_xaxes(showgrid=False, zeroline=False, linecolor="#E9E4F3")
+    fig.update_yaxes(gridcolor="#EEEAF5", zeroline=False)
     return fig
 
 
-def verified(reports):
-    return [r for r in reports if r["coverage_ok"]]
+def select_repo(reports, key="project_choice"):
+    """Keep the selected repository when navigating between pages."""
+    if not reports:
+        return None
+    names = [r["repository"]["full_name"] for r in reports]
+    chosen = st.session_state.get("active_repo")
+    index = names.index(chosen) if chosen in names else 0
+    selection = st.selectbox("Repository", names, index=index, key=key)
+    st.session_state["active_repo"] = selection
+    return next(r for r in reports if r["repository"]["full_name"] == selection)
+
+
+def source_warning(report, source):
+    status = report["status"].get(source, "unavailable")
+    if status != "complete":
+        st.warning(
+            f"{source.replace('_', ' ').title()} source: {status}. "
+            "Observed rows may be incomplete and affected KPIs are deliberately unavailable."
+        )
+
+
+def card_grid(items, columns=4):
+    cols = st.columns(columns)
+    for col, item in zip(cols, items):
+        with col:
+            stat(*item)
+
+
+def paginate(rows, key, page_size=PER_PAGE):
+    count = len(rows)
+    if not count:
+        return [], 0, 0
+    pages = math.ceil(count / page_size)
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.caption(f"Showing {count:,} observed matching records · {page_size} per page")
+    with col2:
+        page = st.number_input("Page", min_value=1, max_value=pages, value=1, key=key)
+    start = (page - 1) * page_size
+    return page_slice(rows, page, page_size), page, pages
+
+
+def table_rows(rows, fields, key):
+    """Compact evidence table; URL column is a real GitHub link."""
+    view, _, _ = paginate(rows, key)
+    if not view:
+        return empty_state("No matching records", "Try changing the filters. Empty results are not evidence of an inactive repository.")
+    frame = pd.DataFrame(view)
+    for name in fields:
+        if name not in frame:
+            frame[name] = None
+    frame = frame[fields]
+    for col in ("created_at", "updated_at", "closed_at", "merged_at"):
+        if col in frame:
+            frame[col] = frame[col].map(lambda d: utc(d).strftime("%d %b %Y") if d else "—")
+    column_names = {"number": "#", "title": "Title", "state": "State", "draft": "Draft",
+                    "created_at": "Created", "updated_at": "Updated", "closed_at": "Closed",
+                    "merged_at": "Merged", "url": "Evidence ↗", "workflow_name": "Workflow",
+                    "conclusion": "Result", "branch": "Branch", "event": "Event",
+                    "age_days": "Age / lifetime (days)", "labels_text": "Labels"}
+    frame = frame.rename(columns=column_names)
+    conf = {"Evidence ↗": st.column_config.LinkColumn("Evidence ↗", display_text="GitHub ↗")}
+    st.dataframe(frame, hide_index=True, use_container_width=True,
+                 height=min(454, 42 + len(view) * 39), column_config=conf)
+
+
+def sample_restriction():
+    st.markdown('<div class="footnote">Metrics describe the collected, timestamp-bounded sample. '
+                'Issue age is not a missed deadline, and project activity is not a quality ranking.</div>',
+                unsafe_allow_html=True)
 
 
 def overview(reports, selection):
-    hero("Project Delivery Monitor", "Understand observable open-source activity, identify review priorities, and inspect the original evidence.")
-    valid = verified(reports)
-    all_syncs = [r["last_success"] for r in reports if r["last_success"]]
-    updated = min(all_syncs) if reports and len(all_syncs) == len(reports) else None
-    a,b,c = st.columns(3)
-    with a: stat("Repositories selected", len(reports))
-    with b: stat("Fully current repositories", f"{len(valid)} / {len(reports)}")
-    with c: stat("Oldest source update", at_time(updated))
-    st.subheader("Executive summary")
+    page_header("Project Delivery Monitor", "Monitor open-source activity, surface evidence, and identify what deserves a closer look.", status_for(reports))
     if not reports:
-        empty_state("No repositories have been selected")
+        card_grid([
+            ("Selected repositories", "0", "Not initialized", "▣"),
+            ("Observed open issues", "—", "No verified source", "☷"),
+            ("Observed open PRs", "—", "No verified source", "⇄"),
+            ("CI completed · 90d", "—", "No verified source", "✓"),
+        ])
+        section("Executive summary")
+        empty_state("Ready for initial data collection", "The PostgreSQL connection and GitHub synchronization must be configured first. Until then, no repository counts, charts or findings will be invented.")
+        section("Next steps")
+        st.write("Initialize the database, run the audited repository discovery, and synchronize the selected repositories. Deployment and live scheduling remain inactive until verified.")
         return
-    st.write(f"This curated sample covers **{len(reports)} public repositories**. "
-             f"**{len(valid)}** have complete, current source collection across issues, pull requests and GitHub Actions runs. "
-             "Observed counts describe the configured collection window, not every historical record or all of GitHub.")
-    findings = portfolio_findings(reports)
-    st.subheader("Three key findings")
+    names = [r["repository"]["full_name"] for r in reports]
+    scope = st.selectbox("Analysis scope", ["All selected repositories"] + names,
+                         key="overview_scope", help="Display portfolio-wide verified measures or one repository.")
+    chosen = reports if scope == "All selected repositories" else [r for r in reports if r["repository"]["full_name"] == scope]
+    fully_current = [r for r in chosen if r["coverage_ok"]]
+    good_issues = [r["issues"]["observed_open"] for r in chosen if r["issues"]["observed_open"] is not None]
+    good_prs = [r["prs"]["open"] for r in chosen if r["prs"]["open"] is not None]
+    good_ci = [r["ci"]["completed"] for r in chosen if r["ci"]["completed"] is not None]
+    card_grid([
+        ("Selected repositories", fmt_num(len(chosen)), "Curated, not representative", "▣"),
+        ("Observed open issues", fmt_short(sum(good_issues)) if good_issues else "—", f"{len(good_issues)} verified sources", "☷"),
+        ("Observed open PRs", fmt_short(sum(good_prs)) if good_prs else "—", f"{len(good_prs)} verified sources", "⇄"),
+        ("Completed CI runs · 90d", fmt_short(sum(good_ci)) if good_ci else "—", f"{len(good_ci)} verified sources", "✓"),
+    ])
+    section("Executive summary")
+    st.write(f"**{len(fully_current)} of {len(chosen)} repositories** have current, complete source checkpoints across issues, pull requests and CI. "
+             "The findings below are created from the available verified records, never from guessed activity.")
+    section("Key findings", "Finding → Evidence → Meaning → Next review")
+    verified_reports = [r for r in chosen if r["coverage_ok"]]
+    findings = portfolio_findings(verified_reports, 3)
     if findings:
-        cols = st.columns(min(len(findings),3))
-        for col,item in zip(cols,findings):
-            with col: insight(item)
+        cols = st.columns(min(3, len(findings)))
+        for col, item in zip(cols, findings):
+            with col:
+                finding(item, "REVIEW CANDIDATE")
     else:
-        empty_state("No defensible findings meet the evidence and sample-size rules")
-    st.subheader("Key measures — verified subset")
-    a,b,c,d = st.columns(4)
-    with a: st.metric("Observed open issues", fmt_num(sum(r["issues"]["observed_open"] for r in reports if r["issues"]["observed_open"] is not None) if any(r["issues"]["observed_open"] is not None for r in reports) else None))
-    with b: st.metric("Observed open PRs", fmt_num(sum(r["prs"]["open"] for r in reports if r["prs"]["open"] is not None) if any(r["prs"]["open"] is not None for r in reports) else None))
-    with c: st.metric("Completed CI runs · 90d", fmt_num(sum(r["ci"]["completed"] for r in reports if r["ci"]["completed"] is not None) if any(r["ci"]["completed"] is not None for r in reports) else None))
-    with d: st.metric("Data coverage", f"{len(valid)}/{len(reports)} current")
-    st.subheader("What varies across repositories?")
-    comparable = comparable_metrics(reports)
-    df = pd.DataFrame(comparable)
-    if not df.empty:
-        c1,c2 = st.columns(2)
-        with c1:
-            rows = df.dropna(subset=["30+ day issues (%)"])
-            if not rows.empty:
-                st.caption("Share of observed open issues aged 30+ days · denominator ≥5")
-                fig = px.bar(rows, x="30+ day issues (%)", y="Repository", orientation="h", color_discrete_sequence=[BLUE], hover_data=["Open issue sample (n)"])
-                chart_style(fig); fig.update_layout(showlegend=False)
-                st.plotly_chart(fig, use_container_width=True)
-            else: st.info("Insufficient Data for issue aging comparison")
-        with c2:
-            rows = df.dropna(subset=["Median merge (days)"])
-            if not rows.empty:
-                st.caption("Median duration of merged PRs · 90 days · sample ≥5")
-                fig = px.bar(rows, x="Median merge (days)", y="Repository", orientation="h", color_discrete_sequence=[NAVY], hover_data=["Merged PR sample (n)"])
-                chart_style(fig); fig.update_layout(showlegend=False)
-                st.plotly_chart(fig, use_container_width=True)
-            else: st.info("Insufficient Data for merge duration comparison")
-    else: st.info("Comparative charts will appear after verified synchronization")
-    st.subheader("Suggested next reviews")
+        empty_state("No evidence-backed key findings yet", "A finding appears only after complete, current source collection and sufficient sample size.")
+    section("Activity at a glance", "Two contextual comparisons; neither chart scores project quality.")
+    df = pd.DataFrame(comparable_metrics(chosen))
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("**Observed issue aging**")
+        if not df.empty:
+            valid = df.dropna(subset=["30+ day issues (%)"])
+        else:
+            valid = pd.DataFrame()
+        if not valid.empty:
+            fig = px.bar(valid.sort_values("30+ day issues (%)"), x="30+ day issues (%)", y="Repository", orientation="h",
+                         hover_data=["Open issue sample (n)"], color_discrete_sequence=[PURPLE])
+            st.plotly_chart(chart_style(fig, 300), use_container_width=True)
+        else:
+            empty_state("Issue age chart unavailable", "Requires a current, complete issue sample with at least five observed open issues per repository.")
+    with c2:
+        st.markdown("**Median time to merge**")
+        if not df.empty:
+            valid = df.dropna(subset=["Median merge (days)"])
+        else:
+            valid = pd.DataFrame()
+        if not valid.empty:
+            fig = px.bar(valid.sort_values("Median merge (days)"), x="Median merge (days)", y="Repository", orientation="h",
+                         hover_data=["Merged PR sample (n)"], color_discrete_sequence=["#9871DF"])
+            st.plotly_chart(chart_style(fig, 300), use_container_width=True)
+        else:
+            empty_state("PR merge-time chart unavailable", "Requires at least five verified PR merges within the observation window per repository.")
+    section("Suggested next reviews")
     if findings:
-        for f in findings: st.write(f"**{f['scope']}:** {f['review']}")
-    else: st.write("Verify collection coverage before interpreting project differences.")
-    with st.expander("Data completeness and evidence rules"):
-        st.write("A metric is suppressed when its source is unavailable, partial, stale, or lacks minimum sample size. Repository selection is curated, not a random or representative sample.")
-        st.dataframe(pd.DataFrame([{"Repository":r["repository"]["full_name"],**r["status"]} for r in reports]), hide_index=True, use_container_width=True)
+        for f in findings:
+            st.markdown(f"**{esc(f['scope'])}** — {esc(f['review'])}")
+    else:
+        st.write("First verify source coverage, timestamps and the sample-selection audit.")
+    with st.expander("Collection coverage & last update"):
+        table = [{"Repository": r["repository"]["full_name"], **r["status"],
+                  "Latest complete snapshot": at_time(r["last_success"])} for r in chosen]
+        st.dataframe(pd.DataFrame(table), hide_index=True, use_container_width=True)
+    sample_restriction()
 
 
-def explorer(reports):
-    hero("Repository Explorer", "Explore the selected sample and open a repository's evidence-focused analysis.")
-    if not reports: return empty_state()
-    df = pd.DataFrame([{
-        "Repository":r["repository"]["full_name"], "Category":r["repository"]["category"],
-        "Language":r["repository"]["language"], "Stars (selection filter)":r["repository"]["stars"],
-        "Issues observed":r["issues"]["total_observed"], "PRs observed":r["prs"]["total_observed"],
-        "Status":"Complete" if r["coverage_ok"] else "Incomplete / stale", "Evidence":r["repository"]["url"]
-    } for r in reports])
-    a,b,c = st.columns([2,1,1])
-    with a: search = st.text_input("Search repository", placeholder="Owner or project")
-    with b: lang = st.selectbox("Language", ["All"] + sorted(df["Language"].dropna().unique().tolist()))
-    with c: category = st.selectbox("Category", ["All"] + sorted(df["Category"].dropna().unique().tolist()))
-    if search: df = df[df["Repository"].str.contains(search,case=False,regex=False)]
-    if lang != "All": df=df[df["Language"] == lang]
-    if category != "All": df=df[df["Category"] == category]
-    sort = st.selectbox("Sort by", ["Repository", "Issues observed", "PRs observed", "Stars (selection filter)"])
-    df = df.sort_values(sort, ascending=sort=="Repository")
-    st.caption(f"{len(df)} repositories · observed records are bounded samples")
-    st.dataframe(df,hide_index=True,use_container_width=True,height=min(560,100+len(df)*37),
-                 column_config={"Evidence":st.column_config.LinkColumn("GitHub source")})
-    st.caption("Select a repository under Repository Analysis for charts, details, and source links.")
+def project_details(reports):
+    page_header("Project details", "Repository profile, observation history, and responsible cross-repository comparison.", status_for(reports))
+    r = select_repo(reports, "details_repository")
+    if not r:
+        empty_state("No repository is selected")
+        return
+    repo = r["repository"]
+    st.markdown(f'''<div class="surface"><div class="repo-main">◈ &nbsp;{esc(repo['full_name'])}</div>
+    <div class="repo-meta">{esc(repo['category'])} &nbsp; · &nbsp; {esc(repo.get('language') or 'Unspecified language')}
+    &nbsp; · &nbsp; GitHub repository ID {esc(repo['id'])}</div></div>''', unsafe_allow_html=True)
+    st.link_button("↗ Open repository on GitHub", repo["url"])
+    tab_a, tab_b, tab_c = st.tabs(["Project profile", "Compare repositories", "Source coverage"])
+    with tab_a:
+        section("Repository information")
+        card_grid([
+            ("Default branch", repo.get("default_branch", "—"), "", "⌘"),
+            ("Stars · initial filter", fmt_num(repo.get("stars")), "Not a quality score", "☆"),
+            ("Observed issues", fmt_num(r["issues"]["total_observed"]), "May be partial", "☷"),
+            ("Observed PRs", fmt_num(r["prs"]["total_observed"]), "May be partial", "⇄"),
+        ])
+        st.caption(f"Last repository push: {at_time(repo.get('pushed_at'))} · Last verified source update: {at_time(r['last_success'])}")
+        section("Observation history", "Snapshots are displayed as collected; a small sample is not a historical performance trend.")
+        obs = r.get("observations", [])
+        if obs:
+            st.dataframe(pd.DataFrame([{
+                "Observed at": at_time(o["measured_at"]), "Open issues (observed)": o["open_issues_observed"],
+                "Open PRs (observed)": o["open_prs_observed"], "30+ day issues (observed)": o["aged_issues_observed"]
+            } for o in obs]), hide_index=True, use_container_width=True)
+        else:
+            empty_state("No historical observations", "At least one successful and complete issue/PR sync is required to create an observation snapshot.")
+    with tab_b:
+        comparison(reports, embedded=True)
+    with tab_c:
+        source_coverage(r)
 
 
-def detail_table(rows, name, page_key):
-    st.markdown(f"**{name} — source evidence**")
-    if not rows: return st.info("No records collected for this source")
-    max_page = max(1,math.ceil(len(rows)/20))
-    page = st.number_input("Page",min_value=1,max_value=max_page,value=1,key=page_key)
-    fields = [k for k in ("number","title","state","draft","created_at","closed_at","merged_at","url") if k in rows[0]]
-    frame = pd.DataFrame(rows[(page-1)*20:page*20])[fields]
-    st.dataframe(frame, hide_index=True, use_container_width=True, column_config={"url":st.column_config.LinkColumn("GitHub evidence")})
-    st.caption(f"Page {page}/{max_page} · {len(rows)} observed records")
+def source_coverage(r):
+    section("Source completeness", "Missing and stale collection is not equivalent to zero activity.")
+    rows = []
+    for source, checkpoint in r["coverage"].items():
+        cp = checkpoint or {}
+        rows.append({"Source": source.replace("_", " ").title(), "Status": r["status"][source],
+                     "Last success": at_time(cp.get("last_success_at")), "Pages fetched": cp.get("pages_fetched"),
+                     "Records in last sync": cp.get("records_fetched"), "Coverage begins": at_time(cp.get("coverage_start"))})
+    st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+    with st.expander("Exact checkpoint metadata"):
+        st.json({k: {field: str(v) if isinstance(v, datetime) else v for field,v in (data or {}).items()
+                     if field not in ("last_error",)} for k, data in r["coverage"].items()})
 
 
-def repository_analysis(reports):
-    hero("Repository Analysis", "Look beyond the headline with issue aging, merge timing, and GitHub Actions activity.")
-    if not reports: return empty_state()
-    name = st.selectbox("Repository", [r["repository"]["full_name"] for r in reports])
-    r = next(r for r in reports if r["repository"]["full_name"]==name)
-    st.link_button("Open repository on GitHub",r["repository"]["url"])
-    if not r["coverage_ok"]:
-        st.warning("One or more sources are partial, stale, failed, or unavailable. Unverified KPIs are suppressed rather than shown as zero.")
-    a,b,c,d=st.columns(4)
-    with a: st.metric("Observed open issues",fmt_num(r["issues"]["observed_open"]))
-    with b: st.metric("Issues 30+ days",fmt_pct(r["issues"]["aged_percent"]))
-    with c: st.metric("Open PRs (draft included)",fmt_num(r["prs"]["open"]))
-    with d: st.metric("Median merge duration · 90d",fmt_days(r["prs"]["median_merge_days"]))
-    t1,t2 = st.tabs(["Work items", "CI/CD & evidence"])
-    with t1:
-        a,b=st.columns(2)
-        with a:
-            dist=r["issues"]["age_distribution"]
-            if dist:
-                st.markdown("**Open issue age bands**")
-                fig=px.bar(x=list(dist),y=list(dist.values()),labels={"x":"Age","y":"Observed issues"},color_discrete_sequence=[BLUE])
-                st.plotly_chart(chart_style(fig),use_container_width=True)
-            else: st.info("Issue age distribution unavailable")
-        with b:
-            buckets=r["prs"]["merge_distribution"]
-            if buckets:
-                st.markdown("**Merge duration of PRs merged in past 90 days**")
-                fig=px.bar(x=list(buckets),y=list(buckets.values()),labels={"x":"Duration","y":"Merged PRs"},color_discrete_sequence=[NAVY])
-                st.plotly_chart(chart_style(fig),use_container_width=True)
-            else: st.info("Merge-time distribution unavailable")
-        opened,closed=r["issues"]["weekly_opened"],r["issues"]["weekly_closed"]
-        if opened and closed:
-            st.markdown("**Issues opened vs closed each week · recent 90 days**")
-            df=pd.DataFrame({"week":[v["week"] for v in opened],"Opened":[v["count"] for v in opened],"Closed":[v["count"] for v in closed]})
-            fig=px.line(df,x="week",y=["Opened","Closed"],markers=True,color_discrete_sequence=[BLUE,NAVY])
-            st.plotly_chart(chart_style(fig),use_container_width=True)
-        else: st.info("Comparable time-series data unavailable; historical snapshots are not treated as a trend")
-        st.subheader("Repository findings")
-        findings=findings_for_repo(r)
-        if findings:
-            for f in findings: insight(f)
-        else: st.info("No qualifying quantitative finding for the current sample")
-    with t2:
-        a,b,c,d=st.columns(4)
-        with a: st.metric("Completed CI runs",fmt_num(r["ci"]["completed"]))
-        with b: st.metric("Successful",fmt_num(r["ci"]["success"]))
-        with c: st.metric("Failed / timed out",fmt_num(r["ci"]["failure"]))
-        with d: st.metric("Success share",fmt_pct(r["ci"]["success_percent"]))
-        st.caption("Success denominator: completed workflow runs with a known conclusion in the past 90 days. Skipped runs remain in the denominator.")
-        st.write(f"Skipped runs: {fmt_num(r['ci']['skipped'])} · Review compliance: Not Available (approval reviews not fully collected)")
-        detail_table(r["ci_rows"],"Workflow runs", "ci_page")
-    with st.expander("Issues — paged source records"):
-        detail_table(r["issue_rows"],"Issues", "issues_page")
-    with st.expander("Pull requests — paged source records"):
-        detail_table(r["pr_rows"],"Pull requests", "pr_page")
-    with st.expander("Source checkpoints"):
-        st.json({k: {"status":v.get("status"),"last_success_at":str(v.get("last_success_at")),"coverage_start":str(v.get("coverage_start")),"pages_fetched":v.get("pages_fetched")} if v else None for k,v in r["coverage"].items()})
-
-
-def comparison(reports):
-    hero("Cross-Repository Comparison", "Compare observable project activity without assigning a project-quality ranking.")
-    if not reports: return empty_state()
-    days=st.selectbox("Observation period (days)",[30,60,90],index=2)
-    now=datetime.now(timezone.utc)
-    recomputed=[]
-    for r in reports:
-        x=dict(r)
-        x["issues"]=calculate_issues(r["issue_rows"],now,days,r["status"]["issues"]=="complete",(r["coverage"]["issues"] or {}).get("coverage_start"))
-        x["prs"]=calculate_prs(r["pr_rows"],now,days,r["status"]["pull_requests"]=="complete",(r["coverage"]["pull_requests"] or {}).get("coverage_start"))
-        x["ci"]=calculate_ci(r["ci_rows"],now,days,r["status"]["workflow_runs"]=="complete",(r["coverage"]["workflow_runs"] or {}).get("coverage_start"))
-        recomputed.append(x)
-    st.caption(f"Recent {days} days · low-sample measures are hidden · only complete sources contribute")
-    df=pd.DataFrame(comparable_metrics(recomputed))
-    cats=["All"]+sorted(df["Category"].dropna().unique().tolist())
-    category=st.selectbox("Category filter",cats)
-    if category!="All": df=df[df["Category"]==category]
-    metric=st.selectbox("Compare metric",["30+ day issues (%)","Median merge (days)","Closed issues (28d)"])
-    ready=df.dropna(subset=[metric])
-    if len(ready):
-        st.caption("Bars indicate measured differences, not quality or timeliness judgments")
-        fig=px.bar(ready,x=metric,y="Repository",orientation="h",hover_data=["Open issue sample (n)","Merged PR sample (n)","Coverage"],color_discrete_sequence=[BLUE])
+def issues_backlog(reports):
+    page_header("Issues & backlog", "Inspect the age and recent activity of observed GitHub issues, excluding pull requests.", status_for(reports))
+    r = select_repo(reports, "issues_repository")
+    if not r:
+        empty_state("No repository is selected")
+        return
+    source_warning(r, "issues")
+    dist = r["issues"]["age_distribution"]
+    labels = ["0–6 days", "7–29 days", "30–89 days", "90+ days"]
+    keys = ["0–6d", "7–29d", "30–89d", "90d+"]
+    card_grid([(label, fmt_short(dist.get(key)) if dist is not None else "—", "Observed open issues", "○")
+               for label, key in zip(labels, keys)])
+    section("Open issue aging", "The ages below are descriptive, not a measure of overdue work.")
+    if dist is not None:
+        fig = px.bar(x=labels, y=[dist[k] for k in keys], labels={"x": "Age band", "y": "Observed open issues"},
+                     color=labels, color_discrete_sequence=PALETTE)
         fig.update_layout(showlegend=False)
-        st.plotly_chart(chart_style(fig,max(330,len(ready)*38)),use_container_width=True)
-    else: st.info("Insufficient Data with current scope and sample-size checks")
-    st.dataframe(df,hide_index=True,use_container_width=True,height=min(580,120+len(df)*37))
-    st.caption("Comparisons can be affected by repository size, project governance, issue usage, PR complexity, and endpoint coverage.")
+        st.plotly_chart(chart_style(fig, 260), use_container_width=True)
+    else:
+        empty_state("Issue aging unavailable", "Source data must be current and complete before the age distribution can be interpreted.")
+    section("Issue register", "Search, filter, and open the original GitHub evidence.")
+    a,b,c,d = st.columns([2.3,1,1,1])
+    with a: search = st.text_input("Search issues", placeholder="Title or issue number", key="issue_search")
+    with b: state = st.selectbox("State", ["Open", "Closed", "All"], key="issue_state")
+    with c: age = st.selectbox("Age", ["All"] + labels, key="issue_age")
+    all_labels = sorted({label for i in r["issue_rows"] for label in i.get("labels", [])})
+    with d: label = st.selectbox("Label", ["All"] + all_labels, key="issue_label")
+    rows = filter_work_items(r["issue_rows"], search, state, age, label)
+    display = [{**v, "age_days": round(issue_age_days(v), 1), "labels_text": ", ".join(v.get("labels", [])[:3])}
+               for v in rows]
+    table_rows(display, ["number", "title", "age_days", "labels_text", "state", "url"], "issue_page")
+    with st.expander("Weekly opened vs closed issues"):
+        opened, closed = r["issues"]["weekly_opened"], r["issues"]["weekly_closed"]
+        if opened is not None and closed is not None:
+            df = pd.DataFrame({"Week": [v["week"] for v in opened], "Opened": [v["count"] for v in opened],
+                               "Closed": [v["count"] for v in closed]})
+            fig = px.line(df, x="Week", y=["Opened", "Closed"], markers=True,
+                          color_discrete_sequence=[PURPLE, "#9E88BD"])
+            st.plotly_chart(chart_style(fig, 290, showlegend=True), use_container_width=True)
+        else:
+            st.info("Comparable time-series coverage unavailable.")
+    sample_restriction()
 
 
-def methodology(reports,selection):
-    hero("Findings & Methodology", "Know exactly which evidence supports each statement—and where the analysis stops.")
-    findings=portfolio_findings(reports,max_findings=5)
-    st.subheader("Evidence-backed findings")
-    if findings:
-        for f in findings: insight(f)
-    else: empty_state("No evidence-backed findings available")
-    st.subheader("Sample selection")
+def pull_request_review(reports):
+    page_header("Pull request review", "Explore observed PR activity and how long merged changes took to complete.", status_for(reports))
+    r = select_repo(reports, "prs_repository")
+    if not r:
+        empty_state("No repository is selected")
+        return
+    source_warning(r, "pull_requests")
+    p = r["prs"]
+    card_grid([
+        ("Open PRs", fmt_short(p["open"]), "Includes drafts", "⇄"),
+        ("Draft PRs", fmt_short(p["draft_open"]), "Subset of open PRs", "◈"),
+        ("Merged · 90d", fmt_short(p["merged_in_period"]), "Coverage required", "✓"),
+        ("Median merge time", f"{p['median_merge_days']:.1f}d" if p["median_merge_days"] is not None else "—", "Merged sample ≥5", "◷"),
+    ])
+    section("Merge duration distribution", "Only PRs actually merged within the observation period are included.")
+    buckets = p["merge_distribution"]
+    if buckets:
+        fig = px.bar(x=list(buckets), y=list(buckets.values()), labels={"x": "Time to merge", "y": "Merged PRs"},
+                     color=list(buckets), color_discrete_sequence=PALETTE)
+        fig.update_layout(showlegend=False)
+        st.plotly_chart(chart_style(fig, 250), use_container_width=True)
+    else:
+        empty_state("Merge-time distribution unavailable", "Requires complete PR coverage for the observation period.")
+    section("Pull request register", "The PR list is an observed sample; not necessarily the entire repository backlog.")
+    a,b,c,d = st.columns([2,1,1,1])
+    with a: search = st.text_input("Search PRs", placeholder="Title or PR number", key="pr_search")
+    with b: state = st.selectbox("State", ["All", "Open", "Closed"], key="pr_state")
+    with c: draft = st.selectbox("Draft", ["All", "Draft only", "Not draft"], key="pr_draft")
+    with d: sort = st.selectbox("Sort", ["Newest", "Oldest", "Longest open"], key="pr_sort")
+    filtered = filter_pull_requests(r["pr_rows"], search, state, draft, sort)
+    display = [{**v, "age_days": round(issue_age_days(v), 1)} for v in filtered]
+    table_rows(display, ["number", "title", "state", "draft", "age_days", "created_at", "merged_at", "url"], "pr_page")
+    st.caption("Review approval requirements are not collected consistently. A 'Needs review' quality signal is therefore not calculated.")
+    sample_restriction()
+
+
+def cicd_activity(reports):
+    page_header("CI/CD activity", "GitHub Actions workflow outcomes and events in the observed period.", status_for(reports))
+    r = select_repo(reports, "ci_repository")
+    if not r:
+        empty_state("No repository is selected")
+        return
+    source_warning(r, "workflow_runs")
+    ci = r["ci"]
+    card_grid([
+        ("Completed · 90d", fmt_short(ci["completed"]), "Observed GitHub Actions", "✓"),
+        ("Successful", fmt_short(ci["success"]), "Known completed outcomes", "↗"),
+        ("Failed / timed out", fmt_short(ci["failure"]), "Completed runs", "×"),
+        ("Success share", f"{ci['success_percent']:.0f}%" if ci["success_percent"] is not None else "—",
+         "Known conclusions denominator", "◉"),
+    ])
+    section("Workflow results · recent 30 days", "Daily counts by workflow conclusion, not a software-quality score.")
+    if ci["trend_valid"]:
+        now = datetime.now(timezone.utc)
+        since = now - timedelta(days=30)
+        daily = Counter()
+        for run in r["ci_rows"]:
+            created = utc(run.get("created_at")) if run.get("created_at") else None
+            if created and since <= created <= now and run.get("status") == "completed":
+                category = "Success" if run.get("conclusion") == "success" else (
+                    "Failure / timeout" if run.get("conclusion") in ("failure", "timed_out") else "Other outcomes")
+                daily[(created.date().isoformat(), category)] += 1
+        start = since.date()
+        points = [{"Day": (start + timedelta(days=i)).isoformat(), "Result": cat,
+                   "Runs": daily[((start + timedelta(days=i)).isoformat(), cat)]}
+                  for i in range(31) for cat in ("Success", "Failure / timeout", "Other outcomes")]
+        df = pd.DataFrame(points)
+        fig = px.bar(df, x="Day", y="Runs", color="Result", barmode="stack",
+                     color_discrete_map={"Success": PURPLE, "Failure / timeout": "#D77B90", "Other outcomes": "#CDB8EA"})
+        st.plotly_chart(chart_style(fig, 290, showlegend=True), use_container_width=True)
+    else:
+        empty_state("Workflow timeline unavailable", "A complete, current GitHub Actions collection is required to compare daily outcomes.")
+    section("Recent workflow runs")
+    a,b,c = st.columns([2,1,1])
+    with a: search = st.text_input("Search workflow", placeholder="Workflow name", key="ci_search")
+    with b: result = st.selectbox("Outcome", ["All", "success", "failure", "timed_out", "skipped", "cancelled"], key="ci_outcome")
+    with c: branch = st.selectbox("Branch", ["All"] + sorted({v["branch"] for v in r["ci_rows"] if v.get("branch")}), key="ci_branch")
+    matching = filter_workflow_runs(r["ci_rows"], search, result, branch)
+    table_rows(matching, ["workflow_name", "branch", "event", "status", "conclusion", "created_at", "url"], "ci_page")
+    st.caption(f"Completed runs with a known conclusion: {fmt_short(ci['known_conclusion_denominator'])}. Skipped: {fmt_short(ci['skipped'])}. Other CI services are outside this dataset.")
+    sample_restriction()
+
+
+def comparison(reports, embedded=False):
+    if not embedded:
+        page_header("Cross-repository comparison", "Variation between selected projects is descriptive, never a ranking of project quality.", status_for(reports))
+    if not reports:
+        return empty_state("No comparable repositories")
+    col1,col2,col3 = st.columns(3)
+    with col1: days = st.selectbox("Observation window", [30,60,90], index=2, key="compare_days")
+    categories = sorted({r["repository"]["category"] for r in reports})
+    with col2: cat = st.selectbox("Project category", ["All"]+categories, key="compare_category")
+    options = ["30+ day issues (%)", "Median merge (days)", "Closed issues (28d)"]
+    with col3: metric = st.selectbox("Metric", options, key="compare_metric")
+    now = datetime.now(timezone.utc)
+    ready = []
+    for r in reports:
+        if cat != "All" and r["repository"]["category"] != cat: continue
+        result = dict(r)
+        cp = r["coverage"]
+        result["issues"] = calculate_issues(r["issue_rows"], now, days, source_available(r,"issues"),
+                                             (cp["issues"] or {}).get("coverage_start"))
+        result["prs"] = calculate_prs(r["pr_rows"], now, days, source_available(r,"pull_requests"),
+                                      (cp["pull_requests"] or {}).get("coverage_start"))
+        ready.append(result)
+    df = pd.DataFrame(comparable_metrics(ready))
+    if df.empty:
+        return empty_state("No repository matches these filters")
+    chart_rows = df.dropna(subset=[metric])
+    if not chart_rows.empty:
+        fig = px.bar(chart_rows.sort_values(metric), x=metric, y="Repository", orientation="h",
+                     color_discrete_sequence=[PURPLE],
+                     hover_data=["Open issue sample (n)", "Merged PR sample (n)", "Coverage"])
+        st.plotly_chart(chart_style(fig, min(590, max(270, len(chart_rows)*39))), use_container_width=True)
+    else:
+        empty_state("Insufficient Data for comparison", "Metrics are suppressed when sources are incomplete or relevant denominators are too small.")
+    st.dataframe(df, hide_index=True, use_container_width=True)
+    st.caption("The source sample is curated, not representative. Governance rules, workflow complexity and project sizes differ.")
+
+
+def methodology_contents(reports, selection):
+    section("How repositories were selected")
     if selection:
-        st.write(f"GitHub Search API candidates: **{selection['candidates']}** · selected: **{selection['selected']}** · selection status: **{selection['status']}**.")
-        st.write("Public, not archived/forked, 50+ stars as a preliminary filter, pushed in the preceding 90 days, with observed standalone issues and PRs. Category/size round-robin prevents top-stars-only selection.")
-        with st.expander("Selection decisions and rejection reasons"):
-            st.dataframe(pd.DataFrame(selection["decisions"])[["full_name","category","stars","decision","reason","url"]],hide_index=True,use_container_width=True,column_config={"url":st.column_config.LinkColumn()})
-    else: st.warning("No selection audit record found")
-    st.subheader("Metric definitions")
-    st.markdown('''
-- **Observed open issues:** open issues retrieved from the configured updated-at collection window, excluding pull requests. Not the entire historical backlog.
-- **30+ day issue share:** observed open issues aged at least 30 days ÷ all observed open issues × 100. Cross-repository share needs ≥5 observed open issues.
-- **Median PR merge time:** median(merged_at − created_at) of PRs merged within the observation period; requires ≥5 merged PRs and complete source coverage.
-- **Draft PRs:** included in open PR counts, not added to open PRs again.
-- **Opened/closed per week:** creation and closure events within the period, only when collection covers that period.
-- **Issue closure change:** (last 28d closures − previous 28d closures) ÷ previous 28d closures × 100; suppressed when prior = 0.
-- **CI success share:** completed runs with conclusion `success` ÷ completed runs with known conclusions × 100; includes skipped/neutral in denominator. Missing conclusions are excluded and counted separately.
-- **Review-compliance share:** **Not Available** until required approval review events and the applicable review policy are comprehensively collected.
-''')
-    st.subheader("Source health")
+        st.write(f"GitHub Search API candidates: **{selection['candidates']}** · selected: **{selection['selected']}** · search status: **{selection['status']}**.")
+        st.write("Public, not forked or archived, ≥50 stars as an initial filter, pushed within 90 days, with observed issues and PRs. "
+                 "Selection balances ecosystems and sizes; it does not represent GitHub as a whole.")
+        decisions = selection.get("decisions", [])
+        if decisions:
+            frame = pd.DataFrame(decisions)
+            st.dataframe(frame[["full_name", "category", "stars", "decision", "reason", "url"]],
+                         hide_index=True, use_container_width=True,
+                         column_config={"url": st.column_config.LinkColumn("GitHub evidence")})
+    else:
+        st.info("No discovery audit has run yet.")
+    section("Metric definitions & limitations")
+    st.markdown("""
+- **Issue aging share:** observed open issues created 30+ days ago ÷ all observed open issues × 100. Cross-project percentages require at least five issues.
+- **Open PRs:** includes draft PRs. Merged PRs are a separate, period-based measure.
+- **Median merge duration:** median(merged_at − created_at) only for PRs merged in the selected observation period, with at least five merges.
+- **Issue closure change:** comparison of equal 28-day closure windows; hidden if the previous denominator is zero or collection is incomplete.
+- **CI success share:** completed successful runs ÷ completed runs with known conclusions × 100, including skipped runs in the denominator.
+- **Review approval compliance:** **Not Available** because full review policies and approvals are not uniformly collected.
+- **Scope:** bounded updated-at sampling can omit old unchanged issues; Actions only covers GitHub Actions, not external CI.
+- **Interpretation:** age is not lateness, CI is not overall quality, and cross-repository counts are not quality rankings.
+""")
+    section("Source health")
     if reports:
-        frame=pd.DataFrame([{"Repository":r["repository"]["full_name"],**r["status"],"oldest_success":at_time(r["last_success"])} for r in reports])
-        st.dataframe(frame,hide_index=True,use_container_width=True)
-    else: st.info("No synchronization checkpoints")
-    with st.expander("Limitations and integrity safeguards",expanded=True):
-        st.markdown('''
-- **Not a census:** at most 20 eligible repositories drawn from bounded search results. Excludes many communities, repository sizes, and activity patterns.
-- **Bounded extraction:** page caps and update windows exclude older unchanged records; a source becomes `partial` if the cap is reached. Missing/stale sources are not silently displayed as zero.
-- **Actions scope:** only GitHub Actions workflow runs, not every external CI provider.
-- **Causality:** issue age is not a missed deadline; merge duration is not PR efficiency; CI success is not product quality. No single metric is a quality ranking.
-- **Temporal validity:** metrics based on events use timestamp windows with complete coverage; historical observations are stored but not naively converted into trends.
-- **Synchronization:** GitHub Actions schedules can be delayed or disabled due to inactivity; credentials and managed PostgreSQL must be configured externally.
-''')
+        frame = pd.DataFrame([{"Repository": r["repository"]["full_name"], **r["status"],
+                              "Last complete update": at_time(r["last_success"])} for r in reports])
+        st.dataframe(frame, hide_index=True, use_container_width=True)
+    else:
+        st.info("No synchronization checkpoints are available.")
+    st.caption("Scheduled GitHub Actions can be delayed or disabled; database configuration and genuine successful runs must be verified before claiming a live refresh.")
+
+
+def risks_recommendations(reports, selection):
+    page_header("Risks & recommendations", "Evidence-based review candidates, with their limits and suggested next actions.", status_for(reports))
+    valid = [r for r in reports if r["coverage_ok"]]
+    findings = portfolio_findings(valid, max_findings=5)
+    distinct = len(set(f["scope"] for f in findings))
+    card_grid([
+        ("Evidence-backed findings", fmt_num(len(findings)) if reports else "—", "Rule-based, not AI-generated", "◎"),
+        ("Repositories flagged", fmt_num(distinct) if reports else "—", "For follow-up review", "△"),
+        ("Current source coverage", f"{len(valid)}/{len(reports)}" if reports else "—", "Across all 3 sources", "✓"),
+        ("Other repositories", fmt_num(len(reports) - distinct) if reports else "—", "Not a clean bill of health", "ⓘ"),
+    ])
+    section("Top findings", "These are review prompts—not verified defects, missed deadlines, or automated risk scores.")
+    tab_a, tab_b = st.tabs(["Priority reviews", "Methodology & limitations"])
+    with tab_a:
+        if not findings:
+            empty_state("No defensible findings yet", "Review prompts require complete, current source data and meaningful denominators. Zero findings never means zero risk.")
+        for f in findings:
+            tag = {"issue-aging": "BACKLOG REVIEW", "merge-duration": "MERGE-TIME REVIEW",
+                   "closure-change": "ACTIVITY CHANGE", "ci": "CI FOLLOW-UP"}.get(f["type"], "REVIEW")
+            finding(f, tag)
+    with tab_b:
+        methodology_contents(reports, selection)
+
+
+# Backward-compatible interfaces used by earlier local test fixtures.
+repository_analysis = project_details
+explorer = project_details
+methodology = methodology_contents
