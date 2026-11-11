@@ -182,16 +182,6 @@ def overview(reports, selection):
     section("Executive summary")
     st.write(f"**{len(fully_current)} of {len(chosen)} repositories** have current, complete source checkpoints across issues, pull requests and CI. "
              "The findings below are created from the available verified records, never from guessed activity.")
-    section("Key findings", "Finding → Evidence → Meaning → Next review")
-    verified_reports = [r for r in chosen if r["coverage_ok"]]
-    findings = portfolio_findings(verified_reports, 3)
-    if findings:
-        cols = st.columns(min(3, len(findings)))
-        for col, item in zip(cols, findings):
-            with col:
-                finding(item, "REVIEW CANDIDATE")
-    else:
-        empty_state("No evidence-backed key findings yet", "A finding appears only after complete, current source collection and sufficient sample size.")
     section("Activity at a glance", "Real public GitHub records, explicitly labelled when collection is incomplete.")
     all_issues = [item for r in chosen for item in r["issue_rows"]]
     all_prs = [item for r in chosen for item in r["pr_rows"]]
@@ -236,6 +226,16 @@ def overview(reports, selection):
                          color_discrete_sequence=PALETTE)
             fig.update_layout(showlegend=False)
             st.plotly_chart(chart_style(fig, 295), use_container_width=True)
+    section("Key findings", "Finding → Evidence → Meaning → Next review")
+    verified_reports = [r for r in chosen if r["coverage_ok"]]
+    findings = portfolio_findings(verified_reports, 3)
+    if findings:
+        cols = st.columns(min(3, len(findings)))
+        for col, item in zip(cols, findings):
+            with col:
+                finding(item, "REVIEW CANDIDATE")
+    else:
+        empty_state("No evidence-backed key findings yet", "A finding appears only after complete, current source collection and sufficient sample size.")
     section("Suggested next reviews")
     if findings:
         for f in findings:

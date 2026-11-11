@@ -43,6 +43,12 @@ try:
         time.sleep(2)
         desktop.screenshot(path=str(OUT / "desktop-overview.png"), full_page=True)
         print("Captured desktop overview", flush=True)
+        # Streamlit scrolls inside the main element; capture charts below the fold.
+        desktop.get_by_text("Activity at a glance", exact=True).scroll_into_view_if_needed(timeout=10000)
+        time.sleep(1.5)
+        desktop.screenshot(path=str(OUT / "desktop-charts.png"), full_page=False)
+        desktop.evaluate("window.scrollTo(0, 0)")
+        print("Captured actual overview charts", flush=True)
 
         for label, file in [("Issues & backlog", "desktop-issues.png"),
                             ("Pull request review", "desktop-pull-requests.png"),
