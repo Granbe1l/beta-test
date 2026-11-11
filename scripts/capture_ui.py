@@ -59,8 +59,15 @@ try:
         mobile.goto("http://127.0.0.1:8501", wait_until="domcontentloaded")
         mobile.locator(".page-title").first.wait_for(timeout=45000)
         time.sleep(2)
+        # On narrow screens Streamlit may start with the sidebar drawer open.
+        # Save navigation separately, then close it using Streamlit's own control.
+        mobile.screenshot(path=str(OUT / "mobile-navigation.png"), full_page=True)
+        collapse = mobile.locator('[data-testid="stSidebarCollapseButton"]')
+        if collapse.count() and collapse.first.is_visible():
+            collapse.first.click(timeout=8000)
+            time.sleep(1.5)
         mobile.screenshot(path=str(OUT / "mobile-overview.png"), full_page=True)
-        print("Captured mobile overview", flush=True)
+        print("Captured mobile navigation and overview", flush=True)
         browser.close()
 finally:
     server.terminate()
