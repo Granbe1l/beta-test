@@ -44,13 +44,14 @@ try:
         desktop.screenshot(path=str(OUT / "desktop-overview.png"), full_page=True)
         print("Captured desktop overview", flush=True)
         # Streamlit scrolls inside the main element; capture charts below the fold.
-        desktop.get_by_text("01 / Work at a glance", exact=True).scroll_into_view_if_needed(timeout=10000)
+        desktop.get_by_text("03 / What deserves a closer look?", exact=True).scroll_into_view_if_needed(timeout=10000)
         time.sleep(1.5)
         desktop.screenshot(path=str(OUT / "desktop-charts.png"), full_page=False)
         desktop.evaluate("window.scrollTo(0, 0)")
         print("Captured actual overview charts", flush=True)
 
-        for label, file in [("Open issues", "desktop-issues.png"),
+        for label, file in [("Explore repositories", "desktop-repositories.png"),
+                            ("Open issues", "desktop-issues.png"),
                             ("Changes & reviews", "desktop-pull-requests.png"),
                             ("Build activity", "desktop-ci-cd.png"),
                             ("Key findings", "desktop-findings.png")]:
@@ -58,6 +59,28 @@ try:
             time.sleep(1.5)
             desktop.screenshot(path=str(OUT / file), full_page=True)
             print("Captured " + file, flush=True)
+            # Capture the lower portions of each screen's scrollable main view.
+            try:
+                desktop.mouse.move(1000, 700)
+                desktop.mouse.wheel(0, 1705)
+                time.sleep(0.7)
+                desktop.screenshot(path=str(OUT / file.replace(".png", "-lower.png")),
+                                   full_page=False)
+                desktop.mouse.wheel(0, -2500)
+                time.sleep(0.4)
+            except Exception as exc:
+                print("Additional viewport unavailable: " + str(exc), flush=True)
+            if label == "Explore repositories":
+                for tab in ("Compare projects", "Source details"):
+                    try:
+                        desktop.get_by_role("tab", name=tab).click(timeout=10000)
+                        time.sleep(1)
+                        desktop.screenshot(path=str(OUT / (
+                            "desktop-repositories-" + tab.lower().replace(" ", "-") + ".png"
+                        )), full_page=False)
+                        print("Captured Explorer tab: " + tab, flush=True)
+                    except Exception as exc:
+                        print("Explorer tab capture unavailable: " + str(exc), flush=True)
 
         mobile = browser.new_page(viewport={"width": 390, "height": 844},
                                   device_scale_factor=1, is_mobile=True,
