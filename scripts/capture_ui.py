@@ -44,11 +44,14 @@ try:
         desktop.screenshot(path=str(OUT / "desktop-overview.png"), full_page=True)
         print("Captured desktop overview", flush=True)
         # Capture the real 28-day line chart, not only the hero or KPIs.
-        desktop.get_by_text("Daily development activity", exact=True).scroll_into_view_if_needed(timeout=10000)
-        time.sleep(1.4)
+        # Scroll to the actual chart canvas, not just its title (which may
+        # already be visible at the bottom of the viewport).
+        desktop.locator('[data-testid="stPlotlyChart"]:visible').first.scroll_into_view_if_needed(timeout=10000)
+        time.sleep(1.2)
         desktop.screenshot(path=str(OUT / "desktop-line-issues.png"), full_page=False)
         desktop.get_by_role("tab", name="Pull requests · code changes").click(timeout=10000)
-        time.sleep(1.2)
+        desktop.locator('[data-testid="stPlotlyChart"]:visible').first.scroll_into_view_if_needed(timeout=10000)
+        time.sleep(1.1)
         desktop.screenshot(path=str(OUT / "desktop-line-prs.png"), full_page=False)
         desktop.get_by_role("tab", name="Issues · tasks & reports").click(timeout=10000)
         time.sleep(.8)
