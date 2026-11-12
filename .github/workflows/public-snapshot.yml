@@ -65,4 +65,16 @@ jobs:
           git add data/github_public_snapshot.json.gz
           if git diff --cached --quiet; then exit 0; fi
           git commit -m 'data: update verified GitHub sample [skip ci]'
-          git push origin HEAD:main
+          # New UI commits may land while the data collection is running.
+          # Replay only this snapshot change onto the current main; never force-push.
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Concurrent update detected on main (attempt ${attempt}); retrying"
+            sleep 3
+          done
+          echo 'Unable to publish data snapshot safely after three attempts'
+          exit 1
