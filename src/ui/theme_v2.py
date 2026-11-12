@@ -118,10 +118,15 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:v
   justify-content:flex-start!important;text-align:left!important;
 }
 [data-testid="stSidebar"] .stButton button svg{flex-shrink:0!important;}
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"]{
+  display:block!important;min-height:27px!important;
+  padding-top:3px!important;padding-bottom:10px!important;
+  margin-bottom:5px!important;
+}
 [data-testid="stSidebar"] [data-testid="stCaptionContainer"] p{
   font-size:.65rem!important;letter-spacing:.12em!important;
   font-weight:750!important;color:#AB9ABC!important;
-  margin:3px 0!important;
+  line-height:1.35!important;margin:0!important;
 }
 </style>
 """
