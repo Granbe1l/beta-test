@@ -82,6 +82,81 @@ def fetch_source(client: GitHubClient, repo: Repository, source: str, since: dat
     return normalized, result
 
 
+def fetch_ci_windowed(client: GitHubClient, repo: Repository,
+                      since: datetime, settings: Settings, now: datetime,
+                      *, pages_cap=42):
+    """Collect GitHub Actions within non-overlapping UTC calendar windows.
+
+    A busy repo can exceed six pages in one month even when each individual
+    week or day fits. The GitHub created parameter supports date ranges:
+    split into <=7-day intervals, then individual days on capped weeks.
+    Every interval must complete before certifying the requested window.
+    """
+    from src.collectors.client import PageResult
+    from datetime import time
+
+    since = utc(since)
+    now = utc(now)
+    if since > now:
+        raise ValueError("source start cannot be after current time")
+    records = {}
+    consumed = 0
+    fully_scanned = True
+    interval_count = 0
+
+    def load(first_day, last_day):
+        nonlocal consumed, interval_count
+        budget = getattr(client, "max_requests", None)
+        used = getattr(client, "request_count", 0)
+        if consumed >= pages_cap or (budget is not None and used + 2 >= budget):
+            return None
+        lower = max(since, datetime.combine(first_day, time.min, tzinfo=timezone.utc))
+        upper = min(now, datetime.combine(last_day, time.max, tzinfo=timezone.utc))
+        rows, result = fetch_source(client, repo, "workflow_runs",
+                                    lower, settings, upper)
+        consumed += result.pages
+        interval_count += 1
+        for row in rows:
+            records[row["id"]] = row
+        return result
+
+    ending = now.date()
+    while ending >= since.date():
+        beginning = max(since.date(), ending - timedelta(days=6))
+        try:
+            weekly = load(beginning, ending)
+        except Exception:
+            fully_scanned = False
+            break
+        if weekly is None:
+            fully_scanned = False
+            break
+        if not weekly.complete:
+            # Retain partial weekly rows, but verify EACH daily interval.
+            day = ending
+            while day >= beginning:
+                try:
+                    daily = load(day, day)
+                except Exception:
+                    fully_scanned = False
+                    break
+                if daily is None or not daily.complete:
+                    fully_scanned = False
+                    break
+                day -= timedelta(days=1)
+            if day >= beginning:
+                fully_scanned = False
+        if not fully_scanned:
+            break
+        ending = beginning - timedelta(days=1)
+
+    result = PageResult(
+        items=[], pages=consumed, complete=fully_scanned,
+        cap_reached=not fully_scanned, cutoff_reached=False
+    )
+    return list(records.values()), result, since, interval_count, consumed
+
+
 def fetch_source_adaptive(client: GitHubClient, repo: Repository, source: str,
                           since: datetime, settings: Settings, now: datetime):
     """Narrow an overflowing recent-window scan without inventing completeness.
@@ -92,6 +167,11 @@ def fetch_source_adaptive(client: GitHubClient, repo: Repository, source: str,
     originally requested larger window. Explicit reconciliation also retains
     the broad attempt's fetched rows.
     """
+    # GitHub Actions supports created-date filtering: partition busy
+    # sources so capped 30-day lists do not automatically stay partial.
+    if source == "workflow_runs" and (utc(now) - utc(since)).days <= 32:
+        return fetch_ci_windowed(client, repo, since, settings, now)
+
     candidates = [since]
     # Try a comparable 28-day window before falling back to shorter 7/1-day
     # windows. A successful short window never certifies the whole month.

@@ -1,7 +1,10 @@
 name: Refresh curated public GitHub snapshot
 on:
-  # Keep the scheduled collector independent of frequent UI/code commits.
-  # This prevents parallel snapshot writers and unnecessary email notifications.
+  # Collection runs on schedule, by manual dispatch, and when this precise
+  # pipeline workflow is changed. Ordinary UI/code pushes never recollect.
+  push:
+    paths:
+      - '.github/workflows/public-snapshot.yml'
   schedule:
     - cron: '27 */6 * * *'
   workflow_dispatch:
@@ -68,6 +71,8 @@ jobs:
             snapshot-audit-before.json
           if-no-files-found: error
           retention-days: 14
+      - name: Validate fresh collection progress before publishing
+        run: python scripts/verify_collection.py snapshot-audit-before.json snapshot-audit.json
       - name: Publish newest snapshot without binary rebase conflicts
         shell: bash
         run: |

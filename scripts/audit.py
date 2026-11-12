@@ -34,7 +34,15 @@ def main():
                 "unavailable": states["unavailable"],
                 "verified_28d": ready28, "total_repositories": len(reports)}
         print(json.dumps({"selection":({k:v for k,v in selection.items() if k!="decisions"} if selection else None),
-                          "repositories":[{"name":r["repository"]["full_name"],"status":r["status"],"record_counts":{k:r[k]["total_observed"] for k in ("issues","prs","ci")}} for r in reports],
+                          "repositories":[{
+                              "name":r["repository"]["full_name"],
+                              "status":r["status"],
+                              "last_success_at":{
+                                  source:((r.get("coverage") or {}).get(source) or {}).get("last_success_at")
+                                  for source in ("issues","pull_requests","workflow_runs")},
+                              "record_counts":{k:r[k]["total_observed"]
+                                               for k in ("issues","prs","ci")}
+                          } for r in reports],
                           "counts":counts,"coverage_summary":source_status,
                           "findings":portfolio_findings([r for r in reports if r["coverage_ok"]],5)},indent=2,default=str))
     engine.dispose()
