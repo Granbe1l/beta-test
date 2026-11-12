@@ -13,6 +13,7 @@ from src.database.store import make_engine, session_factory
 from src.analytics.read import load_reports, selection_info
 from src.analytics.snapshot import read_snapshot, SNAPSHOT_PATH
 from src.ui.theme_v2 import apply_theme_v2, brand
+from src.ui.observed import coverage_counts
 from src.ui.dashboard_v2 import (
     overview, project_details, issues_backlog, pull_request_review,
     cicd_activity, risks_recommendations, status_for,
@@ -68,27 +69,36 @@ MENU = {
 if st.session_state.get("main_nav") not in MENU:
     st.session_state["main_nav"] = "Dashboard"
 
+NAV_ICONS = {
+    "Dashboard": ":material/dashboard:",
+    "Explore repositories": ":material/folder_open:",
+    "Open issues": ":material/assignment_late:",
+    "Changes & reviews": ":material/merge:",
+    "Build activity": ":material/monitor_heart:",
+    "Key findings": ":material/insights:",
+}
+
 with st.sidebar:
     brand()
-    st.caption("WORKSPACE")
+    st.markdown('<div class="sidebar-label">NAVIGATION</div>', unsafe_allow_html=True)
     for label in MENU:
         if st.button(
             label, key="nav_" + label.lower().replace(" ", "_").replace("&", "and"),
             use_container_width=True,
             type="primary" if st.session_state["main_nav"] == label else "secondary",
+            icon=NAV_ICONS[label],
         ):
             st.session_state["main_nav"] = label
             st.rerun()
     st.divider()
-    st.caption("SOURCE HEALTH")
+    st.markdown('<div class="sidebar-label">DATA SOURCE</div>', unsafe_allow_html=True)
     status_slot = st.empty()
-    st.caption("Verified public GitHub snapshot · read-only view")
-    if st.button("Refresh visible data", use_container_width=True,
-                 help="Reloads stored records only. GitHub ingestion is a separate workflow."):
+    if st.button("Reload stored data", icon=":material/refresh:", use_container_width=True,
+                 help="Reload saved records only; ingestion runs in GitHub Actions."):
         get_data.clear()
         st.rerun()
     st.markdown(
-        '<div class="side-footer">Candy Ristyan<br>Public GitHub delivery analytics</div>',
+        '<div class="side-footer">Candy Ristyan · Public GitHub data</div>',
         unsafe_allow_html=True,
     )
 
@@ -121,13 +131,28 @@ else:
         "**PERSISTENT DATA MODE** · PostgreSQL records · collection runs separately")
 
 status = status_for(reports)
-status_slot.caption({
-    "complete": "Verified sources available",
-    "partial": "Partial source coverage",
+counts = coverage_counts(reports)
+total = len(reports)
+source_status = {
+    "complete": "Sources verified",
+    "partial": "Partial source scans",
     "stale": "Some sources are older",
-    "failed": "Source collection needs review",
+    "failed": "Collection needs review",
     "unavailable": "Awaiting first sync",
-}.get(status, status.title()))
+}.get(status, "Source status unavailable")
+if data_info.get("stale"):
+    source_status = "Snapshot needs refresh"
+status_slot.markdown(
+    '<div class="side-health-card">'
+    '<div class="side-health-head">COLLECTED RECORDS</div>'
+    f'<div class="side-health-status">{source_status}</div>'
+    f'<div class="side-health-small">Issues {counts["issues"]}/{total} · '
+    f'PRs {counts["pull_requests"]}/{total} · '
+    f'CI {counts["workflow_runs"]}/{total} source scans</div>'
+    '<div class="side-health-note">Bounded GitHub sample · read-only</div>'
+    '</div>',
+    unsafe_allow_html=True,
+)
 
 if nav == "Dashboard":
     overview(reports, selection)

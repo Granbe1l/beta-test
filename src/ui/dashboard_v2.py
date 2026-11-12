@@ -91,20 +91,76 @@ def _kpis(cards):
                 unsafe_allow_html=True)
 
 
-def _chart(fig, height=270, legend=False):
+def _chart(fig, height=265, legend=False):
+    """Shared restrained Plotly typography, axes, legends and hover labels."""
     fig.update_layout(
         template="plotly_white", height=height,
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        margin=dict(l=9, r=12, t=22, b=12),
-        font=dict(family="Inter, Arial, sans-serif", color=INK, size=11),
+        margin=dict(l=8, r=35, t=12, b=48 if legend else 26),
+        font=dict(family="Arial, sans-serif", color=INK, size=11),
         showlegend=legend,
-        legend=dict(orientation="h", y=1.17, title=None),
-        hoverlabel=dict(bgcolor="#FFFFFF", font_color=INK),
+        legend=dict(orientation="h", y=-.22, x=0, yanchor="top",
+                    title=None, font=dict(size=10)),
+        hoverlabel=dict(bgcolor="#fff", font_color=INK),
+        hovermode="closest",
     )
-    fig.update_xaxes(showgrid=False, linecolor="#EAE4F3", zeroline=False)
-    fig.update_yaxes(gridcolor="#F1EDF8", zeroline=False)
+    fig.update_xaxes(showgrid=False, linecolor="#E8E5EE", zeroline=False,
+                     tickfont=dict(color="#746D81"))
+    fig.update_yaxes(gridcolor="#F1EDF7", zeroline=False,
+                     tickfont=dict(color="#746D81"))
     st.plotly_chart(fig, use_container_width=True,
-                    config={"displaylogo": False, "modeBarButtonsToRemove": ["lasso2d", "select2d"]})
+                    config={"displaylogo": False,
+                            "modeBarButtonsToRemove": ["lasso2d", "select2d"]})
+
+
+def _horizontal_bars(labels, counts, colors=None, height=245, unit="Observed records"):
+    """Readable labelled categorical counts, without a separate legend."""
+    labels = [str(x) for x in labels]
+    values = [int(x or 0) for x in counts]
+    if not values or not sum(values):
+        st.info("No matching activity is available in the retrieved records.")
+        return
+    palette = colors or [PURPLE] * len(values)
+    fig = go.Figure(go.Bar(
+        y=labels, x=values, orientation="h",
+        marker=dict(color=palette, line=dict(width=0)),
+        text=[f"{v:,}" for v in values], textposition="outside",
+        textfont=dict(size=11, color=INK), cliponaxis=False,
+        hovertemplate="%{y}: %{x:,}<extra></extra>",
+    ))
+    fig.update_layout(bargap=.36, xaxis_title=unit, yaxis_title=None,
+                      yaxis=dict(autorange="reversed"),
+                      xaxis=dict(range=[0, max(values)*1.25]))
+    _chart(fig, height=height)
+
+
+def _outcome_bars(rows, period=30):
+    """Percentages and denominators share the same time window as the KPI."""
+    info = checks_in_period(rows, days=period)
+    labels = [k for k in ("Success", "Failure / timeout", "Skipped", "Other outcomes")
+              if info["counts"].get(k)]
+    if not labels or not info["known"]:
+        st.info("No completed automated checks with known outcomes were retrieved.")
+        return
+    colors = {"Success": GREEN, "Failure / timeout": RED,
+              "Skipped": PURPLE_LIGHT, "Other outcomes": GOLD}
+    counts = [info["counts"][key] for key in labels]
+    percentages = [100 * value / info["known"] for value in counts]
+    fig = go.Figure(go.Bar(
+        y=labels, x=percentages, orientation="h",
+        marker_color=[colors[label] for label in labels],
+        text=[f"{share:.1f}%  ({count:,})" for share, count in zip(percentages, counts)],
+        textposition="outside", textfont=dict(size=10, color=INK),
+        cliponaxis=False,
+        hovertemplate="%{y}: %{x:.1f}%<extra></extra>",
+    ))
+    fig.update_layout(bargap=.33, yaxis=dict(autorange="reversed"),
+                      xaxis_title="Share of known results",
+                      xaxis=dict(range=[0, 132], ticksuffix="%"))
+    _chart(fig, height=235)
+    st.caption(f'{info["known"]:,} known results · {period} days. '
+               f'{info["unknown"]:,} unknown conclusions are excluded from the percentages.')
+
 
 
 def _chart_title(title, note=""):
@@ -273,20 +329,30 @@ def _matched_snapshot_chart(chosen):
                        "This is not a comparison of all 75 projects, and open work alone cannot measure delivery speed.")
     else:
         with st.container(border=True):
-            _chart_title("Most recently observed events", "Last 7 days · descriptive snapshot")
-            recent = sample_activity(chosen, days=7)
-            frame = pd.DataFrame([
-                {"Event": "Issues opened", "Observed count": recent["new_issues"]},
-                {"Event": "Issues closed", "Observed count": recent["closed_issues"]},
-                {"Event": "PRs opened", "Observed count": recent["new_prs"]},
-                {"Event": "PRs merged", "Observed count": recent["merged_prs"]},
-            ])
-            fig = px.bar(frame, x="Event", y="Observed count",
-                         color_discrete_sequence=[PURPLE], text="Observed count")
-            _chart(fig, height=235)
-            st.caption("No two-day verified snapshot comparison is available yet. "
-                       "The bars show collected event timestamps only; comparing older weeks could "
-                       "create a false rising trend because old records are under-sampled.")
+            _chart_title("Opened vs completed activity · last 7 days",
+                         "Compare events within each category; counts cover retrieved records only.")
+            a = sample_activity(chosen, days=7)
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                name="Opened", x=["Issues", "Pull requests"],
+                y=[a["new_issues"], a["new_prs"]],
+                marker_color=PURPLE,
+                text=[f'{a["new_issues"]:,}', f'{a["new_prs"]:,}'],
+                textposition="outside", cliponaxis=False,
+            ))
+            fig.add_trace(go.Bar(
+                name="Closed / merged", x=["Issues", "Pull requests"],
+                y=[a["closed_issues"], a["merged_prs"]],
+                marker_color=GREEN,
+                text=[f'{a["closed_issues"]:,}', f'{a["merged_prs"]:,}'],
+                textposition="outside", cliponaxis=False,
+            ))
+            fig.update_layout(barmode="group", bargap=.45,
+                              yaxis_title="Observed events",
+                              xaxis_title=None)
+            _chart(fig, height=270, legend=True)
+            st.caption("A comparable two-day snapshot is not yet available. "
+                       "Older API events may be undercounted; these bars are not a historical growth trend.")
 
 
 def overview(reports, selection):
@@ -331,31 +397,13 @@ def overview(reports, selection):
     _section("01 / Delivery activity", "What is still open, and what happened in recent automated checks?")
     left, right = st.columns([1.1, 1], gap="large")
     with left, st.container(border=True):
-        _chart_title("Age of retrieved open tasks", "These are open GitHub issues; age is not a deadline.")
+        _chart_title("Open issues by age", "Time since creation · not a deadline assessment.")
         bands = observed_age_bands(info["issue_rows"])
-        if sum(bands.values()):
-            fig = go.Figure(go.Bar(y=list(bands), x=list(bands.values()),
-                orientation="h", marker_color=BAR, text=list(bands.values()),
-                textposition="outside", hovertemplate="%{y}: %{x} open tasks<extra></extra>"))
-            fig.update_layout(yaxis=dict(autorange="reversed"), xaxis_title="Retrieved open tasks")
-            _chart(fig)
-        else:
-            st.info("No open task records were retrieved for this selection.")
+        _horizontal_bars(list(bands), list(bands.values()), BAR,
+                         height=250, unit="Observed open issues")
     with right, st.container(border=True):
-        _chart_title("Automated checks · last 30 days", "Outcome split of completed GitHub Actions runs.")
-        outcomes = {k: v for k, v in observed_outcomes(info["ci_rows"], days=30).items() if v}
-        if outcomes:
-            colors = [{"Success": GREEN, "Failure / timeout": RED,
-                       "Skipped": PURPLE_LIGHT, "Other outcomes": GOLD}.get(k, PURPLE)
-                      for k in outcomes]
-            fig = go.Figure(go.Pie(labels=list(outcomes), values=list(outcomes.values()),
-                hole=.65, marker=dict(colors=colors), textinfo="percent",
-                hovertemplate="%{label}: %{value} runs<extra></extra>"))
-            fig.update_layout(annotations=[dict(text=f'{sum(outcomes.values()):,} checks',
-                x=.5, y=.5, showarrow=False, font=dict(size=14, color=INK))])
-            _chart(fig, legend=True)
-        else:
-            st.info("No completed GitHub Actions outcomes were retrieved during the last 30 days.")
+        _chart_title("Automated checks by outcome", "Last 30 days · known GitHub Actions results.")
+        _outcome_bars(info["ci_rows"], period=30)
 
     _section("02 / Compare change without sample bias",
              "A trend is shown only for projects with comparable validated observations on two different days.")
@@ -492,23 +540,19 @@ def issues_backlog(reports):
     st.caption("Issue cards and charts count the same retrieved records—not the complete backlog.")
     c1, c2 = st.columns(2, gap="large")
     with c1, st.container(border=True):
-        _chart_title("Issue age groups", _observed_note([r], "issues"))
+        _chart_title("Age of observed open issues",
+                     "Long-lived issues are not automatically overdue.")
         bands = observed_age_bands(r["issue_rows"])
-        if sum(bands.values()):
-            fig = go.Figure(go.Bar(x=list(bands), y=list(bands.values()),
-                        marker_color=BAR, text=list(bands.values()), textposition="outside"))
-            _chart(fig)
-        else:
-            st.info("No observed open issues to chart.")
+        _horizontal_bars(list(bands), list(bands.values()), BAR,
+                         height=248, unit="Open issues")
     with c2, st.container(border=True):
-        _chart_title("Opened vs closed", "12 weeks · full observation coverage required")
-        if r["issue_rows"]:
-            fig = px.line(_weekly(r["issue_rows"]), x="Week", y="Issues", color="Activity",
-                          markers=True, color_discrete_map={"Opened": PURPLE, "Closed": GREEN})
-            _chart(fig, legend=True)
-            st.caption("Retrieved activity only; missing source coverage can omit events.")
-        else:
-            st.info("No issue records were retrieved for this repository.")
+        _chart_title("Issue activity · last 7 days",
+                     "Actual opened and closed events in retrieved records.")
+        a = recent_activity(r, days=7)
+        _horizontal_bars(["Opened", "Closed"],
+                         [a["new_issues"], a["closed_issues"]],
+                         [PURPLE, GREEN], height=248, unit="Issue events")
+        st.caption("Activity can be incomplete when the bounded source scan is partial.")
     _section("Inspect the original issues")
     a, b, c = st.columns([2, 1, 1])
     with a:
@@ -541,41 +585,30 @@ def pull_request_review(reports):
          "Only with sufficient verified coverage", "◷"),
     ])
     st.caption("Counts describe retrieved PR records; the median is withheld without sufficient evidence.")
-    l, rcol = st.columns([1.2, .8], gap="large")
-    with l, st.container(border=True):
-        buckets = info.get("merge_distribution")
-        if buckets is None:
-            buckets = observed_merge_times(r["pr_rows"])
-        has_merges = sum(buckets.values()) > 0
-        _chart_title(
-            "Time to finish merged changes" if has_merges else "Open changes by review status",
-            "Creation → merge · last 90 days" if has_merges
-            else "Observed open pull requests (draft vs ready for review)")
+    buckets = info.get("merge_distribution")
+    if buckets is None:
+        buckets = observed_merge_times(r["pr_rows"])
+    has_merges = sum(buckets.values()) > 0
+    with st.container(border=True):
         if has_merges:
-            if info.get("merge_distribution") is None:
-                st.caption("Retrieved sample only; a repository-wide measure is not verified.")
-            fig = go.Figure(go.Bar(x=list(buckets), y=list(buckets.values()),
-                                   marker_color=BAR, text=list(buckets.values()),
-                                   textposition="outside"))
-            _chart(fig)
+            _chart_title("Time from PR creation to merge",
+                         "Observed merged pull requests · last 90 days.")
+            _horizontal_bars(list(buckets), list(buckets.values()), BAR,
+                             height=235, unit="Merged pull requests")
+            st.caption("This describes observed merge duration, not developer productivity. "
+                       "Longer changes may differ in complexity or review requirements.")
         elif observed["open_changes"]:
-            st.caption("No merges retrieved in this window; showing open changes instead.")
+            _chart_title("Open pull requests by status",
+                         "No merged pull requests were retrieved in this period.")
             draft_count = observed["draft_changes"] or 0
             ready_count = max(0, observed["open_changes"] - draft_count)
-            fig = go.Figure(go.Bar(
-                x=["Draft", "Ready for review"], y=[draft_count, ready_count],
-                marker_color=[PURPLE_LIGHT, PURPLE],
-                text=[draft_count, ready_count], textposition="outside"))
-            fig.update_layout(yaxis_title="Retrieved open pull requests")
-            _chart(fig)
+            _horizontal_bars(["Draft", "Ready for review"],
+                             [draft_count, ready_count],
+                             [PURPLE_LIGHT, PURPLE], height=220,
+                             unit="Retrieved open changes")
+            st.caption("Open or draft state alone does not demonstrate a blockage or late delivery.")
         else:
-            st.info("No merged or open pull request records retrieved in this window.")
-    with rcol, st.container(border=True):
-        _chart_title("How to read this chart", "Interpretation")
-        if has_merges:
-            st.write("Merge time is the observed number of days between opening and merging a change. It does not measure developer performance or explain delays.")
-        else:
-            st.write("Draft PRs are still being prepared. Ready-for-review PRs can be reviewed, but neither state proves a blocker or deadline breach.")
+            st.info("No merged or open pull request records were retrieved in the period.")
     _section("Explore original pull requests")
     a, b, c = st.columns([2, 1, 1])
     with a:
@@ -615,32 +648,24 @@ def cicd_activity(reports):
     )
     left, right = st.columns([1.12, .88], gap="large")
     with left, st.container(border=True):
-        _chart_title(f"Daily check outcomes · {period} days",
-                     "Completed runs with known results; same period as the KPIs.")
+        _chart_title(f"Weekly automated checks · {period} days",
+                     "Stacked outcomes by week · known results only.")
         if info["daily"]:
-            df = pd.DataFrame(info["daily"]).groupby(
-                ["Day", "Outcome"], as_index=False)["Runs"].sum()
-            fig = px.bar(df, x="Day", y="Runs", color="Outcome", barmode="stack",
+            df = pd.DataFrame(info["daily"])
+            df["Week"] = pd.to_datetime(df["Day"]).dt.to_period("W-SUN").dt.start_time.dt.strftime("%Y-%m-%d")
+            df = df.groupby(["Week", "Outcome"], as_index=False)["Runs"].sum()
+            fig = px.bar(df, x="Week", y="Runs", color="Outcome", barmode="stack",
                  color_discrete_map={
                      "Success": GREEN, "Failure / timeout": RED,
                      "Skipped": PURPLE_LIGHT, "Other outcomes": GOLD})
-            _chart(fig, height=270, legend=True)
+            fig.update_layout(bargap=.26, xaxis_title=None, yaxis_title="Observed runs")
+            _chart(fig, height=285, legend=True)
         else:
             st.info("No completed workflow runs with known outcomes in this period.")
     with right, st.container(border=True):
-        _chart_title(f"Outcome mix · {period} days",
-                     f'{info["known"]} known results · same denominator as success share')
-        dist = info["counts"]
-        if dist:
-            colors = [{"Success": GREEN, "Failure / timeout": RED,
-                       "Skipped": PURPLE_LIGHT, "Other outcomes": GOLD}[k]
-                      for k in dist]
-            fig = go.Figure(go.Pie(labels=list(dist), values=list(dist.values()),
-                                   hole=.65, marker=dict(colors=colors),
-                                   textinfo="percent"))
-            _chart(fig, height=270, legend=True)
-        else:
-            st.info("No results with a known outcome.")
+        _chart_title(f"Outcome distribution · {period} days",
+                     f'{info["known"]:,} known results · same window as the KPIs.')
+        _outcome_bars(r["ci_rows"], period=period)
     if r["status"].get("workflow_runs") != "complete":
         st.caption("The repository's source scan is incomplete or older. "
                    "Observed results may omit other runs; do not generalize this rate.")
