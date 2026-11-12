@@ -41,16 +41,17 @@ def test_adaptive_recent_window_reaches_complete_when_full_backfill_cannot(db, c
     response = sync_one(db, c, repo, "issues", cfg, now=NOW)
     cp = db.get(SyncCheckpoint, (101, "issues"))
     assert response["status"] == "complete"
-    assert response["attempts"] == 2
+    assert response["attempts"] == 3
     assert response["window_days"] == 7
     assert cp.coverage_start.date() == (NOW - timedelta(days=7)).date()
     assert cp.last_success_at.replace(tzinfo=None) == NOW.replace(tzinfo=None)
     assert cp.high_watermark.replace(tzinfo=None) == NOW.replace(tzinfo=None)
-    assert response["pages"] == 3
+    assert response["pages"] == 5
     assert db.scalar(select(func.count()).select_from(Issue)) == 2
-    assert len(c.calls) == 2
+    assert len(c.calls) == 3
     assert c.calls[0][2]["cutoff"] == NOW - timedelta(days=30)
-    assert c.calls[1][2]["cutoff"] == NOW - timedelta(days=7)
+    assert c.calls[1][2]["cutoff"] == NOW - timedelta(days=28)
+    assert c.calls[2][2]["cutoff"] == NOW - timedelta(days=7)
 
 
 def test_full_cap_after_retries_stays_partial_and_does_not_advance_watermark(db, cfg):
@@ -59,7 +60,7 @@ def test_full_cap_after_retries_stays_partial_and_does_not_advance_watermark(db,
     r = sync_one(db, c, repo, "issues", cfg, now=NOW)
     cp = db.get(SyncCheckpoint, (101, "issues"))
     assert r["status"] == "partial"
-    assert r["attempts"] == 3
+    assert r["attempts"] == 4
     assert r["window_days"] == 1
     assert cp.high_watermark is None
     assert cp.last_success_at is None

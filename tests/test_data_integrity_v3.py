@@ -30,7 +30,7 @@ def test_verified_windows_are_source_specific_and_time_bound():
     assert [r["repository"]["full_name"] for r in qualified_reports(
         [a, b, c], "issues", days=28, now=NOW)] == ["org/a"]
     assert [r["repository"]["full_name"] for r in qualified_reports(
-        [a, b, c], "pull_requests", days=28, now=NOW)] == ["org/b"]
+        [a, b, c], "pull_requests", days=28, now=NOW)] == ["org/b", "org/c"]
     assert len(qualified_reports([a, b, c], "issues", days=7, now=NOW)) == 2
     assert analysis_window_coverage([a, b, c], days=28, now=NOW)["issues"] == 1
 
