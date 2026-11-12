@@ -10,8 +10,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.mark.parametrize("destination", [
-    "◫  Overview", "▣  Project details", "☷  Issues & backlog",
-    "⇄  Pull request review", "◎  CI/CD activity", "△  Risks & recommendations",
+    "◫  Dashboard", "▣  Explore repositories", "◷  Open issues",
+    "⇄  Changes & reviews", "✓  Build activity", "◎  Key findings",
 ])
 def test_dashboard_routes_render_without_live_data(tmp_path, monkeypatch, destination):
     streamlit = pytest.importorskip("streamlit")

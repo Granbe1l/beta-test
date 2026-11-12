@@ -24,7 +24,7 @@ def test_responsive_styles_and_empty_states():
     assert '@media(max-width:700px)' in css
     assert 'No verified data' in css
     assert 'Insufficient Data' in pages
-    assert 'Repository Explorer' in (ROOT/'streamlit_app.py').read_text()
+    assert 'Explore repositories' in (ROOT/'streamlit_app.py').read_text()
 
 
 def test_all_python_parses():

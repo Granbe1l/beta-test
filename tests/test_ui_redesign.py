@@ -50,7 +50,7 @@ def test_six_view_navigation_and_purple_mobile_theme():
     page = (ROOT / "src/ui/pages.py").read_text()
     style = (ROOT / "src/ui/theme.py").read_text()
     config = (ROOT / ".streamlit/config.toml").read_text()
-    for name in ("Overview", "Project details", "Issues & backlog", "Pull request review", "CI/CD activity", "Risks & recommendations"):
+    for name in ("Dashboard", "Explore repositories", "Open issues", "Changes & reviews", "Build activity", "Key findings"):
         assert name in app
     assert '"Compare repositories"' in page
     assert '"Methodology & limitations"' in page
@@ -59,6 +59,11 @@ def test_six_view_navigation_and_purple_mobile_theme():
     assert '#6F3FDF' in config
     assert 'No verified data' in style
     assert 'Insufficient Data' in page
+    v2 = (ROOT / 'src/ui/dashboard_v2.py').read_text()
+    v2_css = (ROOT / 'src/ui/theme_v2.py').read_text()
+    assert 'observed_age_bands' in v2
+    assert 'observed_outcomes' in v2
+    assert '@media(max-width:700px)' in v2_css
 
 
 def test_no_hardcoded_example_kpis_as_live():
