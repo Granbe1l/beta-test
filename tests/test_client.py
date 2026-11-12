@@ -46,3 +46,36 @@ def test_hard_http_failure_and_url_restriction():
     cli=GitHubClient(session=FakeSession([FakeResponse(status=404)]),sleeper=lambda _:None)
     with pytest.raises(GitHubAPIError):cli.get("/repo/missing")
     with pytest.raises(ValueError):cli.get("https://evil.example/steal")
+
+
+
+def test_workflow_run_hidden_1000_search_cap_never_counts_as_complete():
+    """A missing next link can mean an API search cap, not no more runs."""
+    sess = FakeSession([FakeResponse(data={
+        "total_count": 1400,
+        "workflow_runs": [{"id": i, "created_at": "2026-11-10T00:00:00Z"}
+                          for i in range(100)],
+    }, links={})])
+    cli = GitHubClient(session=sess, sleeper=lambda _: None)
+    result = cli.paginate(
+        "/repos/org/repo/actions/runs",
+        {"per_page": 100, "created": "2026-11-10..2026-11-10"},
+        max_pages=1, wrapper="workflow_runs", sort_key="created_at")
+    assert result.cap_reached
+    assert not result.complete
+    assert len(result.items) == 100
+
+
+def test_complete_workflow_total_count_matches_retrieved_rows():
+    sess = FakeSession([FakeResponse(data={
+        "total_count": 2,
+        "workflow_runs": [
+            {"id": 1, "created_at": "2026-11-10T01:00:00Z"},
+            {"id": 2, "created_at": "2026-11-10T02:00:00Z"},
+        ],
+    }, links={})])
+    cli = GitHubClient(session=sess, sleeper=lambda _: None)
+    result = cli.paginate(
+        "/repos/org/repo/actions/runs", {"per_page": 100},
+        max_pages=1, wrapper="workflow_runs", sort_key="created_at")
+    assert result.complete and len(result.items) == 2

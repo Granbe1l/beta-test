@@ -88,6 +88,8 @@ class GitHubClient:
         exhausted = False
         last_count = 0
         page_count = 0
+        unfiltered_seen = 0
+        reported_total = None
         page_size = int(params.get("per_page", 100))
         for page in range(1, max_pages + 1):
             data, response = self.get(path, {**params, "page": page})
@@ -95,6 +97,12 @@ class GitHubClient:
             batch = data.get(wrapper, []) if wrapper else data
             if not isinstance(batch, list):
                 raise GitHubAPIError("Unexpected GitHub pagination response")
+            # GitHub Actions returns total_count and may suppress "next"
+            # when it hits the API's 1,000-result search ceiling. A missing
+            # Link header alone must NOT certify a whole date interval.
+            if wrapper and isinstance(data, dict) and isinstance(data.get("total_count"), int):
+                reported_total = data["total_count"]
+            unfiltered_seen += len(batch)
             last_count = len(batch)
             for item in batch:
                 if cutoff is not None:
@@ -108,11 +116,12 @@ class GitHubClient:
             if cutoff_reached:
                 # Valid only for descending order by sort_key (caller responsibility).
                 break
-            if last_count < page_size:
-                exhausted = True
-                break
-            if 'next' not in response.links:
-                exhausted = True
+            if last_count < page_size or 'next' not in response.links:
+                # If the server advertised more matching results than the
+                # client received, this is a capped response—not an exhausted
+                # source. A valid timestamp cutoff is handled above.
+                exhausted = (reported_total is None or
+                             unfiltered_seen >= reported_total)
                 break
         complete = cutoff_reached or exhausted
         return PageResult(items, page_count, complete, not complete, cutoff_reached)
