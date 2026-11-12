@@ -243,3 +243,25 @@ For production data and historical incremental synchronization, provision manage
 - No full GitHub clone, fake production data, or hidden completeness claims. The dashboard labels incomplete, stale, failed, or unavailable data.
 
 Operational commands for the snapshot workflow: `python scripts/restore_public_snapshot.py`, `python scripts/run_sync.py --expand --initial-batch 12 --max-requests 850`, and `python scripts/build_public_snapshot.py`. The dashboard reads the generated public snapshot. PostgreSQL remains optional until its managed service and credentials are provisioned.
+
+## Dashboard validation: comparable periods and evidence quality
+
+- **Historical comparison:** uses only two dates with actual validated
+  observations and exactly the same repositories at both dates. It cannot
+  infer a full 75-repository trend from partial or one-day snapshots.
+- **CI/CD:** a single selectable 30/90-day window is applied to cards, daily
+  bars, donut and evidence table. The success-share denominator excludes
+  completed runs with unknown outcomes; the charts use that same denominator.
+- **Coverage:** `complete` means a bounded endpoint scan finished, not that
+  a repository's entire GitHub lifetime history was captured. The dashboard
+  reports how many of the 75 bounded scans are complete for each source.
+- **Findings:** intentionally varied finding types, with numeric evidence,
+  interpretation, next checks, and original GitHub source links. No inferred
+  causes, project health scores, or productivity rankings.
+- **Mobile QA:** an automated browser test must open the sidebar drawer,
+  capture navigation, close it, and compare it with the overview. Duplicated
+  navigation and overview images fail the screenshot workflow.
+
+Data coverage is still constrained by GitHub REST pagination, collection
+windows, API quotas, and scheduled runner availability; these limitations
+must be disclosed rather than hidden by manufactured or estimated totals.

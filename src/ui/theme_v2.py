@@ -143,6 +143,27 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:v
  .d-kpis .d-kpi-icon{width:22px;height:22px;min-width:22px;}
 }
 
+
+/* Compact intro: on phones, let users see a real number without scrolling
+   through a full-screen hero and oversized controls first. */
+.d-hero {padding:19px 23px!important;margin-bottom:11px!important;}
+.d-hero h1 {font-size:1.65rem!important;line-height:1.14!important;}
+.d-hero p {font-size:.82rem!important;}
+.d-section {margin-top:20px!important;}
+.d-coverage {margin-bottom:9px!important;}
+@media(max-width:700px){
+ .d-hero{padding:15px 16px!important;margin:0 0 10px!important;}
+ .d-hero h1{font-size:1.29rem!important;line-height:1.18!important;margin:5px 0!important;}
+ .d-hero p{font-size:.73rem!important;line-height:1.36!important;}
+ .d-hero .d-eyebrow{font-size:.57rem!important;}
+ .d-section{margin-top:16px!important;}
+ .d-overline{font-size:.61rem!important;}
+ .d-heading{gap:7px!important;}
+ [data-testid="stMainBlockContainer"],.main .block-container{
+   padding-top:1rem!important;
+ }
+}
+
 </style>
 """
 

@@ -88,3 +88,20 @@ browser sessions, not generated mockups.
   timestamps explain partial/stale data.
 - GitHub Actions workflow uses a schedule/manual trigger and safe
   publication of the binary public snapshot to prevent stale rebase conflicts.
+
+## UI revision: comparable evidence (13 November 2026 release)
+
+- Replaces the misleading rising eight-week line (older GitHub events are
+  frequently undercollected) with a strict matched-cohort, two-date
+  observation comparison. When there is no comparable historical pair,
+  a descriptive 7-day event breakdown appears instead.
+- Uses the same 30/90-day time window for GitHub Actions cards, daily
+  outcome bars, outcome donut, and the source evidence table. Unknown
+  conclusions are excluded from the shared success-share denominator.
+- Limits finding cards to distinct evidence types; includes actual evidence,
+  what can be inferred, next steps, and links to original records.
+- Shortens the hero on mobile, aligns Activity/Repository filters in two
+  desktop columns, and verifies the sidebar's opened/closed states through
+  browser-driven screenshots.
+- Source-complete means **bounded recent-window scan complete**. It is
+  not a claim of complete project activity or full GitHub history.

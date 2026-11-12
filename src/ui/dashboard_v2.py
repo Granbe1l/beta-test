@@ -17,6 +17,7 @@ import streamlit as st
 from src.analytics.findings import portfolio_findings
 from src.analytics.metrics import utc
 from src.analytics.activity import recent_activity, sample_activity, activity_label, weekly_activity
+from src.analytics.comparisons import comparable_observation_pair, checks_in_period
 from src.ui.charts import observed_age_bands, observed_merge_times, observed_outcomes
 from src.ui.filters import (filter_work_items, filter_pull_requests,
                             filter_workflow_runs, issue_age_days)
@@ -114,12 +115,14 @@ def _chart_title(title, note=""):
 def _scope(reports, key):
     if not reports:
         return []
-    mode = st.selectbox("Activity filter", [
-        "All tracked projects",
-        "Code pushed · last 7 days",
-        "Issue or PR events · last 7 days",
-        "No recent signal · last 7 days",
-    ], key=key + "_activity")
+    left_filter, right_filter = st.columns(2, gap="small")
+    with left_filter:
+        mode = st.selectbox("Activity filter", [
+            "All tracked projects",
+            "Code pushed · last 7 days",
+            "Issue or PR events · last 7 days",
+            "No recent signal · last 7 days",
+        ], key=key + "_activity")
     chosen = []
     for r in reports:
         status = recent_activity(r)
@@ -133,7 +136,8 @@ def _scope(reports, key):
         st.info("No matching signal was observed. That does not mean the projects are finished.")
         return []
     names = [r["repository"]["full_name"] for r in chosen]
-    picked = st.selectbox("Repository", ["All matching projects"] + names, key=key)
+    with right_filter:
+        picked = st.selectbox("Repository", ["All matching projects"] + names, key=key)
     return chosen if picked == "All matching projects" else [
         r for r in chosen if r["repository"]["full_name"] == picked]
 
@@ -152,29 +156,44 @@ def _observed_note(reports, source):
 
 
 def _findings(reports, limit=3):
-    return portfolio_findings(reports, max_findings=limit)
+    # A small set of DIFFERENT finding types is more informative to HR than
+    # six near-identical cards drawn from different repositories.
+    candidates = portfolio_findings(reports, max_findings=max(limit, 10))
+    seen = set()
+    result = []
+    for finding in candidates:
+        if finding["type"] in seen:
+            continue
+        seen.add(finding["type"])
+        result.append(finding)
+        if len(result) >= limit:
+            break
+    return result
 
 
 def _findings_view(findings):
-    names = {
-        "issue-aging": "Older issues deserve a closer look",
-        "merge-duration": "How long do completed changes take?",
-        "closure-change": "Issue closure activity has changed",
-        "ci": "Review automated check outcomes",
+    types = {
+        "issue-aging": "Older open tasks",
+        "merge-duration": "How code changes get merged",
+        "closure-change": "Change in issue closures",
+        "ci": "Automated check outcomes",
     }
     if not findings:
-        st.info("No confirmed review finding is available. This can mean incomplete data—not necessarily zero problems.")
+        st.info("No source-verified insight meets the evidence rules yet. More data is needed before claiming a trend or issue.")
         return
-    for idx, f in enumerate(findings, 1):
-        st.markdown(
-            f'<div class="d-finding"><span class="d-finding-index">{idx:02d}</span>'
-            f'<div class="d-finding-body"><div class="d-finding-scope">{esc(f["scope"])}</div>'
-            f'<div class="d-finding-title">{esc(names.get(f["type"], "Review the observed activity"))}</div>'
-            f'<div class="d-finding-fact">{esc(f["headline"])}</div>'
-            f'<div class="d-finding-next"><strong>Next check:</strong> {esc(f["review"])}</div>'
-            '</div></div>', unsafe_allow_html=True)
-        if f.get("url"):
-            st.link_button("Open GitHub evidence ↗", f["url"])
+    columns = st.columns(2, gap="medium")
+    for idx, f in enumerate(findings):
+        with columns[idx % 2]:
+            with st.container(border=True):
+                st.caption(f'{idx + 1:02d} · {f["scope"]}')
+                st.markdown(f'**{types.get(f["type"], "Evidence to inspect")}**')
+                st.write(f["headline"])
+                with st.expander("What does the evidence mean?"):
+                    st.write(f["evidence"])
+                    st.write(f["interpretation"])
+                st.caption(f'Next step: {f["review"]}')
+                if f.get("url"):
+                    st.link_button("View original GitHub records", f["url"])
 
 
 def _weekly(rows, days=84):
@@ -202,7 +221,7 @@ def _weekly(rows, days=84):
 
 def _coverage_details(reports):
     with st.expander("About the data and its limitations"):
-        st.caption("A selected, bounded sample of public GitHub repositories. Issue age is not an overdue deadline; successful builds do not establish code quality. Missing records are not zero activity.")
+        st.caption("Selected, bounded public GitHub repositories. A complete bounded scan does not mean the full issue/PR history was collected. Missing records are not zero activity; a push does not prove feature development.")
         if reports:
             frame = pd.DataFrame([
                 {"Repository": r["repository"]["full_name"],
@@ -216,17 +235,58 @@ def _coverage_details(reports):
 
 
 def _coverage_banner(reports):
-    """Visible denominators keep chart totals in the proper context."""
     from src.ui.observed import coverage_counts
     counts = coverage_counts(reports)
     count = len(reports)
     st.markdown(
-        '<div class="d-coverage"><strong>Data coverage</strong> · '
-        f'Issues {counts["issues"]}/{count} verified &nbsp;|&nbsp; '
-        f'Code changes {counts["pull_requests"]}/{count} verified &nbsp;|&nbsp; '
-        f'GitHub Actions {counts["workflow_runs"]}/{count} verified. '
-        '<em>All overview counts and charts show retrieved records, not estimated totals.</em>'
-        '</div>', unsafe_allow_html=True)
+        '<div class="d-coverage"><strong>Bounded source scans complete / tracked:</strong> '
+        f'Issues {counts["issues"]}/{count} · '
+        f'Pull requests {counts["pull_requests"]}/{count} · '
+        f'GitHub Actions {counts["workflow_runs"]}/{count}. '
+        '<em>These are recent-window scans, not full repository histories. '
+        'All displayed totals use retrieved records only.</em></div>',
+        unsafe_allow_html=True)
+
+
+def _matched_snapshot_chart(chosen):
+    paired = comparable_observation_pair(chosen)
+    if paired:
+        with st.container(border=True):
+            _chart_title("Change in open work across verified snapshots",
+                f'{paired["previous_date"]} vs {paired["current_date"]} · '
+                f'{paired["matched_count"]} identical repositories observed on both days')
+            frame = pd.DataFrame([
+                {"Type": "Open issues", "Snapshot": paired["previous_date"],
+                 "Observed count": paired["previous_issues"]},
+                {"Type": "Open issues", "Snapshot": paired["current_date"],
+                 "Observed count": paired["current_issues"]},
+                {"Type": "Open pull requests", "Snapshot": paired["previous_date"],
+                 "Observed count": paired["previous_prs"]},
+                {"Type": "Open pull requests", "Snapshot": paired["current_date"],
+                 "Observed count": paired["current_prs"]},
+            ])
+            fig = px.bar(frame, x="Type", y="Observed count", color="Snapshot",
+                         barmode="group", text="Observed count",
+                         color_discrete_sequence=[PURPLE_LIGHT, PURPLE])
+            _chart(fig, height=265, legend=True)
+            st.caption("Only projects with source-validated observations on both dates are compared. "
+                       "This is not a comparison of all 75 projects, and open work alone cannot measure delivery speed.")
+    else:
+        with st.container(border=True):
+            _chart_title("Most recently observed events", "Last 7 days · descriptive snapshot")
+            recent = sample_activity(chosen, days=7)
+            frame = pd.DataFrame([
+                {"Event": "Issues opened", "Observed count": recent["new_issues"]},
+                {"Event": "Issues closed", "Observed count": recent["closed_issues"]},
+                {"Event": "PRs opened", "Observed count": recent["new_prs"]},
+                {"Event": "PRs merged", "Observed count": recent["merged_prs"]},
+            ])
+            fig = px.bar(frame, x="Event", y="Observed count",
+                         color_discrete_sequence=[PURPLE], text="Observed count")
+            _chart(fig, height=235)
+            st.caption("No two-day verified snapshot comparison is available yet. "
+                       "The bars show collected event timestamps only; comparing older weeks could "
+                       "create a false rising trend because old records are under-sampled.")
 
 
 def overview(reports, selection):
@@ -297,31 +357,9 @@ def overview(reports, selection):
         else:
             st.info("No completed GitHub Actions outcomes were retrieved during the last 30 days.")
 
-    _section("02 / How development activity changes", "Weekly event counts from observed GitHub records. Actual activity may be higher.")
-    issue_tab, pr_tab = st.tabs(["Issues opened vs closed", "PRs opened vs merged"])
-    series = pd.DataFrame(weekly_activity(chosen, weeks=8))
-    with issue_tab:
-        _chart_title("Issue flow · last 8 weeks",
-                     "Opened and closed issues in the same collection scope.")
-        if info["issue_rows"]:
-            fig = px.line(series, x="Week", y=["Issues opened", "Issues closed"],
-                          markers=True, color_discrete_sequence=[PURPLE, GREEN])
-            fig.update_layout(yaxis_title="Observed issue events", xaxis_title="Week (UTC)", legend_title_text="")
-            _chart(fig, height=275, legend=True)
-            st.caption("Important: older events may be undercounted because collection is bounded by recent updates. This line alone cannot establish growth or productivity.")
-        else:
-            st.info("No recorded issue events were retrieved for this selection.")
-    with pr_tab:
-        _chart_title("Code change flow · last 8 weeks",
-                     "Opened and merged pull requests, not production releases.")
-        if info["pr_rows"]:
-            fig = px.line(series, x="Week", y=["PRs opened", "PRs merged"],
-                          markers=True, color_discrete_sequence=[PURPLE, GREEN])
-            fig.update_layout(yaxis_title="Observed PR events", xaxis_title="Week (UTC)", legend_title_text="")
-            _chart(fig, height=275, legend=True)
-            st.caption("Older events can be undercounted by the bounded API extraction; a rising line is not proof that delivery speed improved.")
-        else:
-            st.info("No pull request events were retrieved for this selection.")
+    _section("02 / Compare change without sample bias",
+             "A trend is shown only for projects with comparable validated observations on two different days.")
+    _matched_snapshot_chart(chosen)
 
     _section("03 / What needs a closer look?", "Only findings supported by sufficient verified source data appear below.")
     _findings_view(_findings(chosen))
@@ -554,57 +592,60 @@ def pull_request_review(reports):
 
 def cicd_activity(reports):
     _heading("AUTOMATED CHECKS", "Build activity",
-             "See the outcomes of completed public GitHub Actions runs.", reports)
+             "See GitHub Actions results for the same period in every chart and KPI.", reports)
     r = select_repo(reports, "v2_ci_repo")
     if not r:
         empty_state("No repository selected")
         return
-    info = r["ci"]
-    observed = summary([r])
+    period = st.selectbox("Observation period", [30, 90],
+                          format_func=lambda d: f"Last {d} days", key="v3_ci_period")
+    info = checks_in_period(r["ci_rows"], days=period)
     _kpis([
-        ("Completed checks · 90d", _number(observed["completed_checks"]), "Retrieved workflow runs", "▣"),
-        ("Successful", _number(observed["successful_checks"]), "Of observed completed runs", "✓"),
-        ("Failed or timed out", _number(observed["failed_checks"]), "Of observed completed runs", "×"),
-        ("Success share", _percent(observed["check_success_share"]), "Of observed known outcomes", "%"),
+        (f"Completed checks · {period}d", _number(info["total"]),
+         "Retrieved GitHub Actions runs", "▣"),
+        ("Succeeded", _number(info["success"]), "Known results only", "✓"),
+        ("Failed / timed out", _number(info["failure"]), "Known results only", "×"),
+        ("Success share", _percent(info["success_percent"]),
+         f'{info["known"]} known results · {period}d', "%"),
     ])
-    st.caption("GitHub Actions only. Success share is not a software quality or deployment reliability score.")
-    left, right = st.columns([1.16, .84], gap="large")
-    now = datetime.now(timezone.utc)
-    recent = []
-    for item in r["ci_rows"]:
-        stamp = utc(item.get("created_at"))
-        if stamp and now - timedelta(days=30) <= stamp <= now and item.get("status") == "completed":
-            conclusion = item.get("conclusion")
-            recent.append({
-                "Day": stamp.date().isoformat(),
-                "Outcome": "Success" if conclusion == "success" else
-                           "Failure / timeout" if conclusion in ("failure", "timed_out") else "Other",
-                "Runs": 1,
-            })
+    st.caption(
+        f'{info["unknown"]} completed runs with unknown conclusions are excluded '
+        "from the success share and plotted outcomes. "
+        "A successful check does not prove software quality."
+    )
+    left, right = st.columns([1.12, .88], gap="large")
     with left, st.container(border=True):
-        _chart_title("Daily automated check outcomes", "Observed completed runs · last 30 days")
-        if recent:
-            df = pd.DataFrame(recent).groupby(["Day", "Outcome"], as_index=False)["Runs"].sum()
+        _chart_title(f"Daily check outcomes · {period} days",
+                     "Completed runs with known results; same period as the KPIs.")
+        if info["daily"]:
+            df = pd.DataFrame(info["daily"]).groupby(
+                ["Day", "Outcome"], as_index=False)["Runs"].sum()
             fig = px.bar(df, x="Day", y="Runs", color="Outcome", barmode="stack",
-                color_discrete_map={"Success": GREEN, "Failure / timeout": RED, "Other": PURPLE_LIGHT})
-            _chart(fig, legend=True)
-            if r["status"].get("workflow_runs") != "complete":
-                st.caption("Data coverage may be incomplete.")
+                 color_discrete_map={
+                     "Success": GREEN, "Failure / timeout": RED,
+                     "Skipped": PURPLE_LIGHT, "Other outcomes": GOLD})
+            _chart(fig, height=270, legend=True)
         else:
-            st.info("No completed run retrieved in the last 30 days.")
+            st.info("No completed workflow runs with known outcomes in this period.")
     with right, st.container(border=True):
-        _chart_title("Check outcomes", "30-day distribution")
-        dist = {k: v for k, v in observed_outcomes(r["ci_rows"], days=30).items() if v}
+        _chart_title(f"Outcome mix · {period} days",
+                     f'{info["known"]} known results · same denominator as success share')
+        dist = info["counts"]
         if dist:
             colors = [{"Success": GREEN, "Failure / timeout": RED,
-                       "Skipped": PURPLE_LIGHT, "Other outcomes": GOLD}.get(k, PURPLE)
+                       "Skipped": PURPLE_LIGHT, "Other outcomes": GOLD}[k]
                       for k in dist]
             fig = go.Figure(go.Pie(labels=list(dist), values=list(dist.values()),
-                                   hole=.6, marker=dict(colors=colors), textinfo="percent"))
-            _chart(fig, legend=True)
+                                   hole=.65, marker=dict(colors=colors),
+                                   textinfo="percent"))
+            _chart(fig, height=270, legend=True)
         else:
-            st.info("No check outcome distribution available.")
-    _section("Inspect individual GitHub Actions runs")
+            st.info("No results with a known outcome.")
+    if r["status"].get("workflow_runs") != "complete":
+        st.caption("The repository's source scan is incomplete or older. "
+                   "Observed results may omit other runs; do not generalize this rate.")
+    _section("Inspect individual GitHub Actions runs",
+             "Open any recorded workflow for the source evidence.")
     a, b, c = st.columns([2, 1, 1])
     with a:
         term = st.text_input("Find a workflow", key="v2_ci_search")
@@ -615,16 +656,18 @@ def cicd_activity(reports):
         branches = sorted({str(v["branch"]) for v in r["ci_rows"] if v.get("branch")})
         branch = st.selectbox("Branch", ["All"] + branches, key="v2_ci_branch")
     rows = filter_workflow_runs(r["ci_rows"], term, outcome, branch)
+    now = datetime.now(timezone.utc)
+    rows = [v for v in rows if v.get("created_at")
+            and now - timedelta(days=period) <= utc(v["created_at"]) <= now]
     table_rows(rows, ["workflow_name", "branch", "event", "conclusion",
                       "created_at", "url"], "v2_ci_page")
     _coverage_details([r])
-
 
 def risks_recommendations(reports, selection):
     _heading("ACTIONABLE FINDINGS", "Where should we look next?",
              "Evidence-backed observations with a direct link to the actual records.", reports)
     from src.ui.observed import coverage_counts
-    found = _findings(reports, limit=6)
+    found = _findings(reports, limit=4)
     verified = coverage_counts(reports)
     _kpis([
         ("Evidence-based findings", _number(len(found)), "Backed by verified source records", "◎"),

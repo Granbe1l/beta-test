@@ -44,7 +44,7 @@ try:
         desktop.screenshot(path=str(OUT / "desktop-overview.png"), full_page=True)
         print("Captured desktop overview", flush=True)
         # Streamlit scrolls inside the main element; capture charts below the fold.
-        desktop.get_by_text("03 / What needs a closer look?", exact=True).scroll_into_view_if_needed(timeout=10000)
+        desktop.get_by_text("02 / Compare change without sample bias", exact=True).scroll_into_view_if_needed(timeout=10000)
         time.sleep(1.5)
         desktop.screenshot(path=str(OUT / "desktop-charts.png"), full_page=False)
         desktop.evaluate("window.scrollTo(0, 0)")
@@ -88,14 +88,49 @@ try:
         mobile.goto("http://127.0.0.1:8501", wait_until="domcontentloaded")
         mobile.locator(".d-hero").first.wait_for(timeout=45000)
         time.sleep(2)
-        # On narrow screens Streamlit may start with the sidebar drawer open.
-        # Save navigation separately, then close it using Streamlit's own control.
-        mobile.screenshot(path=str(OUT / "mobile-navigation.png"), full_page=True)
+        # Validate the actual mobile drawer. Previously navigation.png was
+        # captured while closed and looked identical to the overview.
+        sidebar = mobile.locator('[data-testid="stSidebar"]')
+        nav_button = sidebar.get_by_role("button", name="Dashboard")
+        def drawer_open():
+            bounds = sidebar.bounding_box()
+            return bool(bounds and bounds["x"] >= -10 and nav_button.is_visible())
+
+        if not drawer_open():
+            opened = False
+            for selector in (
+                '[data-testid="stSidebarCollapsedControl"] button',
+                '[data-testid="stSidebarCollapsedControl"]',
+                '[data-testid="collapsedControl"] button',
+                '[data-testid="collapsedControl"]',
+                'button[aria-label="Open sidebar"]',
+            ):
+                control = mobile.locator(selector)
+                if control.count() and control.first.is_visible():
+                    try:
+                        control.first.click(timeout=5000)
+                        time.sleep(0.8)
+                        if drawer_open():
+                            opened = True
+                            break
+                    except Exception:
+                        continue
+            if not opened:
+                raise AssertionError("Mobile sidebar drawer did not open in the browser; do not publish an unverified navigation capture.")
+        assert drawer_open(), "Mobile sidebar must be visible for the navigation screenshot"
+        nav_bytes = mobile.screenshot(path=str(OUT / "mobile-navigation.png"), full_page=False)
+
         collapse = mobile.locator('[data-testid="stSidebarCollapseButton"]')
         if collapse.count() and collapse.first.is_visible():
             collapse.first.click(timeout=8000)
-            time.sleep(1.5)
-        mobile.screenshot(path=str(OUT / "mobile-overview.png"), full_page=True)
+            time.sleep(0.8)
+        else:
+            # Streamlit backdrop can also close the drawer after a click outside it.
+            mobile.mouse.click(360, 250)
+            time.sleep(0.8)
+        assert not drawer_open(), "Mobile sidebar must be closed for the overview screenshot"
+        overview_bytes = mobile.screenshot(path=str(OUT / "mobile-overview.png"), full_page=True)
+        assert nav_bytes != overview_bytes, "Mobile drawer and overview captures must differ"
         print("Captured mobile navigation and overview", flush=True)
         browser.close()
 finally:
