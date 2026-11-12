@@ -117,6 +117,18 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:v
   padding-top:2.35rem!important;
  }
 }
+
+/* Streamlit renders buttons under .stButton, not always stButton test IDs. */
+[data-testid="stSidebar"] .stButton button,
+[data-testid="stSidebar"] .stButton button[kind] {
+  display:flex!important;justify-content:flex-start!important;
+  text-align:left!important;padding-left:17px!important;
+}
+[data-testid="stSidebar"] .stButton button > div,
+[data-testid="stSidebar"] .stButton button [data-testid="stMarkdownContainer"]{
+  width:100%!important;flex:1!important;text-align:left!important;
+}
+[data-testid="stSidebar"] .stButton button p{width:100%!important;text-align:left!important;}
 </style>
 """
 

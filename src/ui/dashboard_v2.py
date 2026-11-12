@@ -328,7 +328,16 @@ def project_details(reports):
                           markers=True, color_discrete_sequence=[PURPLE, GREEN])
             _chart(fig, legend=True)
         elif observations:
-            st.info("One genuine observation exists. At least two snapshots are needed for a trend.")
+            st.caption("One real snapshot is available; a time trend requires at least two.")
+            bands = observed_age_bands(r["issue_rows"])
+            if sum(bands.values()):
+                _chart_title("Open task age in this snapshot", "Observed issue records—not a delay score.")
+                fig = go.Figure(go.Bar(
+                    x=list(bands), y=list(bands.values()), marker_color=BAR,
+                    text=list(bands.values()), textposition="outside"))
+                _chart(fig, height=240)
+            else:
+                st.info("There are no collected open issue records to chart yet.")
         else:
             st.info("No observation history has been collected yet.")
     with b:
@@ -416,8 +425,18 @@ def pull_request_review(reports):
                                    marker_color=BAR, text=list(buckets.values()),
                                    textposition="outside"))
             _chart(fig)
+        elif observed["open_changes"]:
+            st.caption("No merges retrieved in this window; showing open changes instead.")
+            draft_count = observed["draft_changes"] or 0
+            ready_count = max(0, observed["open_changes"] - draft_count)
+            fig = go.Figure(go.Bar(
+                x=["Draft", "Ready for review"], y=[draft_count, ready_count],
+                marker_color=[PURPLE_LIGHT, PURPLE],
+                text=[draft_count, ready_count], textposition="outside"))
+            fig.update_layout(yaxis_title="Retrieved open pull requests")
+            _chart(fig)
         else:
-            st.info("No observed merges to plot in this window.")
+            st.info("No merged or open pull request records retrieved in this window.")
     with rcol, st.container(border=True):
         _chart_title("How to read this chart", "Interpretation")
         st.write("Merge time describes how long observed code changes took from opening to completion. It does not measure developer performance or establish the cause of a delay.")
