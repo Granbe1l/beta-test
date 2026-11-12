@@ -77,15 +77,16 @@ def _heading(kicker, title, note, reports):
 
 
 def _kpis(cards):
-    """Each card is (label, value, context, glyph)."""
-    columns = st.columns(len(cards), gap="small")
-    for column, (label, value, context, glyph) in zip(columns, cards):
-        with column:
-            st.markdown(
-                f'<div class="d-kpi"><div class="d-kpi-label"><span>{esc(label)}</span>'
-                f'<span class="d-kpi-icon">{esc(glyph)}</span></div>'
-                f'<div class="d-kpi-value">{esc(value)}</div>'
-                f'<div class="d-kpi-note">{esc(context)}</div></div>',
+    """Compact, responsive cards; never interactive/injected source content."""
+    fragments = []
+    for label, value, context, glyph in cards:
+        fragments.append(
+            f'<div class="d-kpi"><div class="d-kpi-label"><span>{esc(label)}</span>'
+            f'<span class="d-kpi-icon">{esc(glyph)}</span></div>'
+            f'<div class="d-kpi-value">{esc(value)}</div>'
+            f'<div class="d-kpi-note">{esc(context)}</div></div>'
+        )
+    st.markdown('<div class="d-kpis">' + ''.join(fragments) + '</div>',
                 unsafe_allow_html=True)
 
 
@@ -305,7 +306,9 @@ def overview(reports, selection):
         if info["issue_rows"]:
             fig = px.line(series, x="Week", y=["Issues opened", "Issues closed"],
                           markers=True, color_discrete_sequence=[PURPLE, GREEN])
+            fig.update_layout(yaxis_title="Observed issue events", xaxis_title="Week (UTC)", legend_title_text="")
             _chart(fig, height=275, legend=True)
+            st.caption("Important: older events may be undercounted because collection is bounded by recent updates. This line alone cannot establish growth or productivity.")
         else:
             st.info("No recorded issue events were retrieved for this selection.")
     with pr_tab:
@@ -314,7 +317,9 @@ def overview(reports, selection):
         if info["pr_rows"]:
             fig = px.line(series, x="Week", y=["PRs opened", "PRs merged"],
                           markers=True, color_discrete_sequence=[PURPLE, GREEN])
+            fig.update_layout(yaxis_title="Observed PR events", xaxis_title="Week (UTC)", legend_title_text="")
             _chart(fig, height=275, legend=True)
+            st.caption("Older events can be undercounted by the bounded API extraction; a rising line is not proof that delivery speed improved.")
         else:
             st.info("No pull request events were retrieved for this selection.")
 

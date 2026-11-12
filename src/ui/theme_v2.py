@@ -129,6 +129,20 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:v
   width:100%!important;flex:1!important;text-align:left!important;
 }
 [data-testid="stSidebar"] .stButton button p{width:100%!important;text-align:left!important;}
+
+/* KPI cards use a dedicated responsive grid. On mobile they are two-across
+   rather than four consecutive full-width vertical blocks. */
+.d-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:10px 0 14px;}
+.d-kpis .d-kpi{min-width:0;}
+@media(max-width:700px){
+ .d-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0 12px;}
+ .d-kpis .d-kpi{padding:12px 10px!important;min-height:101px;}
+ .d-kpis .d-kpi-value{font-size:1.39rem;letter-spacing:-.035em;}
+ .d-kpis .d-kpi-note{font-size:.66rem;line-height:1.3;}
+ .d-kpis .d-kpi-label{font-size:.67rem;line-height:1.2;}
+ .d-kpis .d-kpi-icon{width:22px;height:22px;min-width:22px;}
+}
+
 </style>
 """
 
