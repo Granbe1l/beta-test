@@ -13,7 +13,7 @@ def parse_dt(value: str | None):
     return datetime.fromisoformat(value.replace("Z", "+00:00")) if value else None
 
 
-def validate_candidate(repo: dict, now: datetime, freshness_days: int = 90) -> str | None:
+def validate_candidate(repo: dict, now: datetime, freshness_days: int = 30) -> str | None:
     if repo.get("private", False): return "private"
     if repo.get("fork", False): return "fork"
     if repo.get("archived", False): return "archived"

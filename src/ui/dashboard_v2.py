@@ -16,6 +16,7 @@ import streamlit as st
 
 from src.analytics.findings import portfolio_findings
 from src.analytics.metrics import utc
+from src.analytics.activity import recent_activity, sample_activity, activity_label, weekly_activity
 from src.ui.charts import observed_age_bands, observed_merge_times, observed_outcomes
 from src.ui.filters import (filter_work_items, filter_pull_requests,
                             filter_workflow_runs, issue_age_days)
@@ -112,10 +113,28 @@ def _chart_title(title, note=""):
 def _scope(reports, key):
     if not reports:
         return []
-    names = [r["repository"]["full_name"] for r in reports]
-    picked = st.selectbox("Repository", ["All tracked repositories"] + names, key=key)
-    return reports if picked == "All tracked repositories" else [
-        r for r in reports if r["repository"]["full_name"] == picked]
+    mode = st.selectbox("Activity filter", [
+        "All tracked projects",
+        "Code pushed · last 7 days",
+        "Issue or PR events · last 7 days",
+        "No recent signal · last 7 days",
+    ], key=key + "_activity")
+    chosen = []
+    for r in reports:
+        status = recent_activity(r)
+        active = status["pushed_recently"] or status["recent_issue_or_pr_event"]
+        if (mode == "All tracked projects"
+                or mode == "Code pushed · last 7 days" and status["pushed_recently"]
+                or mode == "Issue or PR events · last 7 days" and status["recent_issue_or_pr_event"]
+                or mode == "No recent signal · last 7 days" and not active):
+            chosen.append(r)
+    if not chosen:
+        st.info("No matching signal was observed. That does not mean the projects are finished.")
+        return []
+    names = [r["repository"]["full_name"] for r in chosen]
+    picked = st.selectbox("Repository", ["All matching projects"] + names, key=key)
+    return chosen if picked == "All matching projects" else [
+        r for r in chosen if r["repository"]["full_name"] == picked]
 
 
 def _available_total(reports, source, block, name):
@@ -213,8 +232,8 @@ def overview(reports, selection):
     from src.ui.observed import summary
     st.markdown(
         '<div class="d-hero"><div><span class="d-eyebrow">PUBLIC GITHUB · PROJECT DELIVERY MONITOR</span>'
-        '<h1>See the work behind the code.</h1>'
-        '<p>Track open tasks, code changes, and automated checks in one place—'
+        '<h1>Monitor real GitHub project activity.</h1>'
+        '<p>Explore recent development signals, open tasks, code changes and checks—'
         'with evidence you can inspect.</p></div><div class="d-mark">D / M</div></div>',
         unsafe_allow_html=True)
     if not reports:
@@ -226,15 +245,27 @@ def overview(reports, selection):
         return
 
     chosen = _scope(reports, "v2_scope")
+    if not chosen:
+        return
     info = summary(chosen)
+    activity = sample_activity(chosen, days=7)
     scope = "Selected project" if len(chosen) == 1 else "Curated public sample"
     _kpis([
         ("Projects tracked", _number(info["repositories"]), scope, "▣"),
         ("Open tasks retrieved", _number(info["open_issues"]), "Observed GitHub issues · not the full backlog", "◷"),
         ("Open code changes", _number(info["open_changes"]), "Observed PRs including drafts", "⇄"),
-        ("Completed checks · 90d", _number(info["completed_checks"]), "Retrieved GitHub Actions runs", "✓"),
+        ("Projects pushed · 7d", _number(activity["pushed_recently"]),
+         "GitHub last-push metadata, not feature releases", "↗"),
     ])
     _coverage_banner(chosen)
+    st.markdown(
+        '<div class="d-context"><strong>Last 7 days (retrieved records):</strong> '
+        f'{activity["new_issues"]:,} issues opened · '
+        f'{activity["closed_issues"]:,} issues closed · '
+        f'{activity["new_prs"]:,} PRs opened · '
+        f'{activity["merged_prs"]:,} PRs merged. '
+        '<span>These are recorded events; incomplete collection can omit activity.</span>'
+        '</div>', unsafe_allow_html=True)
 
     _section("01 / Delivery activity", "What is still open, and what happened in recent automated checks?")
     left, right = st.columns([1.1, 1], gap="large")
@@ -265,41 +296,77 @@ def overview(reports, selection):
         else:
             st.info("No completed GitHub Actions outcomes were retrieved during the last 30 days.")
 
-    _section("02 / Flow of work", "A descriptive trend of retrieved issues, not a verified total of all project activity.")
-    with st.container(border=True):
-        _chart_title("Tasks opened vs closed · last 12 weeks",
-                     "Both lines use the same retrieved GitHub issue records and observation window.")
+    _section("02 / How development activity changes", "Weekly event counts from observed GitHub records. Actual activity may be higher.")
+    issue_tab, pr_tab = st.tabs(["Issues opened vs closed", "PRs opened vs merged"])
+    series = pd.DataFrame(weekly_activity(chosen, weeks=8))
+    with issue_tab:
+        _chart_title("Issue flow · last 8 weeks",
+                     "Opened and closed issues in the same collection scope.")
         if info["issue_rows"]:
-            frame = _weekly(info["issue_rows"])
-            fig = px.line(frame, x="Week", y="Issues", color="Activity", markers=True,
-                          color_discrete_map={"Opened": PURPLE, "Closed": GREEN})
-            _chart(fig, height=266, legend=True)
+            fig = px.line(series, x="Week", y=["Issues opened", "Issues closed"],
+                          markers=True, color_discrete_sequence=[PURPLE, GREEN])
+            _chart(fig, height=275, legend=True)
         else:
-            st.info("No issue history has been collected for a trend yet.")
+            st.info("No recorded issue events were retrieved for this selection.")
+    with pr_tab:
+        _chart_title("Code change flow · last 8 weeks",
+                     "Opened and merged pull requests, not production releases.")
+        if info["pr_rows"]:
+            fig = px.line(series, x="Week", y=["PRs opened", "PRs merged"],
+                          markers=True, color_discrete_sequence=[PURPLE, GREEN])
+            _chart(fig, height=275, legend=True)
+        else:
+            st.info("No pull request events were retrieved for this selection.")
 
     _section("03 / What needs a closer look?", "Only findings supported by sufficient verified source data appear below.")
     _findings_view(_findings(chosen))
-    _section("04 / What projects are being studied?", "Curated repository composition—not a popularity or software-quality ranking.")
-    left, right = st.columns([1, 1], gap="large")
-    with left, st.container(border=True):
-        _chart_title("Repositories by project category", "Based on public repository metadata.")
+    _section("04 / Where are new changes happening?", "Recent activity is not a score of project quality or developer productivity.")
+    rows = []
+    for report, a in sample_activity(chosen, days=7)["items"]:
+        events = a["new_issues"] + a["closed_issues"] + a["new_prs"] + a["merged_prs"]
+        if events:
+            rows.append({
+                "Repository": report["repository"]["full_name"],
+                "Recent issue/PR events": events,
+                "Opened issues": a["new_issues"],
+                "Opened PRs": a["new_prs"],
+                "Merged PRs": a["merged_prs"],
+                "GitHub": report["repository"]["url"],
+            })
+    if rows:
+        view = pd.DataFrame(rows).sort_values("Recent issue/PR events", ascending=False)
+        top = view.head(10).sort_values("Recent issue/PR events")
+        with st.container(border=True):
+            _chart_title("Projects with the most observed events · 7d",
+                         "Issue open/close + PR open/merge events in this sample; counts are not performance rankings.")
+            fig = px.bar(top, x="Recent issue/PR events", y="Repository",
+                         orientation="h", color_discrete_sequence=[PURPLE],
+                         text="Recent issue/PR events")
+            _chart(fig, height=min(460, max(255, len(top) * 36)))
+        with st.expander("Inspect recent event counts and source links"):
+            st.dataframe(view, hide_index=True, use_container_width=True,
+                         column_config={"GitHub": st.column_config.LinkColumn(
+                             "Original repository", display_text="Open ↗")})
+    else:
+        st.info("No new issue or PR events are present in the retrieved 7-day window.")
+    with st.expander("About the 75-project sample · languages and categories"):
+        left, right = st.columns([1, 1])
         from src.ui.charts import category_counts
-        categories = category_counts(chosen)
-        if categories:
-            cats = pd.DataFrame([{"Category": k, "Repositories": v}
-                                 for k, v in categories.items()]).sort_values("Repositories")
-            fig = px.bar(cats, x="Repositories", y="Category", orientation="h",
-                         color_discrete_sequence=[PURPLE], text="Repositories")
-            _chart(fig, height=max(240, 35 * len(cats)))
-    with right, st.container(border=True):
-        _chart_title("Most common main languages", "Based on GitHub repository primary-language metadata.")
-        languages = Counter(r["repository"].get("language") or "Not specified" for r in chosen)
-        frame = pd.DataFrame([{"Language": k, "Repositories": v} for k, v in
-                              languages.most_common(7)]).sort_values("Repositories")
-        if not frame.empty:
-            fig = px.bar(frame, x="Repositories", y="Language", orientation="h",
-                         color_discrete_sequence=[PURPLE_LIGHT], text="Repositories")
-            _chart(fig, height=max(240, 35 * len(frame)))
+        with left:
+            cats = pd.DataFrame([{"Category": k, "Projects": v}
+                                 for k, v in category_counts(chosen).items()])
+            if not cats.empty:
+                fig = px.bar(cats.sort_values("Projects"), x="Projects", y="Category",
+                             orientation="h", color_discrete_sequence=[PURPLE])
+                _chart(fig, height=max(230, 33 * len(cats)))
+        with right:
+            counts = Counter(r["repository"].get("language") or "Not specified" for r in chosen)
+            langs = pd.DataFrame([{"Language": k, "Projects": v}
+                                  for k, v in counts.most_common(7)])
+            if not langs.empty:
+                fig = px.bar(langs.sort_values("Projects"), x="Projects", y="Language",
+                             orientation="h", color_discrete_sequence=[PURPLE_LIGHT])
+                _chart(fig, height=max(230, 33 * len(langs)))
     _coverage_details(chosen)
 
 
@@ -316,6 +383,14 @@ def project_details(reports):
                 f'{esc(repo.get("language") or "Language not provided")}</small></div>',
                 unsafe_allow_html=True)
     st.link_button("Open GitHub project ↗", repo["url"])
+    recent = recent_activity(r)
+    st.caption(
+        f"7-day activity: {activity_label(r)} · "
+        f"{recent['new_issues']} issues opened · "
+        f"{recent['new_prs']} PRs opened · "
+        f"{recent['merged_prs']} PRs merged. "
+        "A recent push is not proof of a feature release."
+    )
     observed = summary([r])
     _kpis([
         ("Open tasks retrieved", _number(observed["open_issues"]), "Observed GitHub issues", "◷"),

@@ -118,6 +118,40 @@ def sync_one(session: Session, client: GitHubClient, repo: Repository, source: s
         return {"repo": repo.full_name, "source": source, "status": "failed", "error": type(exc).__name__}
 
 
+
+
+def refresh_repo_metadata(session: Session, client, repo: Repository, now=None) -> bool:
+    """Refresh last-push metadata without changing the selected cohort.
+
+    A recent GitHub push is a signal of repository activity, not evidence of
+    a new feature. Failed lookups preserve the last known metadata and do
+    not invalidate independently collected issues/PR records.
+    """
+    get = getattr(client, "get", None)
+    if get is None:  # Simple deterministic clients in unit tests
+        return False
+    try:
+        data, _ = get(f"/repos/{repo.full_name}")
+        if not isinstance(data, dict) or int(data.get("id", -1)) != repo.id:
+            raise ValueError("GitHub repository ID mismatch")
+        pushed = data.get("pushed_at")
+        if pushed:
+            repo.pushed_at = datetime.fromisoformat(pushed.replace("Z", "+00:00"))
+        if isinstance(data.get("stargazers_count"), int):
+            repo.stars = data["stargazers_count"]
+        if isinstance(data.get("archived"), bool):
+            repo.archived = data["archived"]
+        if isinstance(data.get("language"), str):
+            repo.language = data["language"]
+            from src.discovery.selection import category
+            repo.category = category({"language": repo.language})
+        session.commit()
+        return True
+    except Exception as exc:
+        session.rollback()
+        print(f"Repository metadata unavailable for {repo.full_name}: {type(exc).__name__}")
+        return False
+
 def record_observations(session: Session, repo_id: int, now=None):
     now = now or utcnow()
     cps = {cp.source: cp for cp in session.scalars(select(SyncCheckpoint).where(SyncCheckpoint.repo_id == repo_id))}
@@ -156,9 +190,10 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
         # Stop before exhausting the allocated API quota; never mark unvisited
         # repositories as failed or advance their last-success timestamps.
         budget = getattr(client, "max_requests", None)
-        if budget is not None and getattr(client, "request_count", 0) + 3 * settings.max_pages + 5 >= budget:
+        if budget is not None and getattr(client, "request_count", 0) + 3 * settings.max_pages + 6 >= budget:
             print("Collector request budget reached: unvisited repositories retain prior checkpoints")
             break
+        refresh_repo_metadata(session, client, repo, now=run_at or utcnow())
         for source in SOURCES:
             result.append(sync_one(session, client, repo, source, settings, reconcile=reconcile))
         record_observations(session, repo.id)

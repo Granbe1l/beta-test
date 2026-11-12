@@ -2,7 +2,7 @@
 
 An evidence-first, read-only analytics dashboard that helps nontechnical reviewers understand observable issue, pull request, and GitHub Actions activity across an **audited, non-representative sample** of public GitHub repositories. Built with Python, Streamlit, Pandas, Plotly, SQLAlchemy, and PostgreSQL. No React, FastAPI, chatbot, generative AI, or paid AI APIs.
 
-> **Project state:** Local implementation and fixture-based automated tests are available. Live GitHub ingestion, screenshots of the running Streamlit app, scheduled production synchronization, and managed PostgreSQL deployment **have not been verified/activated** in the development environment. There are no preloaded or fabricated production records. See `docs/IMPLEMENTATION_STATUS.md`.
+> **Current status (12 November 2026):** The audited 75-repository public snapshot exists, GitHub Actions collection has completed successfully, and desktop/mobile browser screenshot tests have passed. GitHub Actions collection is scheduled every six hours, but individual runs can be delayed or fail; never mistake a stored snapshot for real-time data. Hosted Streamlit Cloud deployment and managed PostgreSQL are separate, optional steps and are **not** claimed verified here. All figures are obtained from public GitHub records.
 
 ## Questions answered
 
@@ -15,15 +15,33 @@ An evidence-first, read-only analytics dashboard that helps nontechnical reviewe
 
 Issue age is **not** lateness, PR merge time is **not** productivity, and CI success share is **not** software quality. The application intentionally avoids a project-quality leaderboard.
 
-## Information architecture and visual language
+## Dashboard design and activity signals
 
-- **Overview:** executive summary, up to three grounded finding cards, key measures, at most two comparison charts, next reviews, and collection health.
-- **Repository Explorer:** compact searchable/filterable table with links to original GitHub sources.
-- **Repository Analysis:** issues, PRs, CI, weekly issue events, finding cards, and 20-row paginated evidence tables.
-- **Cross-Repository Comparison:** category, period, and metric selection without quality ranking.
-- **Findings & Methodology:** selected-sample decisions, denominators, caveats, and source checkpoints.
+Six visual-first Streamlit views: **Dashboard**, **Explore repositories**,
+**Open issues**, **Changes & reviews**, **Build activity**, and **Key findings**.
 
-Colors: Midnight Navy `#102840`, Ice Blue `#D6ECFB`, light background `#F5F9FC`. Layout uses a small CSS layer above native Streamlit elements; mobile CSS is present, **but visual mobile-browser verification is pending**. No screenshot is represented as actual until the app renders in a real browser.
+The dashboard distinguishes genuine event types:
+
+- **Recently pushed:** GitHub repository `pushed_at` metadata within seven days;
+  this is not proof of a new feature or release. Metadata is refreshed for
+  repositories visited by the collector.
+- **Issue activity:** observed `created_at` and `closed_at` timestamps.
+- **PR activity:** observed `created_at` and `merged_at` timestamps.
+- **Weekly lines:** event counts for the same fixed observation window;
+  never arbitrary/random values or an invented commit history.
+- **Quieter projects:** no recent signal in the bounded collected data, **not**
+  a claim that development has stopped or the project is completed.
+
+The source-scope filter makes both recently active and quieter projects
+inspectable. The curated cohort is retained for longitudinal comparisons
+instead of silently swapping in more active repositories, which would bias
+apparent trends. Repository selections require a push within 30 days at
+selection and a bounded issue/PR probe. Full source coverage may still be
+partial; all aggregate charts say **retrieved** or **observed** records.
+
+The UI uses restrained purple/white cards, high-contrast navigation labels
+without radio bullets, and concise findings linked to GitHub evidence.
+Desktop/mobile rendering is verified by real-browser screenshot workflows.
 
 ## Architecture
 
@@ -40,14 +58,14 @@ GitHub REST issues / pulls / actions/runs (read-only)
                   |
  PostgreSQL (local option: SQLite) <--- checkpoints, logs, observations
                   ^
- GitHub Actions every 6h + weekly reconciliation
+ GitHub Actions public snapshot every 6h
                   |
          per-source incremental upsert
                   |
  SQLAlchemy read queries -> deterministic analytics -> Streamlit (600s TTL)
 ```
 
-Collection and UI are intentionally decoupled: a dashboard visit does **not** initiate full synchronization. PostgreSQL is required in deployment because Streamlit Community Cloud's local filesystem is ephemeral and does not support reliable shared persisted checkpoints.
+Collection and UI are intentionally decoupled: a dashboard visit does **not** initiate full synchronization. The checked-in snapshot runs on Streamlit Cloud without PostgreSQL. Managed PostgreSQL is optional for persistent, deeper data pipelines; Streamlit Community Cloud's local filesystem is ephemeral.
 
 ### Files
 
@@ -79,12 +97,12 @@ scripts/audit.py               Counts and verifiable status
 
 1. Search multiple language/ecosystem groups (`Python`, `TypeScript`, `Go`, `Rust`, `Java`, `Kotlin`, `C++`, `Ruby`). Each query includes `is:public fork:false archived:false stars:>=50 pushed:>=YYYY-MM-DD`.
 2. Search is constrained by `MAX_CANDIDATES`, `SEARCH_PAGES_PER_QUERY`, and a per-language quota, **not** a GitHub-wide crawl. Deduplicate by stable GitHub repository ID.
-3. Validate repository metadata: public, nonfork, nonarchived, >=50 stars, last push <=90 days, issues enabled, language recognized.
+3. Validate repository metadata: public, nonfork, nonarchived, >=50 stars, last push <=30 days, issues enabled, language recognized.
 4. Probe a **bounded** slice of GitHub `/issues?state=all` and `/pulls?state=all` for independent issues and any PRs. A negative bounded probe is an **uncertain rejection**, not proof there has never been an issue. A follow-up collector determines the actual extractable sample.
 5. Diversify across broad language categories and star-size tiers (`50–499`, `500–4,999`, `5,000+`) by round-robin. Fill leftover slots with eligible candidates if diversity constraints cannot fill the cap. Select **at most 75**.
-6. Record GitHub search queries, timestamps, candidates, selection reasons, and URLs in `SelectionRun` and `Candidate`. The selected set persists until explicitly curated again; routine sync never adds repositories automatically.
+6. Record GitHub search queries, timestamps, candidates, selection reasons, and URLs in `SelectionRun` and `Candidate`. The selected set persists to preserve longitudinal comparability; routine sync refreshes last-push metadata for visited repositories. Quieter/archived repositories are flagged, not silently relabeled as finished.
 
-**Sampling limitation:** Search result ordering, API result caps, bounded activity probes, and platform/language choices create selection bias. Even 20 selected repositories **cannot** represent all of GitHub.
+**Sampling limitation:** Search result ordering, API result caps, bounded activity probes, and platform/language choices create selection bias. Even 75 selected repositories **cannot** represent all of GitHub.
 
 ## Data extraction and checkpoints
 
@@ -163,7 +181,7 @@ python scripts/run_sync.py --reconcile
 
 ## GitHub Actions synchronization
 
-`.github/workflows/sync.yml` on the **default branch** contains the six-hour `17 */6 * * *` cron, a weekly Sunday reconciliation `43 3 * * 0`, and a `workflow_dispatch` manual trigger with `discover` and `reconcile` flags. Actions workflows are **configured in the source files, but not active until pushed to GitHub's default branch**. They require actual configured Secrets and a live database.
+The active public-snapshot workflow `.github/workflows/public-snapshot.yml` runs at `27 */6 * * *` (UTC) and also supports manual `workflow_dispatch`. It restores the last saved GitHub snapshot, collects bounded public records, publishes an audit artifact, then commits the updated `.json.gz` snapshot to `main`. The snapshot writer fetches current `main` and reapplies only the new generated binary file; it does not try to rebase conflicting binaries. Code pushes no longer trigger additional data writers. A separate `.github/workflows/sync.yml` is an opt-in PostgreSQL mode and must not be described as a working managed-database deployment without configuration.
 
 Scheduled Actions do **not** guarantee execution at the exact minute, and GitHub may disable scheduled workflows in inactive public repositories. The `GITHUB_TOKEN` in Actions is used exclusively for read-only REST calls. Workflows use `contents: read`, a single concurrency group, and a lock in the database layer.
 
@@ -188,7 +206,7 @@ The suite covers bounded selection, deduplication, pagination, retry/rate handli
 
 ## Outstanding work and integrity boundaries
 
-- No verified real GitHub collection or live sync has run in this offline environment; no specific selected repositories, data counts, or findings are asserted.
+- GitHub Actions produced and audited real public GitHub snapshots. A stored snapshot is not a live API feed; data availability is reported per source.
 - No managed PostgreSQL `DATABASE_URL`, production token, or deployment has been provided.
 - Real-browser desktop/mobile screenshots are pending. Do not substitute a mockup for screenshot evidence.
 - GitHub API pagination and rate-limit behaviors are covered by fixtures, but real API edge cases may require adjustment after live runs.

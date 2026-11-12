@@ -45,7 +45,7 @@ class Settings:
             max_pages=_int("MAX_PAGES_PER_SOURCE", 6),
             search_pages=_int("SEARCH_PAGES_PER_QUERY", 2),
             per_page=_int("PER_PAGE", 100),
-            freshness_days=_int("FRESHNESS_DAYS", 90),
+            freshness_days=_int("FRESHNESS_DAYS", 30),
             backfill_days=_int("BACKFILL_DAYS", 180),
             comparison_days=_int("COMPARISON_DAYS", 90),
             overlap_hours=_int("OVERLAP_HOURS", 48),

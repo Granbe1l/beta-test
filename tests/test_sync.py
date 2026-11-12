@@ -1,6 +1,6 @@
 from datetime import timedelta
 from sqlalchemy import select, func
-from src.collectors.sync import sync_one, fetch_source, start_window, record_observations
+from src.collectors.sync import sync_one, fetch_source, start_window, record_observations, refresh_repo_metadata
 from src.collectors.normalize import issue, pull_request, workflow_run
 from src.database.models import Repository, Issue, PullRequest, WorkflowRun, SyncCheckpoint, SyncLog
 from .conftest import NOW,issue_payload,pr_payload,run_payload
@@ -68,3 +68,36 @@ def test_failure_preserves_old_records_and_checkpoint(db,cfg):
     assert result["status"]=="failed" and cp.last_success_at==before
     assert "private-token" not in cp.last_error
     assert db.scalar(select(func.count()).select_from(Issue))==1
+
+
+
+def test_repo_last_push_metadata_refresh_uses_real_github_id(db):
+    class RepoClient:
+        def get(self, path):
+            assert path == "/repos/sample/project"
+            return {
+                "id": 101,
+                "pushed_at": "2026-11-12T10:00:00Z",
+                "stargazers_count": 238,
+                "language": "Go",
+                "archived": False,
+            }, None
+    repository = db.get(Repository, 101)
+    assert refresh_repo_metadata(db, RepoClient(), repository)
+    assert repository.pushed_at.year == 2026
+    assert repository.pushed_at.day == 12
+    assert repository.stars == 238
+    assert repository.category == "Cloud & infrastructure"
+
+
+def test_metadata_failure_preserves_existing_push_date(db):
+    repo = db.get(Repository, 101)
+    repo.pushed_at = NOW - timedelta(days=3)
+    db.commit()
+
+    class WrongRepo:
+        def get(self, path):
+            return {"id": 999, "pushed_at": "2026-11-12T10:00:00Z"}, None
+
+    assert not refresh_repo_metadata(db, WrongRepo(), repo)
+    assert db.get(Repository, 101).pushed_at.date() == (NOW - timedelta(days=3)).date()

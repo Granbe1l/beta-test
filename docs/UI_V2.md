@@ -69,3 +69,22 @@ Design references (patterns, not copied code):
 Updated screenshot tests should cover all six navigation destinations and
 repository Explorer tabs. The screenshots are captures from real Streamlit
 browser sessions, not generated mockups.
+
+## Ongoing development vs static snapshots
+
+- The selected cohort contains 75 public repositories; selection requires
+  recent GitHub pushes (within 30 days) and observed issue/PR evidence.
+  A push is not proof of active feature development.
+- Each scheduled run queries GitHub, updates repository `pushed_at` for
+  visited projects, and persists source records as a new snapshot on `main`.
+- The dashboard filters recent pushes, recent issue/PR activity, and quieter
+  projects; it shows eight-week trends using event timestamps from actual
+  collected issue/PR records. It does not fabricate changes merely to make
+  a line graph move.
+- Some repositories may become quiet later. They remain in the historical
+  sample so trend comparisons are not biased by continual silent replacement.
+- Six-hour schedule is an **attempt**, not guaranteed freshness for every
+  source or immediate updates in the Streamlit browser. Source and snapshot
+  timestamps explain partial/stale data.
+- GitHub Actions workflow uses a schedule/manual trigger and safe
+  publication of the binary public snapshot to prevent stale rebase conflicts.

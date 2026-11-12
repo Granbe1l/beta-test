@@ -486,7 +486,7 @@ def methodology_contents(reports, selection):
     section("How repositories were selected")
     if selection:
         st.write(f"GitHub Search API candidates: **{selection['candidates']}** · selected: **{selection['selected']}** · search status: **{selection['status']}**.")
-        st.write("Public, not forked or archived, ≥50 stars as an initial filter, pushed within 90 days, with observed issues and PRs. "
+        st.write("Public, not forked or archived, ≥50 stars as an initial filter, pushed within 30 days at selection, with observed issues and PRs. The same cohort is retained for honest trends; quiet projects are shown, not silently deleted. "
                  "Selection balances ecosystems and sizes; it does not represent GitHub as a whole.")
         decisions = selection.get("decisions", [])
         if decisions:

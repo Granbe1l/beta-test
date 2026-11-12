@@ -25,6 +25,7 @@ jobs:
       BACKFILL_DAYS: '120'
       COMPARISON_DAYS: '90'
       STALE_HOURS: '12'
+      FRESHNESS_DAYS: '30'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,7 +41,11 @@ jobs:
       - name: Expand to up to 75 vetted repos and sync within API budget
         shell: bash
         run: |
-          python scripts/run_sync.py --expand --initial-batch 12 --max-requests 850 || echo 'Some sources incomplete or budget-limited; retained previous evidence and checkpoint.'
+          if python scripts/run_sync.py --expand --initial-batch 12 --max-requests 850; then
+            echo "GitHub ingestion returned complete checkpoints for visited repositories."
+          else
+            echo "::warning::Some GitHub sources incomplete or budget-limited; historical records and checkpoint status preserved."
+          fi
           python scripts/build_public_snapshot.py
           python scripts/audit.py > snapshot-audit.json
       - name: Preserve evidence and coverage audit
