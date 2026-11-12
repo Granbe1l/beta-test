@@ -93,22 +93,31 @@ try:
             except Exception as exc:
                 print("Additional viewport unavailable: " + str(exc), flush=True)
             if label == "Explore repositories":
-                for tab in ("Compare two projects", "Compare projects", "Source details"):
-                    try:
-                        desktop.get_by_role("tab", name=tab).click(timeout=10000)
-                        time.sleep(1)
-                        if tab == "Compare two projects":
-                            assert desktop.get_by_label("First project").is_visible()
-                            assert desktop.get_by_label("Second project").is_visible()
-                            assert desktop.get_by_text("Open issues (retrieved)").first.is_visible()
-                            assert desktop.get_by_role("link", name="View original GitHub project").count() >= 2
-                            print("Validated two-project comparison inputs, table and links", flush=True)
-                        desktop.screenshot(path=str(OUT / (
-                            "desktop-repositories-" + tab.lower().replace(" ", "-") + ".png"
-                        )), full_page=False)
-                        print("Captured Explorer tab: " + tab, flush=True)
-                    except Exception as exc:
-                        print("Explorer tab capture unavailable: " + str(exc), flush=True)
+                # These are required interactions. Do not silently pass a
+                # screenshot workflow when the comparison page breaks.
+                tab = "Compare two projects"
+                desktop.get_by_role("tab", name=tab).click(timeout=12000)
+                time.sleep(1.2)
+                assert desktop.get_by_text("First project", exact=True).count() >= 1
+                assert desktop.get_by_text("Second project", exact=True).count() >= 1
+                assert desktop.locator('[data-testid="stDataFrame"]').count() >= 1, (
+                    "Side-by-side project comparison table did not render")
+                links = desktop.get_by_role("link", name="View original GitHub project")
+                assert links.count() >= 2, "Both project source links must be available"
+                desktop.screenshot(
+                    path=str(OUT / "desktop-repositories-compare-two.png"),
+                    full_page=False)
+                print("Validated two-project comparison controls, table and links",
+                      flush=True)
+                for tab in ("Compare projects", "Source details"):
+                    desktop.get_by_role("tab", name=tab).click(timeout=10000)
+                    time.sleep(1)
+                    desktop.screenshot(
+                        path=str(OUT / (
+                            "desktop-repositories-" + tab.lower().replace(" ", "-") + ".png")),
+                        full_page=False)
+                    print("Captured Explorer tab: " + tab, flush=True)
+
 
         mobile = browser.new_page(viewport={"width": 390, "height": 844},
                                   device_scale_factor=1, is_mobile=True,
