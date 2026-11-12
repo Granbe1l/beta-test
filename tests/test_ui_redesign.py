@@ -66,7 +66,7 @@ def test_six_view_navigation_and_purple_mobile_theme():
     assert '@media(max-width:700px)' in v2_css
     assert 'type="primary" if st.session_state["main_nav"] == label' in app
     assert 'st.radio(' not in app
-    assert 'All overview counts and charts show retrieved records' in v2
+    assert 'All displayed totals use retrieved records only' in v2
     assert 'portfolio_findings(reports, max_findings=max(limit, 10))' in v2
     assert 'comparable_observation_pair(chosen)' in v2
     assert 'checks_in_period(r["ci_rows"], days=period)' in v2

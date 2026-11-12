@@ -104,19 +104,33 @@ try:
                 '[data-testid="collapsedControl"] button',
                 '[data-testid="collapsedControl"]',
                 'button[aria-label="Open sidebar"]',
+                'button[aria-label="Expand sidebar"]',
             ):
                 control = mobile.locator(selector)
                 if control.count() and control.first.is_visible():
                     try:
-                        control.first.click(timeout=5000)
-                        time.sleep(0.8)
+                        control.first.click(timeout=5000, force=True)
+                        time.sleep(1.2)
                         if drawer_open():
                             opened = True
                             break
                     except Exception:
                         continue
             if not opened:
-                raise AssertionError("Mobile sidebar drawer did not open in the browser; do not publish an unverified navigation capture.")
+                # Streamlit 1.67 mobile can use a chevron control with no
+                # stable test-id; interact with its actual visible position.
+                print("Sidebar toggle using top-left mobile chevron", flush=True)
+                mobile.mouse.click(32, 32)
+                time.sleep(1.2)
+                opened = drawer_open()
+            if not opened:
+                controls = mobile.evaluate("""() => [...document.querySelectorAll('button')]
+                    .slice(0,25).map(b => ({html:b.outerHTML.slice(0,220),
+                    x:b.getBoundingClientRect().x,y:b.getBoundingClientRect().y}))""")
+                bounds = sidebar.bounding_box()
+                print("Mobile sidebar bounds:", bounds, flush=True)
+                print("Mobile button controls:", controls, flush=True)
+                raise AssertionError("Mobile sidebar drawer did not open in the browser; do not publish unverified navigation.")
         assert drawer_open(), "Mobile sidebar must be visible for the navigation screenshot"
         nav_bytes = mobile.screenshot(path=str(OUT / "mobile-navigation.png"), full_page=False)
 
