@@ -77,7 +77,7 @@ def test_six_view_navigation_and_purple_mobile_theme():
     assert 'compare_two_repositories(reports)' in v2
     assert 'st.download_button(' in trend
     assert 'go.Scatter(' in trend
-    assert 'Zeros describe retrieved rows' in trend
+    assert 'Only a bounded collection is available' in trend
     assert 'What do issue, PR, merge and CI/CD mean?' in v2
     # Visual diversity must match analytic questions and real data contracts.
     assert 'go.Pie(' in v2  # part-to-whole

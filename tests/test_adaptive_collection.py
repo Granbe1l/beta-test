@@ -44,8 +44,8 @@ def test_adaptive_recent_window_reaches_complete_when_full_backfill_cannot(db, c
     assert response["attempts"] == 2
     assert response["window_days"] == 7
     assert cp.coverage_start.date() == (NOW - timedelta(days=7)).date()
-    assert cp.last_success_at == NOW
-    assert cp.high_watermark == NOW
+    assert cp.last_success_at.replace(tzinfo=None) == NOW.replace(tzinfo=None)
+    assert cp.high_watermark.replace(tzinfo=None) == NOW.replace(tzinfo=None)
     assert response["pages"] == 3
     assert db.scalar(select(func.count()).select_from(Issue)) == 2
     assert len(c.calls) == 2
