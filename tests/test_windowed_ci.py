@@ -127,3 +127,35 @@ def test_recent_cached_days_are_expired_but_older_days_are_reusable(db, cfg):
                                           verified_days=old)
     assert expired.verified_days
     assert client.request_count > 0
+
+
+
+def test_verified_day_checkpoints_survive_snapshot_export_and_restore(db, cfg, tmp_path):
+    """Each scheduled Actions runner starts from a restored SQLite snapshot."""
+    from src.analytics.read import load_reports
+    from src.analytics.snapshot import export_snapshot
+    from src.collectors.restore import hydrate_snapshot
+    from src.database.store import make_engine, init_db, session_factory
+
+    days = {"2026-11-10": NOW.isoformat(), "2026-11-09": NOW.isoformat()}
+    db.add(SyncCheckpoint(repo_id=101, source="workflow_runs",
+                          status="partial", verified_days=days))
+    db.commit()
+    report = load_reports(db, now=NOW)
+    snapshot = tmp_path / "snapshot.json.gz"
+    selection = {"id": 1, "parameters": {"test": "real checkpoint roundtrip"},
+                 "candidates": 1, "selected": 1, "decisions": [],
+                 "status": "complete"}
+    export_snapshot(snapshot, report, selection, generated_at=NOW)
+
+    engine = make_engine(f"sqlite:///{tmp_path / 'rehydrated.sqlite3'}")
+    init_db(engine)
+    try:
+        with session_factory(engine)() as restored:
+            result = hydrate_snapshot(restored, snapshot)
+            cp = restored.get(SyncCheckpoint, (101, "workflow_runs"))
+            assert result["restored"] == 1
+            assert cp.verified_days == days
+            assert cp.status == "partial"
+    finally:
+        engine.dispose()
