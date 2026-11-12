@@ -17,3 +17,5 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python -m compileall -q src scripts streamlit_app.py
       - run: python -m pytest -q
+      - name: Benchmark real curated snapshot (no fabricated data)
+        run: python scripts/benchmark_snapshot.py

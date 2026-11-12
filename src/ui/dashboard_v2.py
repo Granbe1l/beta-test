@@ -366,6 +366,7 @@ def _findings_view(findings):
                     st.link_button("Inspect evidence on GitHub", f["url"],
                                    use_container_width=True)
                 with st.expander("Evidence and limitations"):
+                    st.caption(f.get("evidence_scope", "Observed GitHub records"))
                     st.write(f["evidence"])
                     st.write(f["interpretation"])
 

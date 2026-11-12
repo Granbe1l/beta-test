@@ -73,6 +73,8 @@ jobs:
           retention-days: 14
       - name: Validate fresh collection progress before publishing
         run: python scripts/verify_collection.py snapshot-audit-before.json snapshot-audit.json
+      - name: Benchmark validated real snapshot
+        run: python scripts/benchmark_snapshot.py
       - name: Publish newest snapshot without binary rebase conflicts
         shell: bash
         run: |

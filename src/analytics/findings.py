@@ -89,6 +89,14 @@ def findings_for_repo(report: dict) -> list[dict]:
                 metric_value=f'{c["change_percent"]:+.0f}%',
                 metric_context=f'{c["recent"]:,} recent vs {c["previous"]:,} prior observed closures',
             )
+    source_context = {
+        "issue-aging": "Current observed open issues · completed bounded issue scan",
+        "merge-duration": "Merged changes · verified 90-day PR window",
+        "closure-change": "Issue closures · verified adjacent 28+28-day windows",
+        "ci": "Known completed checks · verified 90-day Actions window",
+    }
+    for item in out:
+        item["evidence_scope"] = source_context.get(item["type"], "Observed GitHub records")
     return out[:3]
 
 

@@ -74,3 +74,27 @@ one day. Future improvements could use date-bucketed GitHub Search,
 GraphQL cursor workers, or a separate GH Archive warehouse; these have
 more API and maintenance cost. Data from such alternatives are NOT
 presented as already collected.
+
+
+## Date-window checkpoints and ongoing verification
+
+CI/CD scans now record verified UTC creation-date buckets, plus the time
+when each bucket was last scanned, in the source checkpoint JSON.
+This information survives across GitHub Actions runners through the
+compressed snapshot even when the full scan remains partial.
+
+A complete weekly range certifies its dates. When a week is capped,
+each calendar day is checked; a capped day remains unverified. Recent
+verified days are reused only for 24 hours, and older completed
+creation-date buckets can be reused to save GitHub requests. Source
+completeness requires the requested interval to be fully covered.
+
+The collector prioritizes stale previously-complete sources, keeps
+partials in the fair rotation, and rotates Issues/PR/CI ordering across
+six-hour slots. Existing SQLite/PostgreSQL installations receive an
+additive JSON checkpoint-column migration.
+
+Real 75-repository load/analysis benchmarks appear in GitHub Actions
+summaries, and screenshot browser checks are triggered after successfully
+published source refreshes. These checks do not prove exact six-hour
+punctuality, 100% lifetime data completeness, or public app uptime.

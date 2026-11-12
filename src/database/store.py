@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import re
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, inspect, text
 from sqlalchemy.orm import Session, sessionmaker
 from .models import Base, Issue, PullRequest, WorkflowRun, Repository, SyncCheckpoint, SyncLog, utcnow
 
@@ -19,6 +19,15 @@ def make_engine(url: str):
 
 def init_db(engine):
     Base.metadata.create_all(engine)
+    # Existing optional persistent SQL/PG deployments need a small additive
+    # migration; create_all never alters existing tables. Fresh Actions
+    # SQLite databases already have the column from Base.metadata.
+    with engine.begin() as conn:
+        columns = {c["name"] for c in inspect(conn).get_columns("sync_checkpoints")}
+        if "verified_days" not in columns:
+            conn.execute(text(
+                "ALTER TABLE sync_checkpoints ADD COLUMN verified_days JSON"
+            ))
 
 
 def session_factory(engine):

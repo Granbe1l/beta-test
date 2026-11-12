@@ -84,81 +84,131 @@ def fetch_source(client: GitHubClient, repo: Repository, source: str, since: dat
 
 def fetch_ci_windowed(client: GitHubClient, repo: Repository,
                       since: datetime, settings: Settings, now: datetime,
-                      *, pages_cap=42):
-    """Collect GitHub Actions within non-overlapping UTC calendar windows.
+                      *, pages_cap=18, verified_days=None):
+    """Resume *completed* CI creation-date buckets instead of rescanning them.
 
-    A busy repo can exceed six pages in one month even when each individual
-    week or day fits. The GitHub created parameter supports date ranges:
-    split into <=7-day intervals, then individual days on capped weeks.
-    Every interval must complete before certifying the requested window.
+    Each UTC calendar day is marked verified only after its bounded source
+    scan completed (or an entire week containing it completed). Retain old
+    verified days across separate scheduled collection jobs. Recent seven
+    days are always revalidated because GitHub workflow conclusions can
+    change or a run can be re-run. A completed old bucket attests to the
+    retrieved creation-date interval, NOT immutable historical outcomes.
+
+    Every date in the requested window must be verified for a source to
+    earn status=complete. Exhausted API budget leaves partial state while
+    preserving both rows and completed day buckets for the next run.
     """
     from src.collectors.client import PageResult
     from datetime import time
 
-    since = utc(since)
-    now = utc(now)
+    since, now = utc(since), utc(now)
     if since > now:
         raise ValueError("source start cannot be after current time")
+    prior = verified_days or {}
+    if isinstance(prior, list):  # Compatible with possible early checkpoints.
+        prior = {d: "1970-01-01T00:00:00+00:00" for d in prior
+                 if isinstance(d, str)}
+    # Recent days may change due to reruns. Reuse a certified day for only
+    # 24 hours; older-than-seven-day creation buckets can be reused longer.
+    cutoff = now.date() - timedelta(days=7)
+    reusable = {}
+    for date, last_verified in prior.items():
+        if not isinstance(date, str) or len(date) != 10:
+            continue
+        try:
+            parsed = datetime.fromisoformat(str(last_verified).replace("Z", "+00:00"))
+            if date < cutoff.isoformat() or utc(parsed) >= now - timedelta(hours=24):
+                reusable[date] = str(last_verified)
+        except (ValueError, TypeError):
+            continue
+    all_dates = [(since.date() + timedelta(days=i)).isoformat()
+                 for i in range((now.date() - since.date()).days + 1)]
+    required = set(all_dates)
+    verified = dict(reusable)
     records = {}
-    consumed = 0
-    fully_scanned = True
+    pages_total = 0
     interval_count = 0
 
-    def load(first_day, last_day):
-        nonlocal consumed, interval_count
+    def load(start_day, end_day):
+        nonlocal pages_total, interval_count
+        remaining = pages_cap - pages_total
+        if remaining <= 0:
+            return None
         budget = getattr(client, "max_requests", None)
         used = getattr(client, "request_count", 0)
-        if consumed >= pages_cap or (budget is not None and used + 2 >= budget):
+        if budget is not None and used + 2 >= budget:
             return None
-        lower = max(since, datetime.combine(first_day, time.min, tzinfo=timezone.utc))
-        upper = min(now, datetime.combine(last_day, time.max, tzinfo=timezone.utc))
-        rows, result = fetch_source(client, repo, "workflow_runs",
-                                    lower, settings, upper)
-        consumed += result.pages
+        lower = max(since, datetime.combine(start_day, time.min,
+                                            tzinfo=timezone.utc))
+        upper = min(now, datetime.combine(end_day, time.max,
+                                          tzinfo=timezone.utc))
+        # Strict per-repository budget, not an artificially high global
+        # page limit that starves sources belonging to other repositories.
+        from dataclasses import replace
+        bounded_settings = replace(settings, max_pages=min(settings.max_pages, remaining))
+        rows, pagination = fetch_source(client, repo, "workflow_runs",
+                                        lower, bounded_settings, upper)
+        pages_total += pagination.pages
         interval_count += 1
         for row in rows:
             records[row["id"]] = row
-        return result
+        return pagination
 
-    ending = now.date()
-    while ending >= since.date():
-        beginning = max(since.date(), ending - timedelta(days=6))
-        try:
-            weekly = load(beginning, ending)
-        except Exception:
-            fully_scanned = False
+    end = now.date()
+    while end >= since.date():
+        begin = max(since.date(), end - timedelta(days=6))
+        days = [(begin + timedelta(days=i)).isoformat()
+                for i in range((end - begin).days + 1)]
+        missing = [d for d in days if d not in reusable]
+        if not missing:
+            end = begin - timedelta(days=1)
+            continue
+        if len(missing) == len(days) and len(days) > 1:
+            try:
+                weekly = load(begin, end)
+            except Exception:
+                weekly = None
+            if weekly is None:
+                break
+            if weekly.complete:
+                verified.update({d: now.isoformat() for d in missing})
+                end = begin - timedelta(days=1)
+                continue
+        # If a week was capped, resume its individual days. On subsequent
+        # runs only incomplete days are queried; already-certified older
+        # days are skipped, saving API requests.
+        unfinished = False
+        for day in reversed(missing):
+            try:
+                daily = load(datetime.fromisoformat(day).date(),
+                             datetime.fromisoformat(day).date())
+            except Exception:
+                daily = None
+            if daily is None:
+                unfinished = True
+                break
+            if daily.complete:
+                verified[day] = now.isoformat()
+        if unfinished:
             break
-        if weekly is None:
-            fully_scanned = False
-            break
-        if not weekly.complete:
-            # Retain partial weekly rows, but verify EACH daily interval.
-            day = ending
-            while day >= beginning:
-                try:
-                    daily = load(day, day)
-                except Exception:
-                    fully_scanned = False
-                    break
-                if daily is None or not daily.complete:
-                    fully_scanned = False
-                    break
-                day -= timedelta(days=1)
-            if day >= beginning:
-                fully_scanned = False
-        if not fully_scanned:
-            break
-        ending = beginning - timedelta(days=1)
+        end = begin - timedelta(days=1)
 
+    complete = required.issubset(set(verified))
     result = PageResult(
-        items=[], pages=consumed, complete=fully_scanned,
-        cap_reached=not fully_scanned, cutoff_reached=False
-    )
-    return list(records.values()), result, since, interval_count, consumed
+        items=[], pages=pages_total, complete=complete,
+        cap_reached=not complete, cutoff_reached=False)
+    # Additional provenance is preserved by sync_one in SyncCheckpoint.
+    result.verified_days = {
+        d: stamp for d, stamp in sorted(verified.items())
+        if d >= (now.date() - timedelta(days=120)).isoformat()
+    }
+    return list(records.values()), result, since, interval_count, pages_total
+
 
 
 def fetch_source_adaptive(client: GitHubClient, repo: Repository, source: str,
-                          since: datetime, settings: Settings, now: datetime):
+                          since: datetime, settings: Settings, now: datetime,
+                          *, verified_days=None):
     """Narrow an overflowing recent-window scan without inventing completeness.
 
     The first bounded attempt is preserved. If its page limit is reached,
@@ -170,7 +220,8 @@ def fetch_source_adaptive(client: GitHubClient, repo: Repository, source: str,
     # GitHub Actions supports created-date filtering: partition busy
     # sources so capped 30-day lists do not automatically stay partial.
     if source == "workflow_runs" and (utc(now) - utc(since)).days <= 32:
-        return fetch_ci_windowed(client, repo, since, settings, now)
+        return fetch_ci_windowed(client, repo, since, settings, now,
+                                 verified_days=verified_days)
 
     candidates = [since]
     # Try a comparable 28-day window before falling back to shorter 7/1-day
@@ -222,7 +273,8 @@ def sync_one(session: Session, client: GitHubClient, repo: Repository, source: s
     session.commit()
     try:
         rows, pagination, actual_since, attempts, total_pages = fetch_source_adaptive(
-            client, repo, source, since, settings, now)
+            client, repo, source, since, settings, now,
+            verified_days=getattr(cp, "verified_days", None) if source == "workflow_runs" else None)
         write_records(session, source, rows)
         status = "complete" if pagination.complete else "partial"
         log.status = status
@@ -232,6 +284,11 @@ def sync_one(session: Session, client: GitHubClient, repo: Repository, source: s
         cp.status = status
         cp.pages_fetched = total_pages
         cp.records_fetched = len(rows)
+        if source == "workflow_runs" and hasattr(pagination, "verified_days"):
+            # Persist verified day buckets even for partially complete scans.
+            # On the next runner, snapshot restore brings these checkpoints
+            # back so we do not waste the whole request budget on the same days.
+            cp.verified_days = pagination.verified_days
         cp.last_error = (
             None if pagination.complete else
             "Page cap reached; source remains partial for requested window"
@@ -336,21 +393,32 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
             offset = (slot * 17) % len(repos)
             rotated = repos[offset:] + repos[:offset]
             now = run_at or utcnow()
-            needs, healthy = [], []
+            overdue, incomplete, healthy = [], [], []
             for r in rotated:
                 cps = [session.get(SyncCheckpoint, (r.id, source))
                        for source in SOURCES]
-                is_incomplete = any(
-                    cp is None or cp.status != "complete" or
-                    cp.last_success_at is None or
-                    utc(cp.last_success_at) < now - timedelta(hours=settings.stale_hours)
+                # Refresh formerly-complete stale sources promptly; then
+                # resume partials, while keeping healthy projects in rotation.
+                has_overdue = any(
+                    cp and cp.status == "complete" and
+                    (cp.last_success_at is None or
+                     utc(cp.last_success_at) < now - timedelta(hours=settings.stale_hours))
                     for cp in cps)
-                (needs if is_incomplete else healthy).append(r)
+                has_incomplete = any(cp is None or cp.status != "complete"
+                                     for cp in cps)
+                if has_overdue:
+                    overdue.append(r)
+                elif has_incomplete:
+                    incomplete.append(r)
+                else:
+                    healthy.append(r)
             ordered = []
-            # Prefer incompletes while keeping a fair share of healthy repos.
-            while needs or healthy:
-                ordered.extend(needs[:2])
-                del needs[:2]
+            while overdue or incomplete or healthy:
+                if overdue:
+                    ordered.append(overdue.pop(0))
+                for _ in range(2):
+                    if incomplete:
+                        ordered.append(incomplete.pop(0))
                 if healthy:
                     ordered.append(healthy.pop(0))
             repos = ordered
@@ -362,7 +430,12 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
             print("Collector request budget reached: unvisited repositories retain prior checkpoints")
             break
         refresh_repo_metadata(session, client, repo, now=run_at or utcnow())
-        for source in SOURCES:
-            result.append(sync_one(session, client, repo, source, settings, reconcile=reconcile))
+        # Rotate source order per six-hour slot; a high-volume Actions
+        # scan should not always be last and starved by Issues/PRs.
+        slot = int((run_at or utcnow()).timestamp() // (6 * 3600))
+        source_order = SOURCES[slot % len(SOURCES):] + SOURCES[:slot % len(SOURCES)]
+        for source in source_order:
+            result.append(sync_one(session, client, repo, source, settings,
+                                   reconcile=reconcile, now=run_at or utcnow()))
         record_observations(session, repo.id)
     return result

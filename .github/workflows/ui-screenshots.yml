@@ -37,6 +37,8 @@ jobs:
       - name: Check Chrome availability
         run: |
           if command -v google-chrome >/dev/null; then google-chrome --version; else python -m playwright install chromium; fi
+      - name: Benchmark current source snapshot
+        run: python scripts/benchmark_snapshot.py
       - name: Capture rendered desktop and mobile screenshot
         run: python scripts/capture_ui.py
       - name: Upload screenshots

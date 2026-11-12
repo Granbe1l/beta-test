@@ -122,6 +122,10 @@ class SyncCheckpoint(Base):
     pages_fetched: Mapped[int] = mapped_column(Integer, default=0)
     records_fetched: Mapped[int] = mapped_column(Integer, default=0)
     last_error: Mapped[str | None] = mapped_column(String(400))
+    # Verified CI creation-date buckets. Persisted in the compressed snapshot
+    # so expensive weeks/days do not need to be rescanned every six hours.
+    verified_days: Mapped[dict] = mapped_column(JSON, default=dict)
+
 
 
 class SyncLog(Base):

@@ -318,3 +318,37 @@ The Playwright workflow now captures stitched screenshots of the
 desktop/mobile overview. Standard browser `full_page=True` is not
 sufficient because Streamlit has an inner scrollbar. The source snapshots
 remain real, read-only data.
+
+
+## Collection improvements (November 2026)
+
+The fixed cohort is selected from **repositories**, not ranked GitHub
+contributors. Original eligibility: public and not forked/archived, at
+least 50 stars, pushed in the preceding 30 days at discovery, Issues
+enabled, and bounded evidence of both Issues and PRs. A round-robin
+sample balances language/category and popularity tiers. Quiet repositories
+are retained; the chart is not artificially made to rise.
+
+High-volume Actions scans are split by UTC week/day, with a bounded
+verified-day checkpoint saved inside the public snapshot. On scheduled
+runs, completed older buckets can be reused and recent buckets rechecked
+within 24 hours. This does not imply that historic run outcomes cannot
+change. Requests are distributed to stale and incomplete sources.
+
+Screenshots automatically rerun after successful source refreshes, and
+benchmark steps measure real snapshot loading, analytics time, and server
+memory. They are not equivalent to end-user load-speed measurements.
+
+See [data reliability and limitations](docs/DATA_RELIABILITY.md).
+
+## Deployment and demonstration
+
+Deploy on Streamlit Community Cloud from repository Granbe1l/beta-test,
+branch main, entrypoint streamlit_app.py. PostgreSQL secrets are not
+needed for the checked-in read-only snapshot. The dashboard does not
+trigger GitHub ingestion on page visits.
+
+A working public app URL has NOT been verified; deployment must be
+checked before claiming a live demo. In an interview, show an observed
+finding, open its direct GitHub evidence, explain the verified 7/28/90-day
+window, and demonstrate the collector's saved progress.
