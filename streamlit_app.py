@@ -55,31 +55,44 @@ def get_data(database_url, observation_days, stale_hours, snapshot_mtime):
 
 
 MENU = {
-    "◫  Dashboard": overview,
-    "▣  Explore repositories": project_details,
-    "◷  Open issues": issues_backlog,
-    "⇄  Changes & reviews": pull_request_review,
-    "✓  Build activity": cicd_activity,
-    "◎  Key findings": risks_recommendations,
+    "Dashboard": overview,
+    "Explore repositories": project_details,
+    "Open issues": issues_backlog,
+    "Changes & reviews": pull_request_review,
+    "Build activity": cicd_activity,
+    "Key findings": risks_recommendations,
 }
+
+# Plain-label vertical buttons replace radio choices; there are no bullet
+# selectors beside the feature names. Active state is explicit and accessible.
+if st.session_state.get("main_nav") not in MENU:
+    st.session_state["main_nav"] = "Dashboard"
 
 with st.sidebar:
     brand()
     st.caption("WORKSPACE")
-    nav = st.radio("Explore sections", list(MENU),
-                   label_visibility="collapsed", key="main_nav")
+    for label in MENU:
+        if st.button(
+            label, key="nav_" + label.lower().replace(" ", "_").replace("&", "and"),
+            use_container_width=True,
+            type="primary" if st.session_state["main_nav"] == label else "secondary",
+        ):
+            st.session_state["main_nav"] = label
+            st.rerun()
     st.divider()
-    st.caption("DATA STATUS")
+    st.caption("SOURCE HEALTH")
     status_slot = st.empty()
-    st.caption("Public GitHub records · view cache: 10 minutes")
-    if st.button("↻  Refresh dashboard view", use_container_width=True,
-                 help="Reloads stored records, never starts GitHub ingestion."):
+    st.caption("Verified public GitHub snapshot · read-only view")
+    if st.button("Refresh visible data", use_container_width=True,
+                 help="Reloads stored records only. GitHub ingestion is a separate workflow."):
         get_data.clear()
         st.rerun()
     st.markdown(
-        '<div class="side-footer">Candy Ristyan<br>Open-source delivery analytics</div>',
+        '<div class="side-footer">Candy Ristyan<br>Public GitHub delivery analytics</div>',
         unsafe_allow_html=True,
     )
+
+nav = st.session_state["main_nav"]
 
 database_url = os.getenv("DATABASE_URL") or None
 snapshot_mtime = SNAPSHOT_PATH.stat().st_mtime_ns if SNAPSHOT_PATH.is_file() else 0
@@ -109,16 +122,16 @@ else:
 
 status = status_for(reports)
 status_slot.caption({
-    "complete": "● Sources verified/current",
-    "partial": "● Data partially collected",
-    "stale": "● Data needs refresh",
-    "failed": "● Collection issue",
-    "unavailable": "○ Awaiting first sync",
+    "complete": "Verified sources available",
+    "partial": "Partial source coverage",
+    "stale": "Some sources are older",
+    "failed": "Source collection needs review",
+    "unavailable": "Awaiting first sync",
 }.get(status, status.title()))
 
-if nav == "◫  Dashboard":
+if nav == "Dashboard":
     overview(reports, selection)
-elif nav == "◎  Key findings":
+elif nav == "Key findings":
     risks_recommendations(reports, selection)
 else:
     MENU[nav](reports)

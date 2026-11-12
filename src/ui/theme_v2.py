@@ -55,6 +55,52 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:v
 .d-kpi-value{font-size:1.45rem;}.d-kpi-label{font-size:.68rem;}.d-section{margin-top:19px;}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+
+/* Feature navigation: plain labels, no radio circles or decorative bullets. */
+[data-testid="stSidebar"] [data-testid="stButton"] button {
+  justify-content:flex-start!important; text-align:left!important;
+  width:100%!important; padding:11px 14px!important;
+  min-height:44px!important; border-radius:10px!important;
+  font-size:.86rem!important;font-weight:600!important;
+  letter-spacing:-.01em!important;box-shadow:none!important;
+  transition:background-color .12s ease!important;
+}
+[data-testid="stSidebar"] [data-testid="stButton"] button[kind="secondary"] {
+  background:transparent!important;color:#DDD5ED!important;
+  border:1px solid transparent!important;
+}
+[data-testid="stSidebar"] [data-testid="stButton"] button[kind="secondary"]:hover {
+  background:rgba(255,255,255,.085)!important;color:white!important;
+}
+[data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] {
+  background:#6842B0!important;color:#FFFFFF!important;
+  border:1px solid #825EC2!important;
+  box-shadow:inset 3px 0 0 #E0C9FF!important;font-weight:740!important;
+}
+[data-testid="stSidebar"] [data-testid="stButton"] button:focus-visible {
+  outline:2px solid #DBC9FF!important;outline-offset:2px!important;
+}
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {gap:.28rem!important;}
+.d-status {border-radius:9px!important;}
+.d-kpi{box-shadow:0 4px 18px rgba(41,23,72,.035)!important;}
+.d-coverage{padding:11px 15px;margin:2px 0 16px;border:1px solid #E9E3F1;
+  background:#FFFFFF;border-radius:12px;color:#514563;font-size:.77rem;line-height:1.7;}
+.d-coverage strong{color:#443264;}
+.d-coverage em{font-style:normal;color:#755B9E;}
+.d-context{background:#F4F0FC;border-left:3px solid #9874D8;
+  padding:11px 14px;border-radius:7px;color:#534568;font-size:.77rem;line-height:1.6;margin-top:8px;}
+.d-takeaway{background:#FFFFFF;border:1px solid #E8E3F1;border-radius:13px;
+  padding:17px 19px;min-height:128px;}
+.d-takeaway b{color:#3D2B60;font-size:.92rem;}
+.d-takeaway p{color:#6A6077;font-size:.8rem;line-height:1.6;margin:7px 0 0;}
+/* Smoothly reflow KPI columns on mobile without forcing tiny four-column text. */
+@media(max-width:700px){
+  .d-kpi{min-height:92px;padding:13px 12px!important;}
+  .d-kpi-note{font-size:.68rem;}
+  .d-status{font-size:.66rem;}
+  .d-coverage{font-size:.71rem;padding:9px 11px;}
+}
+
 </style>
 """
 

@@ -42,3 +42,30 @@ uses the existing GitHub Actions workflow.
 
 No claim is made that the visual UI has been browser-tested merely by committing
 the source code. Screenshots require a successful Streamlit deployment.
+
+
+## Evidence-first UI improvements (revision)
+
+- Sidebar uses six native Streamlit buttons with plain feature names and a
+  visible selected state; the former radio circles are gone.
+- Overview KPI counts and charts use the **same retrieved rows**. These are
+  not estimates of complete project activity. A visible coverage strip
+  reports verified issues, PRs and workflow sources separately.
+- Weekly opened/closed issue activity uses observed rows and is explicitly
+  identified as incomplete when applicable.
+- Findings may use a verified issues or PR source even if some other source
+  types remain incomplete. Each finding still has denominator thresholds.
+- Repository composition comes from public GitHub metadata; no project score,
+  ranking or fabricated risk indicator was introduced.
+
+Design references (patterns, not copied code):
+- https://github.com/pingcap/ossinsight — clear repository exploration and
+  project comparisons.
+- https://github.com/chaoss/grimoirelab-sigils — separation of overview,
+  source-specific dashboards, and source filters.
+- https://github.com/ParthibanRajasekaran/delivery-intel — explicit evidence
+  and sample size per metric; no adoption of its scores or DORA estimates.
+
+Updated screenshot tests should cover all six navigation destinations and
+repository Explorer tabs. The screenshots are captures from real Streamlit
+browser sessions, not generated mockups.

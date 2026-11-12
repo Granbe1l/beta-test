@@ -10,8 +10,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.mark.parametrize("destination", [
-    "◫  Dashboard", "▣  Explore repositories", "◷  Open issues",
-    "⇄  Changes & reviews", "✓  Build activity", "◎  Key findings",
+    "Dashboard", "Explore repositories", "Open issues",
+    "Changes & reviews", "Build activity", "Key findings",
 ])
 def test_dashboard_routes_render_without_live_data(tmp_path, monkeypatch, destination):
     streamlit = pytest.importorskip("streamlit")
@@ -25,5 +25,7 @@ def test_dashboard_routes_render_without_live_data(tmp_path, monkeypatch, destin
     # Each route is executed in a real Streamlit script runner, not in mocks.
     at = AppTest.from_file(str(ROOT / "streamlit_app.py"), default_timeout=30).run()
     assert not at.exception, f"Dashboard boot error: {at.exception}"
-    at.sidebar.radio[0].set_value(destination).run()
+    matches = [button for button in at.sidebar.button if button.label == destination]
+    assert len(matches) == 1, f"Missing sidebar feature: {destination}"
+    matches[0].click().run()
     assert not at.exception, f"{destination}: {at.exception}"

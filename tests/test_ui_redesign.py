@@ -64,6 +64,10 @@ def test_six_view_navigation_and_purple_mobile_theme():
     assert 'observed_age_bands' in v2
     assert 'observed_outcomes' in v2
     assert '@media(max-width:700px)' in v2_css
+    assert 'type="primary" if st.session_state["main_nav"] == label' in app
+    assert 'st.radio(' not in app
+    assert 'All overview counts and charts show retrieved records' in v2
+    assert 'portfolio_findings(reports, max_findings=limit)' in v2
 
 
 def test_no_hardcoded_example_kpis_as_live():

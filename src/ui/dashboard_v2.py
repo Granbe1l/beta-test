@@ -22,6 +22,7 @@ from src.ui.filters import (filter_work_items, filter_pull_requests,
 from src.ui.pages import (status_for, select_repo, table_rows, source_coverage,
                           comparison, methodology_contents, at_time)
 from src.ui.theme import esc, empty_state
+from src.ui.observed import summary
 
 PURPLE = "#6941C6"
 PURPLE_LIGHT = "#AE8BE8"
@@ -51,8 +52,8 @@ def _section(title, note=""):
 def _heading(kicker, title, note, reports):
     status = status_for(reports)
     statuses = {
-        "complete": "Sources verified", "partial": "Partial coverage",
-        "stale": "Refresh needed", "failed": "Collection issue",
+        "complete": "Sources verified", "partial": "Coverage in progress",
+        "stale": "Coverage in progress", "failed": "Collection needs review",
         "unavailable": "Sources unavailable",
     }
     good = "ok" if status == "complete" else ""
@@ -120,7 +121,7 @@ def _observed_note(reports, source):
 
 
 def _findings(reports, limit=3):
-    return portfolio_findings([r for r in reports if r.get("coverage_ok")], limit)
+    return portfolio_findings(reports, max_findings=limit)
 
 
 def _findings_view(findings):
@@ -183,90 +184,111 @@ def _coverage_details(reports):
             st.dataframe(frame, hide_index=True, use_container_width=True)
 
 
-def overview(reports, selection):
+def _coverage_banner(reports):
+    """Visible denominators keep chart totals in the proper context."""
+    from src.ui.observed import coverage_counts
+    counts = coverage_counts(reports)
+    count = len(reports)
     st.markdown(
-        '<div class="d-hero"><div><span class="d-eyebrow">OPEN SOURCE · DELIVERY ANALYTICS</span>'
-        '<h1>Where does the work stand?</h1>'
-        '<p>See what remains open, how changes progress, and which automated checks need attention—all supported by public GitHub records.</p>'
-        '</div><div class="d-mark">◈</div></div>',
+        '<div class="d-coverage"><strong>Data coverage</strong> · '
+        f'Issues {counts["issues"]}/{count} verified &nbsp;|&nbsp; '
+        f'Code changes {counts["pull_requests"]}/{count} verified &nbsp;|&nbsp; '
+        f'GitHub Actions {counts["workflow_runs"]}/{count} verified. '
+        '<em>All overview counts and charts show retrieved records, not estimated totals.</em>'
+        '</div>', unsafe_allow_html=True)
+
+
+def overview(reports, selection):
+    from src.ui.observed import summary
+    st.markdown(
+        '<div class="d-hero"><div><span class="d-eyebrow">PUBLIC GITHUB · PROJECT DELIVERY MONITOR</span>'
+        '<h1>See the work behind the code.</h1>'
+        '<p>Track open tasks, code changes, and automated checks in one place—'
+        'with evidence you can inspect.</p></div><div class="d-mark">D / M</div></div>',
         unsafe_allow_html=True)
     if not reports:
-        _kpis([("Tracked projects", "0", "No data yet", "▣"),
-               ("Open issues", "—", "No verified source", "◷"),
-               ("Open changes", "—", "No verified source", "⇄"),
-               ("Automated checks", "—", "No verified source", "✓")])
-        st.info("Load the genuine GitHub snapshot or configure PostgreSQL to display real measurements.")
+        _kpis([("Projects tracked", "0", "No snapshot", "▣"),
+               ("Open tasks retrieved", "—", "No available records", "◷"),
+               ("Open code changes", "—", "No available records", "⇄"),
+               ("Completed checks · 90d", "—", "No available records", "✓")])
+        st.info("Run the public GitHub snapshot workflow to display real measurements.")
         return
 
     chosen = _scope(reports, "v2_scope")
-    issues, issue_note = _available_total(chosen, "issues", "issues", "observed_open")
-    prs, pr_note = _available_total(chosen, "pull_requests", "prs", "open")
-    runs, run_note = _available_total(chosen, "workflow_runs", "ci", "completed")
-    _kpis([("Tracked projects", _number(len(chosen)), "Curated public sample", "▣"),
-           ("Open issues", issues, issue_note, "◷"),
-           ("Open changes", prs, pr_note, "⇄"),
-           ("Checks · 90 days", runs, run_note, "✓")])
+    info = summary(chosen)
+    scope = "Selected project" if len(chosen) == 1 else "Curated public sample"
+    _kpis([
+        ("Projects tracked", _number(info["repositories"]), scope, "▣"),
+        ("Open tasks retrieved", _number(info["open_issues"]), "Observed GitHub issues · not the full backlog", "◷"),
+        ("Open code changes", _number(info["open_changes"]), "Observed PRs including drafts", "⇄"),
+        ("Completed checks · 90d", _number(info["completed_checks"]), "Retrieved GitHub Actions runs", "✓"),
+    ])
+    _coverage_banner(chosen)
 
-    _section("01 / Work at a glance", "Visual summaries of retrieved records. Select a repository above to focus the view.")
-    left, right = st.columns([1.12, 1], gap="large")
+    _section("01 / Delivery activity", "What is still open, and what happened in recent automated checks?")
+    left, right = st.columns([1.1, 1], gap="large")
     with left, st.container(border=True):
-        _chart_title("How old are the open issues?", _observed_note(chosen, "issues"))
-        bands = observed_age_bands([x for r in chosen for x in r["issue_rows"]])
+        _chart_title("Age of retrieved open tasks", "These are open GitHub issues; age is not a deadline.")
+        bands = observed_age_bands(info["issue_rows"])
         if sum(bands.values()):
             fig = go.Figure(go.Bar(y=list(bands), x=list(bands.values()),
-                orientation="h", marker_color=BAR,
-                text=list(bands.values()), textposition="outside",
-                hovertemplate="%{y}: %{x} issues<extra></extra>"))
-            fig.update_layout(yaxis=dict(autorange="reversed"), xaxis_title="Observed open issues")
+                orientation="h", marker_color=BAR, text=list(bands.values()),
+                textposition="outside", hovertemplate="%{y}: %{x} open tasks<extra></extra>"))
+            fig.update_layout(yaxis=dict(autorange="reversed"), xaxis_title="Retrieved open tasks")
             _chart(fig)
         else:
-            st.info("No open issue records retrieved. This does not prove the backlog is empty.")
+            st.info("No open task records were retrieved for this selection.")
     with right, st.container(border=True):
-        _chart_title("Automated check outcomes", "Retrieved GitHub Actions · 30 days")
-        outcomes = {k: v for k, v in observed_outcomes(
-            [x for r in chosen for x in r["ci_rows"]], days=30).items() if v}
+        _chart_title("Automated checks · last 30 days", "Outcome split of completed GitHub Actions runs.")
+        outcomes = {k: v for k, v in observed_outcomes(info["ci_rows"], days=30).items() if v}
         if outcomes:
             colors = [{"Success": GREEN, "Failure / timeout": RED,
                        "Skipped": PURPLE_LIGHT, "Other outcomes": GOLD}.get(k, PURPLE)
                       for k in outcomes]
             fig = go.Figure(go.Pie(labels=list(outcomes), values=list(outcomes.values()),
-                hole=.62, marker=dict(colors=colors), textinfo="percent",
+                hole=.65, marker=dict(colors=colors), textinfo="percent",
                 hovertemplate="%{label}: %{value} runs<extra></extra>"))
-            fig.update_layout(annotations=[dict(text=f"{sum(outcomes.values()):,} runs",
-                x=.5, y=.5, showarrow=False, font=dict(size=15, color=INK))])
+            fig.update_layout(annotations=[dict(text=f'{sum(outcomes.values()):,} checks',
+                x=.5, y=.5, showarrow=False, font=dict(size=14, color=INK))])
             _chart(fig, legend=True)
-            if any(r["status"].get("workflow_runs") != "complete" for r in chosen):
-                st.caption("The chart may describe a retrieved subset, not all checks.")
         else:
-            st.info("No completed GitHub Actions outcomes retrieved in the last 30 days.")
+            st.info("No completed GitHub Actions outcomes were retrieved during the last 30 days.")
 
-    _section("02 / Activity over time", "Weekly issue activity in the same 12-week observation window.")
+    _section("02 / Flow of work", "A descriptive trend of retrieved issues, not a verified total of all project activity.")
     with st.container(border=True):
-        _chart_title("Issues opened vs closed", "A trend is shown only with verified time-window coverage.")
-        if all(r["issues"].get("trend_valid") for r in chosen):
-            frame = _weekly([x for r in chosen for x in r["issue_rows"]])
+        _chart_title("Tasks opened vs closed · last 12 weeks",
+                     "Both lines use the same retrieved GitHub issue records and observation window.")
+        if info["issue_rows"]:
+            frame = _weekly(info["issue_rows"])
             fig = px.line(frame, x="Week", y="Issues", color="Activity", markers=True,
                           color_discrete_map={"Opened": PURPLE, "Closed": GREEN})
-            _chart(fig, height=260, legend=True)
+            _chart(fig, height=266, legend=True)
         else:
-            st.info("The 12-week trend is unavailable until issue coverage is complete for this period.")
+            st.info("No issue history has been collected for a trend yet.")
 
-    _section("03 / What deserves a closer look?", "Evidence-backed findings with short next steps.")
+    _section("03 / What needs a closer look?", "Only findings supported by sufficient verified source data appear below.")
     _findings_view(_findings(chosen))
-    _section("04 / Compare older open issues", "Counts are descriptive—not performance or project-quality rankings.")
-    rows = [
-        {"Repository": r["repository"]["full_name"], "Open issues aged 30+ days": r["issues"]["aged_open"]}
-        for r in chosen if r["status"].get("issues") == "complete"
-        and (r["issues"].get("aged_denominator") or 0) >= 5
-    ]
-    if rows:
-        frame = pd.DataFrame(rows).nlargest(8, "Open issues aged 30+ days").sort_values(
-            "Open issues aged 30+ days")
-        fig = px.bar(frame, x="Open issues aged 30+ days", y="Repository",
-                     orientation="h", color_discrete_sequence=[PURPLE])
-        _chart(fig, height=max(240, len(rows) * 36))
-    else:
-        st.caption("Comparable verified issue totals are not available yet.")
+    _section("04 / What projects are being studied?", "Curated repository composition—not a popularity or software-quality ranking.")
+    left, right = st.columns([1, 1], gap="large")
+    with left, st.container(border=True):
+        _chart_title("Repositories by project category", "Based on public repository metadata.")
+        from src.ui.charts import category_counts
+        categories = category_counts(chosen)
+        if categories:
+            cats = pd.DataFrame([{"Category": k, "Repositories": v}
+                                 for k, v in categories.items()]).sort_values("Repositories")
+            fig = px.bar(cats, x="Repositories", y="Category", orientation="h",
+                         color_discrete_sequence=[PURPLE], text="Repositories")
+            _chart(fig, height=max(240, 35 * len(cats)))
+    with right, st.container(border=True):
+        _chart_title("Most common main languages", "Based on GitHub repository primary-language metadata.")
+        languages = Counter(r["repository"].get("language") or "Not specified" for r in chosen)
+        frame = pd.DataFrame([{"Language": k, "Repositories": v} for k, v in
+                              languages.most_common(7)]).sort_values("Repositories")
+        if not frame.empty:
+            fig = px.bar(frame, x="Repositories", y="Language", orientation="h",
+                         color_discrete_sequence=[PURPLE_LIGHT], text="Repositories")
+            _chart(fig, height=max(240, 35 * len(frame)))
     _coverage_details(chosen)
 
 
@@ -283,13 +305,15 @@ def project_details(reports):
                 f'{esc(repo.get("language") or "Language not provided")}</small></div>',
                 unsafe_allow_html=True)
     st.link_button("Open GitHub project ↗", repo["url"])
+    observed = summary([r])
     _kpis([
-        ("Open issues", _number(r["issues"].get("observed_open")), "Verified source only", "◷"),
-        ("Open changes", _number(r["prs"].get("open")), "Verified source only", "⇄"),
-        ("Checks · 90 days", _number(r["ci"].get("completed")), "Verified history only", "✓"),
+        ("Open tasks retrieved", _number(observed["open_issues"]), "Observed GitHub issues", "◷"),
+        ("Open code changes", _number(observed["open_changes"]), "Observed PRs", "⇄"),
+        ("Completed checks · 90d", _number(observed["completed_checks"]), "Observed GitHub Actions runs", "✓"),
         ("Last repository push", utc(repo["pushed_at"]).strftime("%d %b") if repo.get("pushed_at") else "—",
-         "GitHub recorded timestamp", "↗"),
+         "GitHub metadata timestamp", "↗"),
     ])
+    st.caption("Counts describe retrieved records. Use Source details to inspect completeness.")
     a, b, c = st.tabs(["Activity history", "Compare projects", "Source details"])
     with a:
         observations = sorted(r.get("observations") or [],
@@ -321,11 +345,13 @@ def issues_backlog(reports):
         empty_state("No repository selected")
         return
     info = r["issues"]
+    observed = summary([r])
     _kpis([
-        ("Open issues", _number(info.get("observed_open")), "Verified count", "◷"),
-        ("30+ days old", _number(info.get("aged_open")), "Not a missed deadline", "◴"),
-        ("Share aged 30+ days", _percent(info.get("aged_percent")), "Of observed open issues", "%"),
+        ("Open tasks retrieved", _number(observed["open_issues"]), "Observed issue records", "◷"),
+        ("30+ days old", _number(observed["aged_issues"]), "Open task age · not lateness", "◴"),
+        ("Share aged 30+ days", _percent(observed["aged_share"]), "Of retrieved open tasks", "%"),
     ])
+    st.caption("Issue cards and charts count the same retrieved records—not the complete backlog.")
     c1, c2 = st.columns(2, gap="large")
     with c1, st.container(border=True):
         _chart_title("Issue age groups", _observed_note([r], "issues"))
@@ -338,12 +364,13 @@ def issues_backlog(reports):
             st.info("No observed open issues to chart.")
     with c2, st.container(border=True):
         _chart_title("Opened vs closed", "12 weeks · full observation coverage required")
-        if info.get("trend_valid"):
+        if r["issue_rows"]:
             fig = px.line(_weekly(r["issue_rows"]), x="Week", y="Issues", color="Activity",
                           markers=True, color_discrete_map={"Opened": PURPLE, "Closed": GREEN})
             _chart(fig, legend=True)
+            st.caption("Retrieved activity only; missing source coverage can omit events.")
         else:
-            st.info("Weekly trend unavailable without complete collection.")
+            st.info("No issue records were retrieved for this repository.")
     _section("Inspect the original issues")
     a, b, c = st.columns([2, 1, 1])
     with a:
@@ -367,13 +394,16 @@ def pull_request_review(reports):
         empty_state("No repository selected")
         return
     info = r["prs"]
+    observed = summary([r])
     _kpis([
-        ("Open changes", _number(info.get("open")), "Includes drafts", "⇄"),
-        ("Draft changes", _number(info.get("draft_open")), "Of the open changes", "◈"),
-        ("Merged · 90 days", _number(info.get("merged_in_period")), "Verified time window", "✓"),
+        ("Open changes retrieved", _number(observed["open_changes"]), "Includes draft pull requests", "⇄"),
+        ("Draft changes", _number(observed["draft_changes"]), "Of observed open changes", "◈"),
+        ("Merged · 90 days", _number(observed["merged_changes"]), "Observed merge timestamps", "✓"),
         ("Median merge time", f'{info["median_merge_days"]:.1f} days'
-         if info.get("median_merge_days") is not None else "—", "At least five merges", "◷"),
+         if info.get("median_merge_days") is not None else "—",
+         "Only with sufficient verified coverage", "◷"),
     ])
+    st.caption("Counts describe retrieved PR records; the median is withheld without sufficient evidence.")
     l, rcol = st.columns([1.2, .8], gap="large")
     with l, st.container(border=True):
         _chart_title("Time to finish merged changes", "Creation date → merge date · 90 days")
@@ -413,12 +443,14 @@ def cicd_activity(reports):
         empty_state("No repository selected")
         return
     info = r["ci"]
+    observed = summary([r])
     _kpis([
-        ("Completed checks", _number(info.get("completed")), "Last 90 days", "▣"),
-        ("Successful", _number(info.get("success")), "Known outcomes", "✓"),
-        ("Failed or timed out", _number(info.get("failure")), "Known outcomes", "×"),
-        ("Success share", _percent(info.get("success_percent")), "Not a code quality score", "%"),
+        ("Completed checks · 90d", _number(observed["completed_checks"]), "Retrieved workflow runs", "▣"),
+        ("Successful", _number(observed["successful_checks"]), "Of observed completed runs", "✓"),
+        ("Failed or timed out", _number(observed["failed_checks"]), "Of observed completed runs", "×"),
+        ("Success share", _percent(observed["check_success_share"]), "Of observed known outcomes", "%"),
     ])
+    st.caption("GitHub Actions only. Success share is not a software quality or deployment reliability score.")
     left, right = st.columns([1.16, .84], gap="large")
     now = datetime.now(timezone.utc)
     recent = []
@@ -474,16 +506,19 @@ def cicd_activity(reports):
 def risks_recommendations(reports, selection):
     _heading("ACTIONABLE FINDINGS", "Where should we look next?",
              "Evidence-backed observations with a direct link to the actual records.", reports)
-    ready = [r for r in reports if r.get("coverage_ok")]
+    from src.ui.observed import coverage_counts
     found = _findings(reports, limit=6)
+    verified = coverage_counts(reports)
     _kpis([
-        ("Review points", _number(len(found)), "Supported by verified records", "◎"),
-        ("Projects flagged", _number(len({x["scope"] for x in found})),
-         "Candidates for manual review", "◷"),
-        ("Current coverage", f"{len(ready)}/{len(reports)}" if reports else "—",
-         "All three GitHub sources", "✓"),
+        ("Evidence-based findings", _number(len(found)), "Backed by verified source records", "◎"),
+        ("Projects for review", _number(len({x["scope"] for x in found})),
+         "Suggestions, not confirmed defects", "◷"),
+        ("Verified issue sources", f'{verified["issues"]}/{len(reports)}' if reports else "—",
+         "Coverage is not a quality score", "✓"),
     ])
-    _section("Priorities for a closer look", "These are review suggestions, not confirmed defects or risk scores.")
+    if reports:
+        _coverage_banner(reports)
+    _section("Priorities for a closer look", "Each finding requires sufficient verified evidence from its specific source.")
     _findings_view(found)
     kinds = Counter(x["type"] for x in found)
     if kinds:
