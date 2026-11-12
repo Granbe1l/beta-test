@@ -134,6 +134,81 @@ def _horizontal_bars(labels, counts, colors=None, height=245, unit="Observed rec
     _chart(fig, height=height)
 
 
+
+def _donut(labels, values, colors, total_label, height=245):
+    """Use a part-of-whole chart only with a genuine, non-zero denominator."""
+    count = sum(values)
+    if not count:
+        st.info("No usable records were retrieved for this chart.")
+        return
+    fig = go.Figure(go.Pie(
+        labels=list(labels), values=list(values), hole=.69,
+        sort=False, direction="clockwise",
+        marker=dict(colors=list(colors), line=dict(color="#FFFFFF", width=2)),
+        textinfo="percent", textposition="outside",
+        textfont=dict(size=10, color=INK), automargin=True,
+        hovertemplate="%{label}: %{value:,} (%{percent})<extra></extra>",
+    ))
+    fig.update_layout(
+        margin=dict(t=8, r=6, b=44, l=6),
+        annotations=[dict(text=f"<b>{count:,}</b><br><span style='font-size:9px'>{total_label}</span>",
+                          showarrow=False, x=.5, y=.5, font=dict(size=17, color=INK))],
+    )
+    _chart(fig, height=height, legend=True)
+
+
+def _ci_donut(rows, period=30):
+    """Known outcomes only, with the same numerator and denominator as KPI."""
+    info = checks_in_period(rows, days=period)
+    labels = [k for k in ("Success", "Failure / timeout", "Skipped", "Other outcomes")
+              if info["counts"].get(k)]
+    palette = {"Success": GREEN, "Failure / timeout": RED,
+               "Skipped": PURPLE_LIGHT, "Other outcomes": GOLD}
+    if not labels:
+        st.info("No completed automated checks with known outcomes were retrieved.")
+        return
+    _donut(labels, [info["counts"][k] for k in labels],
+           [palette[k] for k in labels], "known checks", height=245)
+    success = info["success_percent"]
+    if success is not None:
+        st.caption(f'{success:.1f}% of {info["known"]:,} known checks succeeded over {period} days. '
+                   "A passed check is not a software-quality score.")
+    if info["unknown"]:
+        st.caption(f'{info["unknown"]:,} completed runs with unknown conclusions are excluded.')
+
+
+def _issue_age_donut(rows):
+    bands = observed_age_bands(rows)
+    values = list(bands.values())
+    _donut(list(bands), values, BAR, "open issues", height=250)
+    count = sum(values)
+    if count:
+        older = values[2] + values[3]
+        st.caption(f"{older:,} of {count:,} observed open issues are at least 30 days old "
+                   f"({older / count:.0%}). Age alone does not establish lateness.")
+
+
+def _duration_columns(buckets):
+    names = list(buckets)
+    values = [int(v or 0) for v in buckets.values()]
+    if not sum(values):
+        st.info("No merged PR records were retrieved in this period.")
+        return
+    fig = go.Figure(go.Bar(
+        x=names, y=values,
+        marker_color=BAR[:len(values)], text=[f'{v:,}' for v in values],
+        textposition="outside", cliponaxis=False,
+        hovertemplate="%{x}: %{y:,} merged changes<extra></extra>",
+    ))
+    fig.update_layout(
+        bargap=.43,
+        xaxis_title="Time from opening to merge",
+        yaxis_title="Merged pull requests",
+        yaxis=dict(range=[0, max(values) * 1.20]),
+    )
+    _chart(fig, height=255)
+
+
 def _outcome_bars(rows, period=30):
     """Percentages and denominators share the same time window as the KPI."""
     info = checks_in_period(rows, days=period)
@@ -308,25 +383,39 @@ def _matched_snapshot_chart(chosen):
     paired = comparable_observation_pair(chosen)
     if paired:
         with st.container(border=True):
-            _chart_title("Change in open work across verified snapshots",
-                f'{paired["previous_date"]} vs {paired["current_date"]} · '
-                f'{paired["matched_count"]} identical repositories observed on both days')
-            frame = pd.DataFrame([
-                {"Type": "Open issues", "Snapshot": paired["previous_date"],
-                 "Observed count": paired["previous_issues"]},
-                {"Type": "Open issues", "Snapshot": paired["current_date"],
-                 "Observed count": paired["current_issues"]},
-                {"Type": "Open pull requests", "Snapshot": paired["previous_date"],
-                 "Observed count": paired["previous_prs"]},
-                {"Type": "Open pull requests", "Snapshot": paired["current_date"],
-                 "Observed count": paired["current_prs"]},
-            ])
-            fig = px.bar(frame, x="Type", y="Observed count", color="Snapshot",
-                         barmode="group", text="Observed count",
-                         color_discrete_sequence=[PURPLE_LIGHT, PURPLE])
-            _chart(fig, height=265, legend=True)
-            st.caption("Only projects with source-validated observations on both dates are compared. "
-                       "This is not a comparison of all 75 projects, and open work alone cannot measure delivery speed.")
+            _chart_title("Change across two verified snapshots",
+                f'{paired["previous_date"]} → {paired["current_date"]} · '
+                f'{paired["matched_count"]} identical repositories measured on both dates')
+            first, second = paired["previous_date"], paired["current_date"]
+            left, right = st.columns(2, gap="medium")
+            for column, label, before, after, color in (
+                (left, "Open issues", paired["previous_issues"], paired["current_issues"], PURPLE),
+                (right, "Open pull requests", paired["previous_prs"], paired["current_prs"], GREEN),
+            ):
+                with column:
+                    delta = after - before
+                    st.caption(f'{label}: {before:,} → {after:,} '
+                               f'({delta:+,} observed items)')
+                    ylo = max(0, min(before, after) - max(1, round(max(before, after) * .10)))
+                    yhi = max(before, after) + max(1, round(max(before, after) * .15))
+                    if yhi <= ylo:
+                        yhi = ylo + 1
+                    fig = go.Figure(go.Scatter(
+                        x=[first, second], y=[before, after],
+                        mode="lines+markers+text",
+                        line=dict(color=color, width=3),
+                        marker=dict(size=11, color=color, line=dict(color="white", width=2)),
+                        text=[f'{before:,}', f'{after:,}'],
+                        textposition="top center",
+                        hovertemplate="%{x}<br>Observed open items: %{y:,}<extra></extra>",
+                    ))
+                    fig.update_layout(
+                        yaxis=dict(range=[ylo, yhi], title="Observed open items"),
+                        xaxis=dict(type="category", title=None),
+                    )
+                    _chart(fig, height=205)
+            st.caption("Two verified observations show only a net change in recorded open work, "
+                       "not a productivity trend, cause of delay, or comparison of all 75 projects.")
     else:
         with st.container(border=True):
             _chart_title("Opened vs completed activity · last 7 days",
@@ -402,8 +491,8 @@ def overview(reports, selection):
         _horizontal_bars(list(bands), list(bands.values()), BAR,
                          height=250, unit="Observed open issues")
     with right, st.container(border=True):
-        _chart_title("Automated checks by outcome", "Last 30 days · known GitHub Actions results.")
-        _outcome_bars(info["ci_rows"], period=30)
+        _chart_title("Automated check outcomes", "Share of known GitHub Actions results · last 30 days.")
+        _ci_donut(info["ci_rows"], period=30)
 
     _section("02 / Compare change without sample bias",
              "A trend is shown only for projects with comparable validated observations on two different days.")
@@ -420,20 +509,38 @@ def overview(reports, selection):
                 "Repository": report["repository"]["full_name"],
                 "Recent issue/PR events": events,
                 "Opened issues": a["new_issues"],
+                "Closed issues": a["closed_issues"],
                 "Opened PRs": a["new_prs"],
                 "Merged PRs": a["merged_prs"],
                 "GitHub": report["repository"]["url"],
             })
     if rows:
         view = pd.DataFrame(rows).sort_values("Recent issue/PR events", ascending=False)
-        top = view.head(10).sort_values("Recent issue/PR events")
+        top = view.head(8).sort_values("Recent issue/PR events")
         with st.container(border=True):
-            _chart_title("Projects with the most observed events · 7d",
-                         "Issue open/close + PR open/merge events in this sample; counts are not performance rankings.")
-            fig = px.bar(top, x="Recent issue/PR events", y="Repository",
-                         orientation="h", color_discrete_sequence=[PURPLE],
-                         text="Recent issue/PR events")
-            _chart(fig, height=min(460, max(255, len(top) * 36)))
+            _chart_title("Where observed activity happened · 7 days",
+                         "Stacked by issue versus pull-request events; not a project-quality ranking.")
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                name="Issue events", orientation="h",
+                y=top["Repository"].tolist(),
+                x=(top["Opened issues"] + top["Closed issues"]).tolist(),
+                marker_color=PURPLE,
+                hovertemplate="%{y}<br>Issue events: %{x:,}<extra></extra>",
+            ))
+            fig.add_trace(go.Bar(
+                name="PR events", orientation="h",
+                y=top["Repository"].tolist(),
+                x=(top["Opened PRs"] + top["Merged PRs"]).tolist(),
+                marker_color=GREEN,
+                hovertemplate="%{y}<br>Pull-request events: %{x:,}<extra></extra>",
+            ))
+            fig.update_layout(barmode="stack", bargap=.33,
+                              xaxis_title="Observed events",
+                              yaxis_title=None, margin=dict(l=10, r=25, t=8, b=45))
+            _chart(fig, height=max(290, len(top) * 37), legend=True)
+            st.caption("The same change can generate multiple events. "
+                       "These counts describe captured GitHub activity, not effort or development quality.")
         with st.expander("Inspect recent event counts and source links"):
             st.dataframe(view, hide_index=True, use_container_width=True,
                          column_config={"GitHub": st.column_config.LinkColumn(
@@ -542,9 +649,7 @@ def issues_backlog(reports):
     with c1, st.container(border=True):
         _chart_title("Age of observed open issues",
                      "Long-lived issues are not automatically overdue.")
-        bands = observed_age_bands(r["issue_rows"])
-        _horizontal_bars(list(bands), list(bands.values()), BAR,
-                         height=248, unit="Open issues")
+        _issue_age_donut(r["issue_rows"])
     with c2, st.container(border=True):
         _chart_title("Issue activity · last 7 days",
                      "Actual opened and closed events in retrieved records.")
@@ -593,8 +698,7 @@ def pull_request_review(reports):
         if has_merges:
             _chart_title("Time from PR creation to merge",
                          "Observed merged pull requests · last 90 days.")
-            _horizontal_bars(list(buckets), list(buckets.values()), BAR,
-                             height=235, unit="Merged pull requests")
+            _duration_columns(buckets)
             st.caption("This describes observed merge duration, not developer productivity. "
                        "Longer changes may differ in complexity or review requirements.")
         elif observed["open_changes"]:
@@ -665,7 +769,7 @@ def cicd_activity(reports):
     with right, st.container(border=True):
         _chart_title(f"Outcome distribution · {period} days",
                      f'{info["known"]:,} known results · same window as the KPIs.')
-        _outcome_bars(r["ci_rows"], period=period)
+        _ci_donut(r["ci_rows"], period=period)
     if r["status"].get("workflow_runs") != "complete":
         st.caption("The repository's source scan is incomplete or older. "
                    "Observed results may omit other runs; do not generalize this rate.")

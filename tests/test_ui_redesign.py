@@ -71,6 +71,13 @@ def test_six_view_navigation_and_purple_mobile_theme():
     assert 'comparable_observation_pair(chosen)' in v2
     assert 'checks_in_period(r["ci_rows"], days=period)' in v2
     assert 'Bounded source scans complete / tracked:' in v2
+    # Visual diversity must match analytic questions and real data contracts.
+    assert 'go.Pie(' in v2  # part-to-whole
+    assert 'go.Scatter(' in v2  # matched two-date comparison
+    assert 'def _duration_columns' in v2  # PR distribution
+    assert 'name="PR events"' in v2  # stacked source activity
+    assert 'checks_in_period(rows, days=period)' in v2  # CI denominator
+
 
 
 def test_no_hardcoded_example_kpis_as_live():

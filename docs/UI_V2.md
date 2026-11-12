@@ -105,3 +105,19 @@ browser sessions, not generated mockups.
   browser-driven screenshots.
 - Source-complete means **bounded recent-window scan complete**. It is
   not a claim of complete project activity or full GitHub history.
+
+## Chart design V3: purpose before decoration
+
+| Question | Visualization | Why |
+| --- | --- | --- |
+| What share of automated checks passed? | Donut with explicit known-outcome denominator | Part-to-whole |
+| How old are open issues across the whole sample? | Horizontal categorical bars | Compare ordered counts |
+| What fraction of one repository's observed open issues fall in each age band? | Donut with count and age caution | Composition |
+| How many PRs merged in each duration band? | Distribution columns | Compare ordered buckets |
+| How did open work change for the same repositories? | Two-point slope lines, separated per metric | Honest matched-date net change |
+| Which sampled repositories show observed activity? | Stacked horizontal bars (issue vs PR events) | Compare composition of activity without pretending ranking quality |
+| What happened to automated checks by week? | Stacked weekly columns + outcome donut | Trend-like distribution and total composition using one time window |
+
+Labels use counts and units; captions explain the limits of recent-window public
+GitHub collection. Every visual is derived from the same read-only snapshot.
+No fabricated scores, new external data sources or artificial up/down lines.
