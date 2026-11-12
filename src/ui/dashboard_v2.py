@@ -415,12 +415,17 @@ def pull_request_review(reports):
     st.caption("Counts describe retrieved PR records; the median is withheld without sufficient evidence.")
     l, rcol = st.columns([1.2, .8], gap="large")
     with l, st.container(border=True):
-        _chart_title("Time to finish merged changes", "Creation date → merge date · 90 days")
         buckets = info.get("merge_distribution")
         if buckets is None:
             buckets = observed_merge_times(r["pr_rows"])
-            st.caption("Retrieved sample only; a repository-wide measure is not verified.")
-        if sum(buckets.values()):
+        has_merges = sum(buckets.values()) > 0
+        _chart_title(
+            "Time to finish merged changes" if has_merges else "Open changes by review status",
+            "Creation → merge · last 90 days" if has_merges
+            else "Observed open pull requests (draft vs ready for review)")
+        if has_merges:
+            if info.get("merge_distribution") is None:
+                st.caption("Retrieved sample only; a repository-wide measure is not verified.")
             fig = go.Figure(go.Bar(x=list(buckets), y=list(buckets.values()),
                                    marker_color=BAR, text=list(buckets.values()),
                                    textposition="outside"))
@@ -439,7 +444,10 @@ def pull_request_review(reports):
             st.info("No merged or open pull request records retrieved in this window.")
     with rcol, st.container(border=True):
         _chart_title("How to read this chart", "Interpretation")
-        st.write("Merge time describes how long observed code changes took from opening to completion. It does not measure developer performance or establish the cause of a delay.")
+        if has_merges:
+            st.write("Merge time is the observed number of days between opening and merging a change. It does not measure developer performance or explain delays.")
+        else:
+            st.write("Draft PRs are still being prepared. Ready-for-review PRs can be reviewed, but neither state proves a blocker or deadline breach.")
     _section("Explore original pull requests")
     a, b, c = st.columns([2, 1, 1])
     with a:
