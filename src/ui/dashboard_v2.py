@@ -60,7 +60,7 @@ def _heading(kicker, title, note, reports):
     st.markdown(
         f'<div class="d-heading"><div><div class="d-overline">{esc(kicker)}</div>'
         f'<h1>{esc(title)}</h1><p>{esc(note)}</p></div>'
-        f'<span class="d-status {good}">● {esc(statuses.get(status, status.title()))}</span>'
+        f'<span class="d-status {good}">{esc(statuses.get(status, status.title()))}</span>'
         '</div>', unsafe_allow_html=True)
 
 
@@ -127,7 +127,7 @@ def _findings(reports, limit=3):
 def _findings_view(findings):
     names = {
         "issue-aging": "Older issues deserve a closer look",
-        "merge-duration": "Check how long changes remain open",
+        "merge-duration": "How long do completed changes take?",
         "closure-change": "Issue closure activity has changed",
         "ci": "Review automated check outcomes",
     }

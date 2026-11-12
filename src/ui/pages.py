@@ -85,7 +85,17 @@ def select_repo(reports, key="project_choice"):
         return None
     names = [r["repository"]["full_name"] for r in reports]
     chosen = st.session_state.get("active_repo")
-    index = names.index(chosen) if chosen in names else 0
+    # Open a repository with usable verified records by default. This is a
+    # screenshot/navigation starting point, not a project-quality ranking.
+    def evidence_depth(report):
+        return (
+            sum(v == "complete" for v in report.get("status", {}).values()),
+            min(len(report.get("issue_rows", [])), 30)
+            + min(len(report.get("pr_rows", [])), 30)
+            + min(len(report.get("ci_rows", [])), 30),
+        )
+    default = max(reports, key=evidence_depth)["repository"]["full_name"]
+    index = names.index(chosen) if chosen in names else names.index(default)
     selection = st.selectbox("Repository", names, index=index, key=key)
     st.session_state["active_repo"] = selection
     return next(r for r in reports if r["repository"]["full_name"] == selection)

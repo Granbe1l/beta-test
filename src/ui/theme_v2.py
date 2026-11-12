@@ -101,6 +101,22 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:v
   .d-coverage{font-size:.71rem;padding:9px 11px;}
 }
 
+
+/* Final optical alignment: labels left-aligned, status chip never stretches. */
+[data-testid="stSidebar"] [data-testid="stButton"] button div[data-testid="stMarkdownContainer"],
+[data-testid="stSidebar"] [data-testid="stButton"] button p {
+  text-align:left!important; justify-content:flex-start!important;
+  width:100%!important; margin:0!important;
+}
+.d-heading {align-items:flex-start!important;}
+.d-status {align-self:flex-start!important;display:inline-flex!important;
+  align-items:center!important;min-height:27px;height:auto!important;
+  padding:6px 10px!important;flex-shrink:0!important;line-height:1.2!important;}
+@media(max-width:700px){
+ [data-testid="stMainBlockContainer"],.main .block-container{
+  padding-top:2.35rem!important;
+ }
+}
 </style>
 """
 
