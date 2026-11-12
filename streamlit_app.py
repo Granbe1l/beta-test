@@ -80,7 +80,7 @@ NAV_ICONS = {
 
 with st.sidebar:
     brand()
-    st.markdown('<div class="sidebar-label">NAVIGATION</div>', unsafe_allow_html=True)
+    st.caption("NAVIGATION")
     for label in MENU:
         if st.button(
             label, key="nav_" + label.lower().replace(" ", "_").replace("&", "and"),
@@ -91,7 +91,7 @@ with st.sidebar:
             st.session_state["main_nav"] = label
             st.rerun()
     st.divider()
-    st.markdown('<div class="sidebar-label">DATA SOURCE</div>', unsafe_allow_html=True)
+    st.caption("DATA SOURCE")
     status_slot = st.empty()
     if st.button("Reload stored data", icon=":material/refresh:", use_container_width=True,
                  help="Reload saved records only; ingestion runs in GitHub Actions."):
@@ -148,8 +148,7 @@ status_slot.markdown(
     f'<div class="side-health-status">{source_status}</div>'
     f'<div class="side-health-small">Issues {counts["issues"]}/{total} · '
     f'PRs {counts["pull_requests"]}/{total} · '
-    f'CI {counts["workflow_runs"]}/{total} source scans</div>'
-    '<div class="side-health-note">Bounded GitHub sample · read-only</div>'
+    f'CI {counts["workflow_runs"]}/{total}</div>'
     '</div>',
     unsafe_allow_html=True,
 )

@@ -8,10 +8,10 @@ CSS_V2 = """
 <style>
 :root{--ui-ink:#29233D;--ui-muted:#706A7E;--ui-line:#E7E3EF;--ui-purple:#7046C4;--ui-bg:#F7F7FB;}
 html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:var(--ui-bg)!important;}
-[data-testid="stMainBlockContainer"],.main .block-container{max-width:1370px!important;padding:1.25rem 2.1rem 3rem!important;}
+[data-testid="stMainBlockContainer"],.main .block-container{max-width:1370px!important;padding:1.8rem 2.1rem 3rem!important;}
 [data-testid="stHeader"]{background:rgba(247,247,251,.93)!important;}
 [data-testid="stSidebar"]{background:#241936!important;border-right:1px solid #45345F!important;}
-[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:.22rem!important;}
+[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:.42rem!important;}
 [data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{padding:21px 17px 18px!important;}
 [data-testid="stSidebar"] .brand{padding:1px 0 12px!important;margin:0 0 7px!important;border-bottom:1px solid rgba(255,255,255,.12);}
 [data-testid="stSidebar"] .brand-mark{border-radius:9px;width:34px;height:34px;font-size:1.03rem;background:#554080;}
@@ -46,10 +46,10 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:v
   flex:1!important;width:100%!important;
 }
 [data-testid="stSidebar"] .stButton button:focus-visible{outline:2px solid #C2A8FA!important;outline-offset:2px!important;}
-.side-health-card{background:#302441;border:1px solid #493958;border-radius:10px;padding:12px 13px;margin-top:5px;}
-.side-health-head{font-size:.66rem;letter-spacing:.09em;font-weight:740;color:#BCAACF;margin:0 0 5px;}
+.side-health-card{background:#302441;border:1px solid #493958;border-radius:10px;padding:10px 12px;margin:4px 0 10px;}
+.side-health-head{font-size:.65rem;letter-spacing:.08em;font-weight:740;color:#BCAACF;margin:0 0 4px;}
 .side-health-status{font-size:.82rem;font-weight:720;color:#F3EBFF;line-height:1.5;}
-.side-health-small{font-size:.70rem;color:#C8B9D8;line-height:1.58;margin-top:4px;}
+.side-health-small{font-size:.69rem;color:#C8B9D8;line-height:1.45;margin-top:3px;}
 .side-health-note{font-size:.68rem;color:#BCACCF;line-height:1.5;}
 [data-testid="stSidebar"] [data-testid="stDivider"]{border-color:#453458!important;margin:12px 0!important;}
 [data-testid="stSidebar"] .side-footer{color:#AFA0C2;font-size:.68rem;line-height:1.55;margin:7px 0;}
@@ -90,7 +90,7 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:v
 .stButton button,.stLinkButton a{border-radius:9px!important;}
 @media(max-width:1024px){.d-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}.d-mark{display:none;}}
 @media(max-width:700px){
-  [data-testid="stMainBlockContainer"],.main .block-container{padding:1.05rem .72rem 3rem!important;}
+  [data-testid="stMainBlockContainer"],.main .block-container{padding:1.65rem .72rem 3rem!important;}
   .d-hero{padding:14px 15px;margin:0 0 9px;}
   .d-hero h1{font-size:1.26rem!important;line-height:1.19!important;}
   .d-hero p{font-size:.72rem!important;}
@@ -104,6 +104,25 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:v
   .d-heading h1{font-size:1.28rem!important;}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+
+/* Streamlit wraps the button contents in a flex row; align the entire
+   icon-and-text group, not only its inner Markdown paragraph. */
+[data-testid="stSidebar"] .stButton button > div,
+[data-testid="stSidebar"] [data-testid="stButton"] button > div{
+  display:flex!important;justify-content:flex-start!important;
+  align-items:center!important;text-align:left!important;
+  width:100%!important;flex-grow:1!important;margin:0!important;
+}
+[data-testid="stSidebar"] .stButton button > div > div,
+[data-testid="stSidebar"] .stButton button span{
+  justify-content:flex-start!important;text-align:left!important;
+}
+[data-testid="stSidebar"] .stButton button svg{flex-shrink:0!important;}
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] p{
+  font-size:.65rem!important;letter-spacing:.12em!important;
+  font-weight:750!important;color:#AB9ABC!important;
+  margin:3px 0!important;
+}
 </style>
 """
 
