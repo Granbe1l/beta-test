@@ -17,7 +17,9 @@ def findings_for_repo(report: dict) -> list[dict]:
                         "url": url + "/issues?q=is%3Aissue+is%3Aopen", "scope": name})
     if p["median_merge_days"] is not None and p["merge_duration_n"] >= 5:
         d = p["median_merge_days"]
-        out.append({"type": "merge-duration", "headline": f"Merged PRs took a median of {d:.1f} days (n={p['merge_duration_n']})",
+        duration = (f"{d * 1440:.0f} min" if d < 1 / 24 else
+                    f"{d * 24:.1f} hours" if d < 1 else f"{d:.1f} days")
+        out.append({"type": "merge-duration", "headline": f"Merged PRs took a median of {duration} (n={p['merge_duration_n']})",
                     "evidence": f"Computed from creation to merge timestamps for {p['merge_duration_n']} merged PRs in the observation window.",
                     "interpretation": "This describes observed completion time, not the cause of slower or faster merges.",
                     "review": "Inspect a few long-running merges alongside PR complexity and review activity.",

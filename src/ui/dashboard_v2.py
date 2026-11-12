@@ -43,6 +43,17 @@ def _percent(value):
     return "—" if value is None else f"{value:.0f}%"
 
 
+def _duration(value):
+    """Keep short merges readable: 0.0 days can conceal real hours."""
+    if value is None:
+        return "—"
+    if value < 1 / 24:
+        return f"{value * 1440:.0f} min"
+    if value < 1:
+        return f"{value * 24:.1f} hours"
+    return f"{value:.1f} days"
+
+
 def _section(title, note=""):
     st.markdown(f'<div class="d-section">{esc(title)}</div>' +
                 (f'<div class="d-sub">{esc(note)}</div>' if note else ""),
@@ -408,8 +419,7 @@ def pull_request_review(reports):
         ("Open changes retrieved", _number(observed["open_changes"]), "Includes draft pull requests", "⇄"),
         ("Draft changes", _number(observed["draft_changes"]), "Of observed open changes", "◈"),
         ("Merged · 90 days", _number(observed["merged_changes"]), "Observed merge timestamps", "✓"),
-        ("Median merge time", f'{info["median_merge_days"]:.1f} days'
-         if info.get("median_merge_days") is not None else "—",
+        ("Median merge time", _duration(info.get("median_merge_days")),
          "Only with sufficient verified coverage", "◷"),
     ])
     st.caption("Counts describe retrieved PR records; the median is withheld without sufficient evidence.")
