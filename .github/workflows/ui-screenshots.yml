@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/ui-screenshots.yml
       - streamlit_app.py
+      - scripts/capture_ui.py
       - src/ui/**
       - data/github_public_snapshot.json.gz
   workflow_dispatch:
