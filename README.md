@@ -284,3 +284,15 @@ extraction. The line chart is a **visualization of collected activity**, not
 a reliable estimate of growth, productivity, backlog change, or project
 success. Matched-cohort snapshot comparisons remain a separate,
 conservative analytical view.
+
+## Portfolio case study
+
+Read [Project Delivery Monitor — portfolio case study](docs/PORTFOLIO_CASE_STUDY.md) for business context, evidence rules, limitations and interview notes.
+
+## Coverage gates and latest data-pipeline checks
+
+- The line chart now distinguishes **all observed records (exploratory)** from **only repositories with source-complete verified 7/28-day windows**, independently for issue and PR events.
+- The public collector attempts a 28-day adaptive interval before shorter fallbacks. Narrow-window success never proves a full 28-day history.
+- Each scheduled run compares its source coverage against the restored baseline in its GitHub Actions step summary and audit artifacts. Completed runs and complete datasets are separate concepts.
+- Review findings are ordered by transparent evidence thresholds and include original source URLs, without inventing a project-quality score.
+- Browser tests exercise CSV download, two-project comparison, mobile menu, and page captures.

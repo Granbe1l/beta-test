@@ -93,7 +93,9 @@ def fetch_source_adaptive(client: GitHubClient, repo: Repository, source: str,
     the broad attempt's fetched rows.
     """
     candidates = [since]
-    for days in (7, 1):
+    # Try a comparable 28-day window before falling back to shorter 7/1-day
+    # windows. A successful short window never certifies the whole month.
+    for days in (28, 7, 1):
         narrowed = max(since, now - timedelta(days=days))
         if narrowed > candidates[-1]:
             candidates.append(narrowed)
@@ -150,7 +152,10 @@ def sync_one(session: Session, client: GitHubClient, repo: Repository, source: s
         cp.status = status
         cp.pages_fetched = total_pages
         cp.records_fetched = len(rows)
-        cp.last_error = None
+        cp.last_error = (
+            None if pagination.complete else
+            "Page cap reached; source remains partial for requested window"
+        )
         if pagination.complete:
             # Read the OLD checkpoint before advancing its success timestamp.
             old_start = utc(cp.coverage_start) if cp.coverage_start else None

@@ -22,6 +22,30 @@ def coverage_counts(reports: list[dict]) -> dict[str, int]:
             for source, _, _ in SOURCES}
 
 
+
+def qualified_reports(reports: list[dict], source: str, days: int = 28, now=None) -> list[dict]:
+    """Reports with a current, complete source scan covering the full window.
+
+    Source-specific membership prevents Issue readiness being treated as
+    evidence of PR or workflow readiness. A short adaptive fallback (1/7
+    days) cannot qualify for a 28-day chart. Never infer missing events.
+    """
+    if source not in {entry[0] for entry in SOURCES}:
+        raise ValueError(f"Unsupported source: {source}")
+    if days < 1:
+        raise ValueError("days must be positive")
+    threshold = utc(now or datetime.now(timezone.utc)) - timedelta(days=days)
+    selected = []
+    for r in reports:
+        if r.get("status", {}).get(source) != "complete":
+            continue
+        checkpoint = (r.get("coverage") or {}).get(source) or {}
+        coverage_start = utc(checkpoint.get("coverage_start"))
+        if coverage_start is not None and coverage_start <= threshold:
+            selected.append(r)
+    return selected
+
+
 def analysis_window_coverage(reports: list[dict], days: int = 28, now=None) -> dict[str, int]:
     """Verified completed scans covering the WHOLE requested recent time window.
 

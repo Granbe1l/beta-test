@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.analytics.trends import daily_event_series, observed_event_totals
-from src.ui.observed import coverage_counts, analysis_window_coverage, summary
+from src.ui.observed import coverage_counts, analysis_window_coverage, qualified_reports, summary
 
 PURPLE = "#6941C6"
 GREEN = "#198E74"
@@ -34,31 +34,78 @@ def _draw_plot(fig, height=310):
 
 
 def trend_panel(reports):
-    """Daily 7/28-day lines, two readable tabs, explicit sampling caution."""
+    """Visualize only real GitHub records, with an explicit verification scope.
+
+    A verified window excludes any repo whose scan covers fewer days than the
+    chosen period. Exploratory mode keeps the incomplete-sample line visible
+    but never permits claims of total project activity or true growth.
+    """
     if not reports:
         st.info("No monitored repositories are available.")
         return
     with st.container(border=True):
-        head, choose = st.columns([3, 1], gap="small")
+        head, period_col = st.columns([3, 1], gap="small")
         with head:
             st.markdown("**Daily development activity**")
-            st.caption("Actual GitHub issue and PR events from the retrieved sample.")
-        with choose:
-            days = st.selectbox("Period", [28, 7],
+            st.caption("Issue and pull-request events from actual GitHub records.")
+        with period_col:
+            days = st.selectbox("Period", [7, 28],
                                 format_func=lambda n: f"Last {n} days",
                                 key="overview_trend_period")
-        data = pd.DataFrame(daily_event_series(reports, days=days))
-        totals = observed_event_totals(data.to_dict("records"))
-        issue_tab, pr_tab = st.tabs(["Issues · tasks & reports",
-                                     "Pull requests · code changes"])
-        for tab, first, second, topic in (
-            (issue_tab, "Issues opened", "Issues closed", "issues"),
-            (pr_tab, "PRs opened", "PRs merged", "pull requests"),
+
+        scope = st.radio(
+            "Evidence scope",
+            ["All retrieved events (exploratory)", "Verified source windows"],
+            horizontal=True, key="trend_evidence_scope",
+            help="Verified uses only repos with completed scans covering this full window.",
+        )
+        exploratory = scope.startswith("All retrieved")
+        if exploratory:
+            st.warning(
+                "Exploratory view: older or busy GitHub activity may be missing "
+                "from the collected records. Apparent increases and zeros are "
+                "not verified trends or evidence of inactivity."
+            )
+
+        issue_tab, pr_tab = st.tabs([
+            "Issues · tasks & reports", "Pull requests · code changes",
+        ])
+        collected = {}
+        for tab, source, first, second, topic in (
+            (issue_tab, "issues", "Issues opened", "Issues closed", "issues"),
+            (pr_tab, "pull_requests", "PRs opened", "PRs merged", "pull requests"),
         ):
+            eligible = qualified_reports(reports, source, days)
+            displayed = reports if exploratory else eligible
             with tab:
-                if not totals[first] + totals[second]:
-                    st.info(f"No {topic} events were retrieved in this period. "
-                            "This does not establish that the repositories were inactive.")
+                if not exploratory:
+                    st.caption(
+                        f"Verified {days}-day bounded windows: "
+                        f"**{len(eligible)}/{len(reports)} repositories** "
+                        f"for {topic}. The other repositories are excluded."
+                    )
+                else:
+                    st.caption(
+                        f"**{len(reports)} repositories** in the exploratory sample; "
+                        f"only **{len(eligible)}** have a verified full "
+                        f"{days}-day scan for {topic}."
+                    )
+                if not displayed:
+                    st.info(
+                        f"No repository has a verified {days}-day {topic} "
+                        "window yet. Choose 7 days or exploratory mode to inspect "
+                        "the bounded records without a completeness claim."
+                    )
+                    collected[source] = pd.DataFrame(daily_event_series([], days))
+                    continue
+                data = pd.DataFrame(daily_event_series(displayed, days=days))
+                collected[source] = data
+                totals = observed_event_totals(data.to_dict("records"))
+                if totals[first] + totals[second] == 0:
+                    st.info(
+                        f"No {topic} events were found in the retrieved data. "
+                        "This does not establish that development stopped."
+                    )
                     continue
                 fig = go.Figure()
                 for field, color in ((first, PURPLE), (second, GREEN)):
@@ -67,38 +114,54 @@ def trend_panel(reports):
                         mode="lines+markers",
                         line=dict(color=color, width=2.5),
                         marker=dict(size=5, color=color),
-                        hovertemplate="%{x}<br>%{y:,} observed events<extra>%{fullData.name}</extra>",
+                        hovertemplate=(
+                            "%{x}<br>%{y:,} recorded events"
+                            "<extra>%{fullData.name}</extra>"
+                        ),
                     ))
                 fig.update_layout(
                     xaxis=dict(type="date", nticks=7 if days == 28 else 8),
-                    yaxis=dict(title="Observed daily events", rangemode="tozero"),
+                    yaxis=dict(title="Recorded daily events", rangemode="tozero"),
                 )
                 _draw_plot(fig)
                 if topic == "issues":
                     st.caption(
                         f"**Reading:** {totals[first]:,} issues opened and "
-                        f"{totals[second]:,} closed in collected records over {days} days. "
-                        "The difference is NOT proof of a change in the total project backlog.")
+                        f"{totals[second]:,} closed in selected records over "
+                        f"{days} days. This does not prove a change in total backlog."
+                    )
                 else:
                     st.caption(
                         f"**Reading:** {totals[first]:,} PRs opened and "
-                        f"{totals[second]:,} merged in collected records over {days} days. "
-                        "A code change may remain open for valid review reasons.")
-        source = coverage_counts(reports)
+                        f"{totals[second]:,} merged in selected records over "
+                        f"{days} days. Not every PR is expected to merge immediately."
+                    )
+
+        source_counts = coverage_counts(reports)
         ready = analysis_window_coverage(reports, days=days)
-        total = len(reports)
         st.caption(
-            f"**Collection:** Issues {source['issues']}/{total} source scans complete; "
-            f"PRs {source['pull_requests']}/{total}. "
-            f"**Full {days}-day window verified:** Issues {ready['issues']}/{total}, "
-            f"PRs {ready['pull_requests']}/{total}. "
-            "Only a bounded collection is available; this line must not be treated as "
-            "complete GitHub history or a measure of productivity.")
+            f"**Cohort checks:** Issues {source_counts['issues']}/{len(reports)} "
+            f"bounded scans complete, {ready['issues']}/{len(reports)} "
+            f"cover {days} days. PRs {source_counts['pull_requests']}/{len(reports)} "
+            f"complete, {ready['pull_requests']}/{len(reports)} "
+            f"cover {days} days. Only a bounded collection is available; these scans do not imply complete GitHub history."
+        )
+        issue_data = collected["issues"][["Date", "Issues opened", "Issues closed"]]
+        pr_data = collected["pull_requests"][["Date", "PRs opened", "PRs merged"]]
+        export = issue_data.merge(pr_data, on="Date", how="outer")
+        export["Issue eligible repositories"] = (
+            len(reports) if exploratory else len(qualified_reports(reports, "issues", days))
+        )
+        export["PR eligible repositories"] = (
+            len(reports) if exploratory else len(qualified_reports(reports, "pull_requests", days))
+        )
+        export["Scope"] = "exploratory" if exploratory else "verified_source_windows"
         st.download_button(
-            "Export daily event data (CSV)",
-            data=data.to_csv(index=False).encode("utf-8"),
-            file_name=f"observed_github_activity_{days}d.csv",
-            mime="text/csv", key="trend_csv")
+            "Export displayed events (CSV)",
+            data=export.to_csv(index=False).encode("utf-8"),
+            file_name=f"github_{export['Scope'].iloc[0]}_{days}d.csv",
+            mime="text/csv", key="trend_csv",
+        )
 
 
 def coverage_progress(reports):

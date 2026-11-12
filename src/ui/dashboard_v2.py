@@ -257,18 +257,22 @@ def _scope(reports, key):
             "Code pushed · last 7 days",
             "Issue or PR events · last 7 days",
             "No recent signal · last 7 days",
+            "Code pushed · last 30 days",
+            "Issue or PR events · last 30 days",
+            "No recent signal · last 30 days",
         ], key=key + "_activity")
     chosen = []
+    period = 30 if "30 days" in mode else 7
     for r in reports:
-        status = recent_activity(r)
+        status = recent_activity(r, days=period)
         active = status["pushed_recently"] or status["recent_issue_or_pr_event"]
         if (mode == "All tracked projects"
-                or mode == "Code pushed · last 7 days" and status["pushed_recently"]
-                or mode == "Issue or PR events · last 7 days" and status["recent_issue_or_pr_event"]
-                or mode == "No recent signal · last 7 days" and not active):
+                or mode.startswith("Code pushed") and status["pushed_recently"]
+                or mode.startswith("Issue or PR events") and status["recent_issue_or_pr_event"]
+                or mode.startswith("No recent signal") and not active):
             chosen.append(r)
     if not chosen:
-        st.info("No matching signal was observed. That does not mean the projects are finished.")
+        st.info("No matching activity was observed. This does not prove the projects are finished.")
         return []
     names = [r["repository"]["full_name"] for r in chosen]
     with right_filter:
@@ -320,7 +324,7 @@ def _findings_view(findings):
     for idx, f in enumerate(findings):
         with columns[idx % 2]:
             with st.container(border=True):
-                st.caption(f'{idx + 1:02d} · {f["scope"]}')
+                st.caption(f'{idx + 1:02d} · {f.get("review_priority", "Explore context")} · {f["scope"]}')
                 st.markdown(f'**{types.get(f["type"], "Evidence to inspect")}**')
                 st.write(f["headline"])
                 with st.expander("What does the evidence mean?"):
@@ -478,7 +482,6 @@ def overview(reports, selection):
          "GitHub last-push metadata, not feature releases", "↗"),
     ])
     _coverage_banner(chosen)
-    coverage_progress(chosen)
     st.markdown(
         '<div class="d-context"><strong>Executive summary · last 7 days:</strong> '
         f'{activity["pushed_recently"]:,} of {len(chosen):,} projects show a recent code push. '
@@ -488,17 +491,17 @@ def overview(reports, selection):
         f'{activity["merged_prs"]:,} merged in retrieved records. '
         '<span>These are observed events, not estimates of total work or quality.</span>'
         '</div>', unsafe_allow_html=True)
-    with st.expander("What do issue, PR, merge and CI/CD mean?"):
+    _section("01 / Activity over time",
+             "See real recorded task and code-change events across recent days.")
+    trend_panel(chosen)
+    coverage_progress(chosen)
+    with st.expander("Glossary · What do issue, PR, merge and CI/CD mean?"):
         st.markdown(
             "**Issue:** a reported task, bug or request. "
             "**Pull request (PR):** a proposal to change code. "
             "**Merge:** that proposed change was combined into the project. "
-            "**CI/CD checks:** automated tests/build steps, not a software-quality guarantee."
+            "**CI/CD checks:** automated tests/build steps; they do not prove quality."
         )
-
-    _section("01 / Activity over time",
-             "See real recorded task and code-change events across recent days.")
-    trend_panel(chosen)
 
     _section("02 / Delivery activity", "What remains open, and how did automatic checks perform?")
     left, right = st.columns([1.1, 1], gap="large")

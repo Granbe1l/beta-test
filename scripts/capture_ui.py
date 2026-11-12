@@ -60,6 +60,17 @@ try:
         desktop.screenshot(path=str(OUT / "desktop-charts.png"), full_page=False)
         desktop.evaluate("window.scrollTo(0, 0)")
         print("Captured line charts for issues and pull requests", flush=True)
+        # Verify the actual CSV control works, not just that it is visible.
+        with desktop.expect_download(timeout=20000) as download_info:
+            desktop.get_by_role("button", name="Export displayed events (CSV)").click(timeout=10000)
+        download = download_info.value
+        assert download.suggested_filename.endswith(".csv"), "Wrong export type"
+        csv_path = OUT / "validated-activity-export.csv"
+        download.save_as(csv_path)
+        exported = csv_path.read_text(encoding="utf-8")
+        assert "Date,Issues opened,Issues closed,PRs opened,PRs merged" in exported
+        print("Validated daily event export in the real browser", flush=True)
+
 
         for label, file in [("Explore repositories", "desktop-repositories.png"),
                             ("Open issues", "desktop-issues.png"),
@@ -82,10 +93,16 @@ try:
             except Exception as exc:
                 print("Additional viewport unavailable: " + str(exc), flush=True)
             if label == "Explore repositories":
-                for tab in ("Compare projects", "Source details"):
+                for tab in ("Compare two projects", "Compare projects", "Source details"):
                     try:
                         desktop.get_by_role("tab", name=tab).click(timeout=10000)
                         time.sleep(1)
+                        if tab == "Compare two projects":
+                            assert desktop.get_by_label("First project").is_visible()
+                            assert desktop.get_by_label("Second project").is_visible()
+                            assert desktop.get_by_text("Open issues (retrieved)").first.is_visible()
+                            assert desktop.get_by_role("link", name="View original GitHub project").count() >= 2
+                            print("Validated two-project comparison inputs, table and links", flush=True)
                         desktop.screenshot(path=str(OUT / (
                             "desktop-repositories-" + tab.lower().replace(" ", "-") + ".png"
                         )), full_page=False)

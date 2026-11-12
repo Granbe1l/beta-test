@@ -172,3 +172,12 @@ No fabricated scores, new external data sources or artificial up/down lines.
 These improvements are code changes. Existing snapshots do not magically
 gain data when the UI is refreshed; source coverage changes only after a new
 successful GitHub Actions collection publishes a new snapshot.
+
+## Reliability-first revision · November 2026
+
+- Trend chart now offers explicit **Exploratory** versus **Verified source window** scope. Verified mode excludes incomplete, stale or short-window repository sources; separate issue/PR source readiness and CSV cohort sizes are shown.
+- Dashboard prioritizes KPI → executive summary → trends; long coverage explanations and glossary are in expanders following the chart.
+- Review insights use transparent priority labels and are sorted by evidence types, not by project popularity, developer output or an opaque score.
+- GitHub collector retries a **28-day** window before **7-day** and **1-day** bounded fallbacks; the real certified start time is stored.
+- Source-audit before/after counts are attached to each scheduled GitHub Actions run and summarized in the workflow report. A passed UI test does not prove the scheduler refreshed actual source data.
+- Browser screenshot test additionally checks the real CSV download and the two-project comparison tab. A separate [portfolio case study](PORTFOLIO_CASE_STUDY.md) explains the analysis and limits.
