@@ -138,3 +138,37 @@ No fabricated scores, new external data sources or artificial up/down lines.
 - Source evidence limitations and plain-language interpretations remain
   visible; unmatched historical snapshots cannot be mistaken for growth.
 - Browser screenshot workflow captures both line-chart tabs separately.
+
+
+## V5 · Source collection completeness (adaptive, verified window)
+
+- Scheduled six-hour GitHub REST collection bootstraps up to **20 previously
+  unvisited repositories** per run, within the existing **850-request cap**.
+  It retains a stable 75-repository curated cohort rather than replacing
+  quieter repositories to make plots move.
+- The first incremental source scan targets 30 days; if a repository has
+  more than the six-page cap, the collector retries 7 days then 1 day.
+  Results from every successful attempt are **upserted**, so useful older
+  records are not discarded. Explicit \`--reconcile\` still attempts the full
+  backfill, with an honest shorter-window fallback if pagination overflows.
+- A source can only be marked complete when GitHub pagination actually
+  exhausts the selected window. Its \`coverage_start\` is the **actual
+  completed window**; a successful 1-day scan is NOT 28/90-day coverage.
+  Partial scans never advance source success timestamps.
+- If the API budget is nearly depleted, no speculative retries are issued;
+  unvisited sources retain their prior checkpoints and records.
+- After bootstrap, the collector rotates repositories and gives extra turns
+  to partial/stale sources while reserving turns for already-complete ones,
+  avoiding starvation.
+- Data coverage UI and audit distinguish: (a) number of bounded scans
+  completed and (b) number with **verified 28-day coverage**. A "complete"
+  one-day scan must never be presented as full GitHub history.
+- Every collection run produces \`snapshot-audit.json\` with source
+  complete/partial/stale/unavailable counts and 28-day readiness.
+- Collection may remain partial for very busy repositories even with a
+  one-day window; the proper response is additional targeted collection or
+  a narrower time scope, not manufactured coverage percentages.
+
+These improvements are code changes. Existing snapshots do not magically
+gain data when the UI is refreshed; source coverage changes only after a new
+successful GitHub Actions collection publishes a new snapshot.

@@ -22,6 +22,28 @@ def coverage_counts(reports: list[dict]) -> dict[str, int]:
             for source, _, _ in SOURCES}
 
 
+def analysis_window_coverage(reports: list[dict], days: int = 28, now=None) -> dict[str, int]:
+    """Verified completed scans covering the WHOLE requested recent time window.
+
+    A completed 1- or 7-day adaptive scan does not qualify for a 28-day
+    trend, even when its checkpoint status is 'complete'.
+    """
+    now = utc(now or datetime.now(timezone.utc))
+    threshold = now - timedelta(days=days)
+    counts = {}
+    for source, _, _ in SOURCES:
+        count = 0
+        for r in reports:
+            if r.get("status", {}).get(source) != "complete":
+                continue
+            cp = (r.get("coverage") or {}).get(source) or {}
+            since = utc(cp.get("coverage_start"))
+            if since is not None and since <= threshold:
+                count += 1
+        counts[source] = count
+    return counts
+
+
 def summary(reports: list[dict], now=None, observation_days=90) -> dict:
     """Counts of *retrieved* items, with source coverage and period attached.
 

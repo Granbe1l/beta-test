@@ -22,7 +22,7 @@ jobs:
       SEARCH_PAGES_PER_QUERY: '1'
       MAX_PAGES_PER_SOURCE: '6'
       PER_PAGE: '100'
-      BACKFILL_DAYS: '120'
+      BACKFILL_DAYS: '120' # Explicit reconciliations; bootstrap uses adaptive 30/7/1-day windows
       COMPARISON_DAYS: '90'
       STALE_HOURS: '12'
       FRESHNESS_DAYS: '30'
@@ -41,13 +41,19 @@ jobs:
       - name: Expand to up to 75 vetted repos and sync within API budget
         shell: bash
         run: |
-          if python scripts/run_sync.py --expand --initial-batch 12 --max-requests 850; then
+          if python scripts/run_sync.py --expand --initial-batch 20 --max-requests 850; then
             echo "GitHub ingestion returned complete checkpoints for visited repositories."
           else
             echo "::warning::Some GitHub sources incomplete or budget-limited; historical records and checkpoint status preserved."
           fi
           python scripts/build_public_snapshot.py
           python scripts/audit.py > snapshot-audit.json
+          python - <<'PY'
+          import json
+          with open("snapshot-audit.json", encoding="utf-8") as f:
+              report = json.load(f)
+          print("SOURCE AUDIT:", json.dumps(report.get("coverage_summary", {}), sort_keys=True))
+          PY
       - name: Preserve evidence and coverage audit
         uses: actions/upload-artifact@v4
         with:

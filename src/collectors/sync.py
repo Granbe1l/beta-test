@@ -50,8 +50,13 @@ def sync_lock(engine):
 
 def start_window(cp: SyncCheckpoint, settings: Settings, now: datetime, reconcile: bool) -> datetime:
     baseline = now - timedelta(days=settings.backfill_days)
-    if reconcile or not cp.high_watermark:
+    if reconcile:
         return baseline
+    if not cp.high_watermark:
+        # A first complete scan of a recent 30-day window is more useful
+        # than repeatedly hitting a six-page cap over 120+ days.
+        # A separate explicit --reconcile still attempts the long backfill.
+        return max(baseline, now - timedelta(days=30))
     # All source endpoints use overlap; GitHub workflow runs filter by created date.
     return max(baseline, utc(cp.high_watermark) - timedelta(hours=settings.overlap_hours if cp.source != "workflow_runs" else max(336, settings.overlap_hours)))
 
@@ -77,6 +82,55 @@ def fetch_source(client: GitHubClient, repo: Repository, source: str, since: dat
     return normalized, result
 
 
+def fetch_source_adaptive(client: GitHubClient, repo: Repository, source: str,
+                          since: datetime, settings: Settings, now: datetime):
+    """Narrow an overflowing recent-window scan without inventing completeness.
+
+    The first bounded attempt is preserved. If its page limit is reached,
+    retry over seven and then one day. Old evidence remains in the database;
+    the source checkpoint records the ACTUAL completed window, never the
+    originally requested larger window. Explicit reconciliation also retains
+    the broad attempt's fetched rows.
+    """
+    candidates = [since]
+    for days in (7, 1):
+        narrowed = max(since, now - timedelta(days=days))
+        if narrowed > candidates[-1]:
+            candidates.append(narrowed)
+
+    merged = {}
+    total_pages = 0
+    attempts = 0
+    result = None
+    effective_since = since
+    for candidate in candidates:
+        # Preserve enough API calls to continue to another source/repository.
+        budget = getattr(client, "max_requests", None)
+        used = getattr(client, "request_count", 0)
+        if attempts and budget is not None and used + settings.max_pages + 1 > budget:
+            break
+        try:
+            rows, attempt_result = fetch_source(client, repo, source,
+                                                candidate, settings, now)
+        except Exception:
+            if not attempts:
+                raise
+            # A failed narrower retry must not discard a successful
+            # previous bounded-but-partial page set.
+            break
+        attempts += 1
+        total_pages += attempt_result.pages
+        effective_since = candidate
+        result = attempt_result
+        for row in rows:
+            merged[row["id"]] = row
+        if result.complete:
+            break
+    if result is None:
+        raise RuntimeError("No GitHub source response was available")
+    return list(merged.values()), result, effective_since, attempts, total_pages
+
+
 def sync_one(session: Session, client: GitHubClient, repo: Repository, source: str, settings: Settings, reconcile=False, now=None) -> dict:
     now = now or utcnow()
     cp = get_checkpoint(session, repo.id, source)
@@ -85,25 +139,37 @@ def sync_one(session: Session, client: GitHubClient, repo: Repository, source: s
     session.add(log)
     session.commit()
     try:
-        rows, pagination = fetch_source(client, repo, source, since, settings, now)
+        rows, pagination, actual_since, attempts, total_pages = fetch_source_adaptive(
+            client, repo, source, since, settings, now)
         write_records(session, source, rows)
         status = "complete" if pagination.complete else "partial"
         log.status = status
         log.finished_at = utcnow()
         log.record_count = len(rows)
-        log.page_count = pagination.pages
+        log.page_count = total_pages
         cp.status = status
-        cp.pages_fetched = pagination.pages
+        cp.pages_fetched = total_pages
         cp.records_fetched = len(rows)
         cp.last_error = None
         if pagination.complete:
+            # Read the OLD checkpoint before advancing its success timestamp.
+            old_start = utc(cp.coverage_start) if cp.coverage_start else None
+            old_success = utc(cp.last_success_at) if cp.last_success_at else None
+            # A narrow fallback certifies only that fallback window.
+            # Historical coverage can be retained only if the previous
+            # complete window overlaps this one, with no unscanned gap.
+            if old_start and old_success and old_success >= actual_since:
+                cp.coverage_start = min(old_start, actual_since)
+            else:
+                cp.coverage_start = actual_since
             cp.last_success_at = now
-            cp.coverage_start = min(since, utc(cp.coverage_start)) if cp.coverage_start else since
             # Watermark set to retrieval time to ensure no-change runs advance too.
             # Overlap protects against late indexing / updates.
             cp.high_watermark = now
         session.commit()
-        return {"repo": repo.full_name, "source": source, "status": status, "records": len(rows), "pages": pagination.pages}
+        return {"repo": repo.full_name, "source": source,
+                "status": status, "records": len(rows), "pages": total_pages,
+                "attempts": attempts, "window_days": round((now - actual_since).total_seconds() / 86400, 2)}
     except Exception as exc:
         # Revert all in-flight rows/checkpoint changes, keep historical records.
         session.rollback()
@@ -172,25 +238,42 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
     result = []
     repos = list(session.scalars(select(Repository).where(Repository.selected.is_(True)).order_by(Repository.full_name)))
     if initial_batch_size is not None and initial_batch_size > 0:
-        # Bootstrap previously unseen repositories gradually. Once all have
-        # a checkpoint, incrementally refresh all selected repos each cycle.
+        # Bootstrap completely unvisited repositories before refreshing the
+        # rest. Once seeded, rotate and interleave partial/stale with complete
+        # sources so neither group can starve under the API budget.
         first_time = [r for r in repos if not any(
             session.get(SyncCheckpoint, (r.id, source)) is not None
-            for source in SOURCES
-        )]
+            for source in SOURCES)]
         if first_time:
             repos = first_time[:initial_batch_size]
         elif repos:
-            # Rotate traversal order to avoid starving later repositories
-            # when the GitHub API request budget is exhausted.
             slot = int((run_at or utcnow()).timestamp() // (6 * 3600))
             offset = (slot * 17) % len(repos)
-            repos = repos[offset:] + repos[:offset]
+            rotated = repos[offset:] + repos[:offset]
+            now = run_at or utcnow()
+            needs, healthy = [], []
+            for r in rotated:
+                cps = [session.get(SyncCheckpoint, (r.id, source))
+                       for source in SOURCES]
+                is_incomplete = any(
+                    cp is None or cp.status != "complete" or
+                    cp.last_success_at is None or
+                    utc(cp.last_success_at) < now - timedelta(hours=settings.stale_hours)
+                    for cp in cps)
+                (needs if is_incomplete else healthy).append(r)
+            ordered = []
+            # Prefer incompletes while keeping a fair share of healthy repos.
+            while needs or healthy:
+                ordered.extend(needs[:2])
+                del needs[:2]
+                if healthy:
+                    ordered.append(healthy.pop(0))
+            repos = ordered
     for repo in repos:
         # Stop before exhausting the allocated API quota; never mark unvisited
         # repositories as failed or advance their last-success timestamps.
         budget = getattr(client, "max_requests", None)
-        if budget is not None and getattr(client, "request_count", 0) + 3 * settings.max_pages + 6 >= budget:
+        if budget is not None and getattr(client, "request_count", 0) + 3 * settings.max_pages * 3 + 6 >= budget:
             print("Collector request budget reached: unvisited repositories retain prior checkpoints")
             break
         refresh_repo_metadata(session, client, repo, now=run_at or utcnow())

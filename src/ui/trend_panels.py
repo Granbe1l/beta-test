@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.analytics.trends import daily_event_series, observed_event_totals
-from src.ui.observed import coverage_counts, summary
+from src.ui.observed import coverage_counts, analysis_window_coverage, summary
 
 PURPLE = "#6941C6"
 GREEN = "#198E74"
@@ -85,12 +85,15 @@ def trend_panel(reports):
                         f"{totals[second]:,} merged in collected records over {days} days. "
                         "A code change may remain open for valid review reasons.")
         source = coverage_counts(reports)
+        ready = analysis_window_coverage(reports, days=days)
         total = len(reports)
         st.caption(
-            f"**Coverage:** Issues {source['issues']}/{total} source scans complete; "
+            f"**Collection:** Issues {source['issues']}/{total} source scans complete; "
             f"PRs {source['pull_requests']}/{total}. "
-            "Past events may be missing in this bounded GitHub collection. "
-            "Zeros describe retrieved rows, not absence of real project activity.")
+            f"**Full {days}-day window verified:** Issues {ready['issues']}/{total}, "
+            f"PRs {ready['pull_requests']}/{total}. "
+            "Only a bounded collection is available; this line must not be treated as "
+            "complete GitHub history or a measure of productivity.")
         st.download_button(
             "Export daily event data (CSV)",
             data=data.to_csv(index=False).encode("utf-8"),
@@ -101,9 +104,11 @@ def trend_panel(reports):
 def coverage_progress(reports):
     """Show the exact source denominator without claiming complete Git history."""
     complete = coverage_counts(reports)
+    ready = analysis_window_coverage(reports, days=28)
     n = len(reports)
     with st.expander("Data coverage · what was actually collected"):
-        st.caption("A completed bounded scan is not the same as full GitHub history.")
+        st.caption("A completed source scan may cover only one or seven days after an adaptive retry. "
+                   "The second number below shows repositories with a complete 28-day window.")
         for source, label in (
             ("issues", "Tasks and reported issues"),
             ("pull_requests", "Code changes (pull requests)"),
@@ -111,7 +116,8 @@ def coverage_progress(reports):
         ):
             v = complete[source]
             st.progress(v / n if n else 0,
-                        text=f"{label}: {v}/{n} source scans complete")
+                        text=f"{label}: {v}/{n} scan complete · "
+                             f"{ready[source]}/{n} have 28-day verified coverage")
         st.caption("Incomplete collection can omit activity; it must not be treated as zero.")
 
 
