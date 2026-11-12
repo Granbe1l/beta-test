@@ -128,6 +128,38 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:v
   font-weight:750!important;color:#AB9ABC!important;
   line-height:1.35!important;margin:0!important;
 }
+
+/* Visual-first overview: trend starts in the first screen, not after copy. */
+.d-hero-overview{min-height:78px!important;padding:10px 18px!important;margin:0 0 8px!important;gap:8px!important;}
+.d-hero-overview h1{font-size:1.31rem!important;margin:3px 0!important;line-height:1.12!important;}
+.d-hero-overview p{font-size:.70rem!important;line-height:1.35!important;}
+.d-hero-overview .d-eyebrow{font-size:.56rem!important;}
+.d-hero-overview .d-mark{font-size:.92rem!important;padding:11px 13px!important;min-width:57px!important;}
+.d-kpis{gap:8px!important;margin:6px 0 6px!important;}
+.d-kpi{min-height:86px!important;padding:10px 12px!important;}
+.d-kpi-value{font-size:1.48rem!important;margin:5px 0 2px!important;}
+.d-kpi-label{font-size:.68rem!important;}
+.d-kpi-note{font-size:.65rem!important;line-height:1.23!important;}
+.d-section{margin:11px 0 2px!important;}
+.d-sub{margin-bottom:7px!important;line-height:1.3!important;}
+.d-trend-caveat{padding:6px 10px;border-left:3px solid #9977d5;
+  background:#f4f0fb;border-radius:5px;margin:4px 0 7px;
+  color:#594c6b;font-size:.72rem;line-height:1.38;}
+[data-testid="stPlotlyChart"]{min-width:0!important;}
+@media(max-width:700px){
+  [data-testid="stMainBlockContainer"],.main .block-container{padding:1rem .65rem 2rem!important;}
+  .d-hero-overview{min-height:65px!important;padding:10px 12px!important;margin-bottom:8px!important;}
+  .d-hero-overview h1{font-size:1.18rem!important;}
+  .d-hero-overview p{font-size:.68rem!important;max-width:310px!important;}
+  .d-kpis{gap:7px!important;margin:5px 0!important;}
+  .d-kpi{min-height:76px!important;padding:8px 10px!important;}
+  .d-kpi-value{font-size:1.26rem!important;}
+  .d-kpi-label{font-size:.62rem!important;}
+  .d-kpi-note{font-size:.59rem!important;line-height:1.25!important;}
+  .d-chart-title{font-size:.82rem!important;}
+  .d-chart-sub{font-size:.68rem!important;}
+  .d-trend-caveat{font-size:.68rem!important;padding:6px 8px!important;}
+}
 </style>
 """
 

@@ -1,11 +1,76 @@
 """Capture actual Streamlit browser renders; no synthetic data is inserted."""
 from pathlib import Path
+from io import BytesIO
 import os
+from PIL import Image
 import subprocess
 import sys
 import time
 import requests
 from playwright.sync_api import sync_playwright
+
+def capture_scrolling_main(page, path: Path, limit=17):
+    """Capture the *scrollable Streamlit main*, not browser full_page=True.
+
+    Streamlit scrolls in an internal container. Playwright full_page=True
+    captures only its visible viewport and can falsely imply that charts
+    below the fold are missing. This stitches real scroll positions and
+    excludes the persistent sidebar on desktop.
+    """
+    node = page.evaluate("""() => {
+        const options = [
+          document.querySelector('[data-testid="stMain"]'),
+          document.querySelector('section.main'),
+          document.querySelector('[data-testid="stAppViewContainer"]'),
+          document.scrollingElement,
+        ].filter(Boolean);
+        const matched = options.filter(el => (
+          el.scrollHeight > el.clientHeight + 170 &&
+          el.clientHeight >= Math.min(450, window.innerHeight * 0.5)));
+        matched.sort((a,b) =>
+          (b.scrollHeight - b.clientHeight) - (a.scrollHeight - a.clientHeight));
+        window.__captureMainScroll = matched[0] || document.scrollingElement;
+        return {
+          available: Boolean(window.__captureMainScroll),
+          span: (window.__captureMainScroll?.scrollHeight || 0) -
+                (window.__captureMainScroll?.clientHeight || 0),
+          height: window.__captureMainScroll?.scrollHeight || 0
+        };
+    }""")
+    viewport = page.viewport_size
+    w, h = viewport["width"], viewport["height"]
+    x0 = 300 if w >= 1000 else 0
+    top_padding = 55
+    scroll_span = max(0, int(node["span"]))
+    step = h - top_padding
+    positions = list(range(0, scroll_span, step)) + [scroll_span]
+    positions = sorted(set(positions))
+    if len(positions) > limit:
+        # A deterministic, bounded number of scroll segments. Always include
+        # the bottom and avoid hiding the last charts.
+        positions = [round(scroll_span * i / (limit - 1))
+                     for i in range(limit)]
+    img = Image.new("RGB", (w - x0, scroll_span + h), "#F7F7FB")
+    seen = set()
+    for i, value in enumerate(positions):
+        current = page.evaluate("""(top) => {
+          window.__captureMainScroll.scrollTop = top;
+          return window.__captureMainScroll.scrollTop;
+        }""", value)
+        current = round(current)
+        if current in seen:
+            continue
+        seen.add(current)
+        page.wait_for_timeout(300)
+        shot = Image.open(BytesIO(page.screenshot(full_page=False))).convert("RGB")
+        cut = 0 if i == 0 else top_padding
+        img.paste(shot.crop((x0, cut, w, h)), (0, current + cut))
+    page.evaluate("() => {window.__captureMainScroll.scrollTop = 0}")
+    img.save(path, optimize=True)
+    assert path.stat().st_size > 10_000
+    print(f"Captured full scrollable view: {path.name} "
+          f"({img.width}×{img.height}px; {len(seen)} viewports)", flush=True)
+
 
 OUT = Path("docs/screenshots")
 OUT.mkdir(parents=True, exist_ok=True)
@@ -55,7 +120,7 @@ try:
         desktop.screenshot(path=str(OUT / "desktop-line-prs.png"), full_page=False)
         desktop.get_by_role("tab", name="Issues · tasks & reports").click(timeout=10000)
         time.sleep(.8)
-        desktop.get_by_text("03 / Compare change without sample bias", exact=True).scroll_into_view_if_needed(timeout=10000)
+        desktop.get_by_text("04 / Matched snapshot change", exact=True).scroll_into_view_if_needed(timeout=10000)
         time.sleep(1.0)
         desktop.screenshot(path=str(OUT / "desktop-charts.png"), full_page=False)
         desktop.evaluate("window.scrollTo(0, 0)")
@@ -70,6 +135,8 @@ try:
         exported = csv_path.read_text(encoding="utf-8")
         assert "Date,Issues opened,Issues closed,PRs opened,PRs merged" in exported
         print("Validated daily event export in the real browser", flush=True)
+        capture_scrolling_main(desktop, OUT / "desktop-dashboard-full.png")
+
 
 
         for label, file in [("Explore repositories", "desktop-repositories.png"),
@@ -79,7 +146,9 @@ try:
                             ("Key findings", "desktop-findings.png")]:
             desktop.get_by_text(label, exact=False).first.click(timeout=10000)
             time.sleep(1.5)
-            desktop.screenshot(path=str(OUT / file), full_page=True)
+            desktop.screenshot(path=str(OUT / file), full_page=False)
+            capture_scrolling_main(
+                desktop, OUT / file.replace(".png", "-full.png"))
             print("Captured " + file, flush=True)
             # Capture the lower portions of each screen's scrollable main view.
             try:
@@ -182,6 +251,7 @@ try:
         assert not drawer_open(), "Mobile sidebar must be closed for the overview screenshot"
         overview_bytes = mobile.screenshot(path=str(OUT / "mobile-overview.png"), full_page=True)
         assert nav_bytes != overview_bytes, "Mobile drawer and overview captures must differ"
+        capture_scrolling_main(mobile, OUT / "mobile-dashboard-full.png")
         print("Captured mobile navigation and overview", flush=True)
         browser.close()
 finally:

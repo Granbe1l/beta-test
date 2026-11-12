@@ -78,13 +78,33 @@ def test_six_view_navigation_and_purple_mobile_theme():
     assert 'st.download_button(' in trend
     assert 'go.Scatter(' in trend
     assert 'Only a bounded collection is available' in trend
-    assert 'What do issue, PR, merge and CI/CD mean?' in v2
+    assert 'Source completeness, periods and technical terms' in v2
     # Visual diversity must match analytic questions and real data contracts.
     assert 'go.Pie(' in v2  # part-to-whole
     assert 'go.Scatter(' in v2  # matched two-date comparison
     assert 'def _duration_columns' in v2  # PR distribution
     assert 'name="PR events"' in v2  # stacked source activity
-    assert 'checks_in_period(rows, days=period)' in v2  # CI denominator
+    assert 'checks_in_period(rows, days=period)' in v2
+    # A visual-first dashboard cannot make its primary line chart wait below
+    # summary paragraphs, coverage ribbons, or a long glossary.
+    overview = v2[v2.index('def overview('):v2.index('def project_details(')]
+    assert overview.index('trend_panel(chosen)') < overview.index('Quick reading')
+    assert overview.index('trend_panel(chosen)') < overview.index('_coverage_banner(chosen)')
+    assert overview.index('trend_panel(chosen)') < overview.index('_findings_view(')
+    assert '_finding_visual(f)' in v2
+    assert 'st.metric(' in v2
+    assert 'help=f.get("evidence")' in v2
+    assert 'title="{esc(label)}: {esc(context)}"' in v2
+
+    assert 'Show observed sample instead' in trend
+    assert 'No repositories qualify for the verified' in trend
+    assert 'd-trend-caveat' in trend
+    assert 'disabled=not any_usable' in trend
+    capture = (ROOT / 'scripts/capture_ui.py').read_text()
+    assert 'capture_scrolling_main(' in capture
+    assert 'desktop-dashboard-full.png' in capture
+    assert 'mobile-dashboard-full.png' in capture
+  # CI denominator
 
 
 

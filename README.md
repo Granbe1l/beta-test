@@ -296,3 +296,25 @@ Read [Project Delivery Monitor — portfolio case study](docs/PORTFOLIO_CASE_STU
 - Each scheduled run compares its source coverage against the restored baseline in its GitHub Actions step summary and audit artifacts. Completed runs and complete datasets are separate concepts.
 - Review findings are ordered by transparent evidence thresholds and include original source URLs, without inventing a project-quality score.
 - Browser tests exercise CSV download, two-project comparison, mobile menu, and page captures.
+
+## Visual-first dashboard layout and screenshot evidence
+
+The overview has a compact header and scope filters followed by four
+observed KPI cards and the **daily issue/PR activity line chart**. Source
+coverage details, longer methodology and the glossary are kept below the
+chart in expandable sections, without concealing the selected evidence scope.
+The trend's **verified-window** mode restricts data to projects whose
+individual issue/PR scan covers the full requested interval. If none
+qualify, the chart gives a clear explanation and a one-click switch to the
+observed exploratory sample.
+
+The first three findings display real numeric values, small observed
+fraction indicators *only if a legitimate numerator/denominator exists*,
+inspection actions and direct GitHub evidence links. A median duration is
+never turned into an invented progress percentage.
+
+The Playwright workflow now captures stitched screenshots of the
+**scrollable Streamlit main area** for every main feature, plus the
+desktop/mobile overview. Standard browser `full_page=True` is not
+sufficient because Streamlit has an inner scrollbar. The source snapshots
+remain real, read-only data.

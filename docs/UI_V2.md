@@ -181,3 +181,22 @@ successful GitHub Actions collection publishes a new snapshot.
 - GitHub collector retries a **28-day** window before **7-day** and **1-day** bounded fallbacks; the real certified start time is stored.
 - Source-audit before/after counts are attached to each scheduled GitHub Actions run and summarized in the workflow report. A passed UI test does not prove the scheduler refreshed actual source data.
 - Browser screenshot test additionally checks the real CSV download and the two-project comparison tab. A separate [portfolio case study](PORTFOLIO_CASE_STUDY.md) explains the analysis and limits.
+
+## Visual hierarchy and screenshot coverage · Nov 2026
+
+- Overview order: compact title → filter → four KPIs → real activity line chart
+  → quick interpretation → three evidence-backed visual insight cards
+  → secondary age/CI charts → snapshot comparison → additional exploration.
+- Caution for exploratory data is a concise always-visible note next to
+  the chart. A source-methodology expander holds longer explanations;
+  verified-window empty states have a specific action to inspect the
+  sampled observations without claiming validated full coverage.
+- Issue-age and CI success findings use native proportion indicators with
+  observed counts and denominators. Merge duration uses its own observed
+  median, **not** a fake progress share.
+- Common purple = new/opened; green = resolved/merged/success; red = failures.
+  Every chart labels its period explicitly; 7-day, 28-day, 30-day, and
+  90-day summaries are not silently mixed.
+- Desktop and mobile viewport screenshots are kept alongside stitched
+  `*-full.png` images of the inner scrollable main section. Those full
+  captures reveal charts and tables hidden below the first viewport.

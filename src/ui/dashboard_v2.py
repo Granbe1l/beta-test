@@ -79,17 +79,19 @@ def _heading(kicker, title, note, reports):
 
 
 def _kpis(cards):
-    """Compact, responsive cards; never interactive/injected source content."""
+    """Compact, responsive evidence cards with descriptive native tooltips."""
     fragments = []
     for label, value, context, glyph in cards:
         fragments.append(
-            f'<div class="d-kpi"><div class="d-kpi-label"><span>{esc(label)}</span>'
-            f'<span class="d-kpi-icon">{esc(glyph)}</span></div>'
+            f'<div class="d-kpi" title="{esc(label)}: {esc(context)}">'
+            f'<div class="d-kpi-label"><span>{esc(label)}</span>'
+            f'<span class="d-kpi-icon" aria-hidden="true">{esc(glyph)}</span></div>'
             f'<div class="d-kpi-value">{esc(value)}</div>'
             f'<div class="d-kpi-note">{esc(context)}</div></div>'
         )
     st.markdown('<div class="d-kpis">' + ''.join(fragments) + '</div>',
                 unsafe_allow_html=True)
+
 
 
 def _chart(fig, height=265, legend=False):
@@ -310,29 +312,62 @@ def _findings(reports, limit=3):
     return result
 
 
+def _finding_visual(f):
+    """Tiny evidence distribution; no health score or inferred benchmark."""
+    kind = f.get("type")
+    observed = None
+    total = None
+    suffix = "observed source records"
+    # Show a real proportion ONLY for metrics with a meaningful denominator.
+    # Do not turn median merge time or sample size into a fake percentage.
+    if kind in ("issue-aging", "ci"):
+        observed = f.get("observed")
+        total = f.get("denominator")
+        suffix = ("open issues 30+ days old" if kind == "issue-aging"
+                  else "successful known automated checks")
+    if observed is None or total is None or total <= 0:
+        st.caption(f.get("metric_context", "Based on retrieved GitHub evidence"))
+        return
+    observed = min(total, max(0, observed))
+    remainder = max(0, total - observed)
+    share = observed / total
+    st.progress(float(share),
+                text=f"{int(observed):,} of {int(total):,} {suffix} ({share:.0%})")
+
+
 def _findings_view(findings):
     types = {
         "issue-aging": "Older open tasks",
-        "merge-duration": "How code changes get merged",
+        "merge-duration": "Code review duration",
         "closure-change": "Change in issue closures",
         "ci": "Automated check outcomes",
     }
     if not findings:
-        st.info("No source-verified insight meets the evidence rules yet. More data is needed before claiming a trend or issue.")
+        st.info("No evidence-backed findings meet the sample rules yet. "
+                "Try a different repository or inspect collected source coverage.")
         return
-    columns = st.columns(2, gap="medium")
+    columns = st.columns(min(3, len(findings)), gap="small")
     for idx, f in enumerate(findings):
-        with columns[idx % 2]:
+        with columns[idx % len(columns)]:
             with st.container(border=True):
-                st.caption(f'{idx + 1:02d} · {f.get("review_priority", "Explore context")} · {f["scope"]}')
+                st.caption(
+                    f'{idx + 1:02d} · {f.get("review_priority", "Explore context")} '
+                    f'· {f["scope"]}'
+                )
                 st.markdown(f'**{types.get(f["type"], "Evidence to inspect")}**')
-                st.write(f["headline"])
-                with st.expander("What does the evidence mean?"):
+                if f.get("metric_value"):
+                    st.metric(f.get("metric_label", "Observed metric"),
+                              f["metric_value"], help=f.get("evidence"))
+                else:
+                    st.write(f["headline"])
+                _finding_visual(f)
+                st.caption(f'Next check: {f["review"]}')
+                if f.get("url"):
+                    st.link_button("Inspect evidence on GitHub", f["url"],
+                                   use_container_width=True)
+                with st.expander("Evidence and limitations"):
                     st.write(f["evidence"])
                     st.write(f["interpretation"])
-                st.caption(f'Next step: {f["review"]}')
-                if f.get("url"):
-                    st.link_button("View original GitHub records", f["url"])
 
 
 def _weekly(rows, days=84):
@@ -455,10 +490,10 @@ def _matched_snapshot_chart(chosen):
 def overview(reports, selection):
     from src.ui.observed import summary
     st.markdown(
-        '<div class="d-hero"><div><span class="d-eyebrow">PUBLIC GITHUB · PROJECT DELIVERY MONITOR</span>'
-        '<h1>Monitor real GitHub project activity.</h1>'
-        '<p>Explore recent development signals, open tasks, code changes and checks—'
-        'with evidence you can inspect.</p></div><div class="d-mark">D / M</div></div>',
+        '<div class="d-hero d-hero-overview"><div><span class="d-eyebrow">PUBLIC GITHUB · ACTIVITY MONITOR</span>'
+        '<h1>Delivery activity at a glance.</h1>'
+        '<p>Issues, code changes and automated checks—with source links.</p>'
+        '</div><div class="d-mark">D / M</div></div>',
         unsafe_allow_html=True)
     if not reports:
         _kpis([("Projects tracked", "0", "No snapshot", "▣"),
@@ -481,29 +516,41 @@ def overview(reports, selection):
         ("Projects pushed · 7d", _number(activity["pushed_recently"]),
          "GitHub last-push metadata, not feature releases", "↗"),
     ])
-    _coverage_banner(chosen)
-    st.markdown(
-        '<div class="d-context"><strong>Executive summary · last 7 days:</strong> '
-        f'{activity["pushed_recently"]:,} of {len(chosen):,} projects show a recent code push. '
-        f'{activity["new_issues"]:,} tasks were reported and '
-        f'{activity["closed_issues"]:,} marked closed; '
-        f'{activity["new_prs"]:,} code changes were proposed and '
-        f'{activity["merged_prs"]:,} merged in retrieved records. '
-        '<span>These are observed events, not estimates of total work or quality.</span>'
-        '</div>', unsafe_allow_html=True)
     _section("01 / Activity over time",
-             "See real recorded task and code-change events across recent days.")
+             "Daily recorded events · 7 or 28 days · exploratory and verified scopes")
     trend_panel(chosen)
-    coverage_progress(chosen)
-    with st.expander("Glossary · What do issue, PR, merge and CI/CD mean?"):
+
+    # Brief reading comes AFTER the first chart, not in front of it.
+    st.markdown(
+        '<div class="d-context"><strong>Quick reading · 7-day observed sample:</strong> '
+        f'{activity["pushed_recently"]:,}/{len(chosen):,} projects have a recent code push. '
+        f'{activity["new_issues"]:,} issues opened · '
+        f'{activity["closed_issues"]:,} issues closed · '
+        f'{activity["new_prs"]:,} PRs opened · '
+        f'{activity["merged_prs"]:,} PRs merged. '
+        '<span>Counts are from retrieved records, not a productivity score.</span>'
+        '</div>', unsafe_allow_html=True)
+
+    _section("02 / Three evidence-backed checks",
+             "Numbers, context and a direct next step—not unverified project-health scores")
+    _findings_view(_findings(chosen))
+
+    with st.expander("Source completeness, periods and technical terms"):
+        _coverage_banner(chosen)
+        coverage_progress(chosen)
         st.markdown(
-            "**Issue:** a reported task, bug or request. "
-            "**Pull request (PR):** a proposal to change code. "
-            "**Merge:** that proposed change was combined into the project. "
-            "**CI/CD checks:** automated tests/build steps; they do not prove quality."
+            "**Issues:** reported tasks or bugs. "
+            "**PR:** proposed code changes. "
+            "**Merge:** code changes incorporated into a repository. "
+            "**CI/CD checks:** automated tests and builds, not proof of overall quality."
+        )
+        st.caption(
+            "The overview uses 7-day push and event metadata, the line uses "
+            "a selectable 7/28-day window, and the check outcome donut uses "
+            "the last 30 days. Different windows are always labelled."
         )
 
-    _section("02 / Delivery activity", "What remains open, and how did automatic checks perform?")
+    _section("03 / Delivery activity", "What remains open, and how did automatic checks perform?")
     left, right = st.columns([1.1, 1], gap="large")
     with left, st.container(border=True):
         _chart_title("Open issues by age", "Time since creation · not a deadline assessment.")
@@ -514,12 +561,10 @@ def overview(reports, selection):
         _chart_title("Automated check outcomes", "Share of known GitHub Actions results · last 30 days.")
         _ci_donut(info["ci_rows"], period=30)
 
-    _section("03 / Compare change without sample bias",
+    _section("04 / Matched snapshot change",
              "A trend is shown only for projects with comparable validated observations on two different days.")
     _matched_snapshot_chart(chosen)
 
-    _section("04 / What needs a closer look?", "Only findings supported by sufficient verified source data appear below.")
-    _findings_view(_findings(chosen))
     _section("05 / Where are new changes happening?", "Recent activity is not a score of project quality or developer productivity.")
     rows = []
     for report, a in sample_activity(chosen, days=7)["items"]:
@@ -832,7 +877,7 @@ def risks_recommendations(reports, selection):
     _heading("ACTIONABLE FINDINGS", "Where should we look next?",
              "Evidence-backed observations with a direct link to the actual records.", reports)
     from src.ui.observed import coverage_counts
-    found = _findings(reports, limit=4)
+    found = _findings(reports, limit=3)
     verified = coverage_counts(reports)
     _kpis([
         ("Evidence-based findings", _number(len(found)), "Backed by verified source records", "◎"),

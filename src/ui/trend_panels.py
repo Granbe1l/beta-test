@@ -34,43 +34,47 @@ def _draw_plot(fig, height=310):
 
 
 def trend_panel(reports):
-    """Visualize only real GitHub records, with an explicit verification scope.
-
-    A verified window excludes any repo whose scan covers fewer days than the
-    chosen period. Exploratory mode keeps the incomplete-sample line visible
-    but never permits claims of total project activity or true growth.
-    """
+    """Visual-first lines, with source-specific eligibility and clear caveats."""
     if not reports:
         st.info("No monitored repositories are available.")
         return
     with st.container(border=True):
-        head, period_col = st.columns([3, 1], gap="small")
-        with head:
+        heading, period_col, scope_col = st.columns([2.5, 1, 1.7], gap="small")
+        with heading:
             st.markdown("**Daily development activity**")
-            st.caption("Issue and pull-request events from actual GitHub records.")
+            st.caption("Actual issue and code-change events")
         with period_col:
-            days = st.selectbox("Period", [7, 28],
-                                format_func=lambda n: f"Last {n} days",
-                                key="overview_trend_period")
-
-        scope = st.radio(
-            "Evidence scope",
-            ["All retrieved events (exploratory)", "Verified source windows"],
-            horizontal=True, key="trend_evidence_scope",
-            help="Verified uses only repos with completed scans covering this full window.",
-        )
+            days = st.selectbox(
+                "Days", [7, 28], format_func=lambda n: f"{n} days",
+                key="overview_trend_period",
+                help="Both event lines use the same UTC calendar window.",
+            )
+        with scope_col:
+            scope = st.selectbox(
+                "Evidence scope",
+                ["All retrieved events (exploratory)", "Verified source windows"],
+                key="trend_evidence_scope",
+                help="Verified excludes any repository lacking a completed source scan covering all selected days.",
+            )
         exploratory = scope.startswith("All retrieved")
         if exploratory:
-            st.warning(
-                "Exploratory view: older or busy GitHub activity may be missing "
-                "from the collected records. Apparent increases and zeros are "
-                "not verified trends or evidence of inactivity."
+            st.markdown(
+                '<div class="d-trend-caveat"><strong>Exploratory sample.</strong> '
+                'Older events can be missing; apparent increases or zero counts '
+                'are not verified changes in real activity.</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.caption(
+                "Verified-window view: repositories whose full chosen source "
+                "window is incomplete are excluded—not treated as zero activity."
             )
 
         issue_tab, pr_tab = st.tabs([
             "Issues · tasks & reports", "Pull requests · code changes",
         ])
         collected = {}
+        any_usable = False
         for tab, source, first, second, topic in (
             (issue_tab, "issues", "Issues opened", "Issues closed", "issues"),
             (pr_tab, "pull_requests", "PRs opened", "PRs merged", "pull requests"),
@@ -78,33 +82,35 @@ def trend_panel(reports):
             eligible = qualified_reports(reports, source, days)
             displayed = reports if exploratory else eligible
             with tab:
-                if not exploratory:
-                    st.caption(
-                        f"Verified {days}-day bounded windows: "
-                        f"**{len(eligible)}/{len(reports)} repositories** "
-                        f"for {topic}. The other repositories are excluded."
-                    )
-                else:
-                    st.caption(
-                        f"**{len(reports)} repositories** in the exploratory sample; "
-                        f"only **{len(eligible)}** have a verified full "
-                        f"{days}-day scan for {topic}."
-                    )
+                st.caption(
+                    f"{len(displayed)}/{len(reports)} repositories displayed · "
+                    f"{len(eligible)}/{len(reports)} have a complete {days}-day "
+                    f"{topic} source window"
+                )
                 if not displayed:
                     st.info(
-                        f"No repository has a verified {days}-day {topic} "
-                        "window yet. Choose 7 days or exploratory mode to inspect "
-                        "the bounded records without a completeness claim."
+                        f"No repositories qualify for the verified {days}-day "
+                        f"{topic} view. Choose a 7-day window or view the "
+                        "observed sample with its incompleteness warning."
                     )
+                    if st.button(
+                        "Show observed sample instead",
+                        key=f"trend_switch_{source}",
+                        on_click=lambda: st.session_state.update(
+                            trend_evidence_scope="All retrieved events (exploratory)"
+                        ),
+                    ):
+                        pass
                     collected[source] = pd.DataFrame(daily_event_series([], days))
                     continue
+                any_usable = True
                 data = pd.DataFrame(daily_event_series(displayed, days=days))
                 collected[source] = data
                 totals = observed_event_totals(data.to_dict("records"))
                 if totals[first] + totals[second] == 0:
                     st.info(
-                        f"No {topic} events were found in the retrieved data. "
-                        "This does not establish that development stopped."
+                        f"No {topic} events appear in the retrieved {days}-day "
+                        "records. This does not prove that the projects were inactive."
                     )
                     continue
                 fig = go.Figure()
@@ -120,32 +126,34 @@ def trend_panel(reports):
                         ),
                     ))
                 fig.update_layout(
-                    xaxis=dict(type="date", nticks=7 if days == 28 else 8),
-                    yaxis=dict(title="Recorded daily events", rangemode="tozero"),
+                    xaxis=dict(type="date", nticks=7 if days == 28 else 8,
+                               tickformat="%d %b"),
+                    yaxis=dict(title="Recorded events / day", rangemode="tozero"),
                 )
-                _draw_plot(fig)
+                _draw_plot(fig, height=272)
                 if topic == "issues":
                     st.caption(
                         f"**Reading:** {totals[first]:,} issues opened and "
-                        f"{totals[second]:,} closed in selected records over "
-                        f"{days} days. This does not prove a change in total backlog."
+                        f"{totals[second]:,} closed in recorded events over "
+                        f"{days} days. This is not proof of total backlog change."
                     )
                 else:
                     st.caption(
                         f"**Reading:** {totals[first]:,} PRs opened and "
-                        f"{totals[second]:,} merged in selected records over "
-                        f"{days} days. Not every PR is expected to merge immediately."
+                        f"{totals[second]:,} merged in recorded events over "
+                        f"{days} days. Not all PRs are expected to merge immediately."
                     )
 
-        source_counts = coverage_counts(reports)
-        ready = analysis_window_coverage(reports, days=days)
-        st.caption(
-            f"**Cohort checks:** Issues {source_counts['issues']}/{len(reports)} "
-            f"bounded scans complete, {ready['issues']}/{len(reports)} "
-            f"cover {days} days. PRs {source_counts['pull_requests']}/{len(reports)} "
-            f"complete, {ready['pull_requests']}/{len(reports)} "
-            f"cover {days} days. Only a bounded collection is available; these scans do not imply complete GitHub history."
-        )
+        with st.expander("Source confidence · limitations"):
+            source_counts = coverage_counts(reports)
+            ready = analysis_window_coverage(reports, days=days)
+            st.caption(
+                f"**Complete bounded scans:** Issues {source_counts['issues']}/{len(reports)}, "
+                f"PRs {source_counts['pull_requests']}/{len(reports)}. "
+                f"**Full {days}-day window verified:** Issues {ready['issues']}/{len(reports)}, "
+                f"PRs {ready['pull_requests']}/{len(reports)}. "
+                "Only a bounded collection is available; it does not imply complete GitHub history."
+            )
         issue_data = collected["issues"][["Date", "Issues opened", "Issues closed"]]
         pr_data = collected["pull_requests"][["Date", "PRs opened", "PRs merged"]]
         export = issue_data.merge(pr_data, on="Date", how="outer")
@@ -160,7 +168,8 @@ def trend_panel(reports):
             "Export displayed events (CSV)",
             data=export.to_csv(index=False).encode("utf-8"),
             file_name=f"github_{export['Scope'].iloc[0]}_{days}d.csv",
-            mime="text/csv", key="trend_csv",
+            mime="text/csv", key="trend_csv", disabled=not any_usable,
+            help="CSV includes the displayed source scope and repository denominators.",
         )
 
 

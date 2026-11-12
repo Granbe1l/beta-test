@@ -40,6 +40,37 @@ def findings_for_repo(report: dict) -> list[dict]:
                     "review": "Look for recurring failure patterns by workflow and event.",
                     "url": url + "/actions", "scope": name,
                     "review_priority": "Review first" if ci["success_percent"] < 50 and ci["known_conclusion_denominator"] >= 20 else "Review next"})
+    # Compact visual evidence uses only this report's already-computed
+    # measurements. Ratios are displayed only where a real denominator exists.
+    for finding in out:
+        kind = finding["type"]
+        if kind == "issue-aging":
+            finding.update(
+                metric_label="Issues aged 30+ days",
+                metric_value=f'{i["aged_percent"]:.0f}%',
+                metric_context=f'{i["aged_open"]:,} of {i["aged_denominator"]:,} retrieved open issues',
+                observed=i["aged_open"], denominator=i["aged_denominator"],
+            )
+        elif kind == "ci":
+            finding.update(
+                metric_label="CI checks succeeded",
+                metric_value=f'{ci["success_percent"]:.0f}%',
+                metric_context=f'{ci["success"]:,} of {ci["known_conclusion_denominator"]:,} known completed checks',
+                observed=ci["success"],
+                denominator=ci["known_conclusion_denominator"],
+            )
+        elif kind == "merge-duration":
+            finding.update(
+                metric_label="Median merge time",
+                metric_value=duration,
+                metric_context=f'{p["merge_duration_n"]:,} observed merged changes in the calculation',
+            )
+        elif kind == "closure-change":
+            finding.update(
+                metric_label="Issue closure change",
+                metric_value=f'{c["change_percent"]:+.0f}%',
+                metric_context=f'{c["recent"]:,} recent vs {c["previous"]:,} prior observed closures',
+            )
     return out[:3]
 
 
