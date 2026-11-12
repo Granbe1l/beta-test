@@ -83,4 +83,8 @@ def test_adjacent_month_comparison_requires_complete_56_day_source_window():
     report["coverage"]["issues"]["coverage_start"] = now - timedelta(days=57)
     found = [x for x in findings_for_repo(report) if x["type"] == "closure-change"]
     assert len(found) == 1
-    assert found[0]["metric_value"] == "-100%"
+    assert found[0]["metric_value"] == "0"
+    assert found[0]["recent_count"] == 0
+    assert found[0]["previous_count"] == 21
+    assert "0 in the latest 28 days" in found[0]["headline"]
+    assert "-100%" not in found[0]["headline"]

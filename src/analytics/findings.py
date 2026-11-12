@@ -45,10 +45,16 @@ def findings_for_repo(report: dict) -> list[dict]:
             and c["change_percent"] is not None
             and abs(c["change_percent"]) >= 20):
         direction = "increased" if c["change_percent"] > 0 else "decreased"
-        out.append({"type": "closure-change", "headline": f"Issue closures {direction} {abs(c['change_percent']):.0f}% (28d vs prior 28d)",
-                    "evidence": f"{c['recent']} closures vs {c['previous']} closures in adjacent equal-length windows.",
-                    "interpretation": "The change measures closure activity, not project productivity or issue complexity.",
-                    "review": "Check issue types and contributor activity in both periods before explaining the change.",
+        out.append({"type": "closure-change",
+                    "headline": (f"Recorded issue closures: {c['recent']} in the latest "
+                                 f"28 days, versus {c['previous']} in the preceding 28 days."),
+                    "evidence": (f"{c['recent']} issue closures recorded in the latest 28 days "
+                                 f"and {c['previous']} in the previous 28 days, from a "
+                                 "verified 56-day source window."),
+                    "interpretation": ("A change in recorded closures does not prove "
+                                       "that a project slowed down, missed a deadline "
+                                       "or reduced developer productivity."),
+                    "review": "Inspect the affected issues and contributor activity in both periods before drawing conclusions.",
                     "url": url + "/issues?q=is%3Aissue+is%3Aclosed", "scope": name,
                     "review_priority": "Review first" if abs(c["change_percent"]) >= 50 and c["denominator"] >= 10 else "Review next"})
     if (ci["known_conclusion_denominator"] or 0) >= 10 and ci["success_percent"] is not None and ci["success_percent"] < 80:
@@ -85,9 +91,12 @@ def findings_for_repo(report: dict) -> list[dict]:
             )
         elif kind == "closure-change":
             finding.update(
-                metric_label="Issue closure change",
-                metric_value=f'{c["change_percent"]:+.0f}%',
-                metric_context=f'{c["recent"]:,} recent vs {c["previous"]:,} prior observed closures',
+                metric_label="Issues closed in the latest 28 days",
+                metric_value=f'{c["recent"]:,}',
+                metric_context=(f'{c["recent"]:,} latest vs {c["previous"]:,} earlier '
+                                'recorded closures · two verified 28-day windows'),
+                recent_count=c["recent"],
+                previous_count=c["previous"],
             )
     source_context = {
         "issue-aging": "Current observed open issues · completed bounded issue scan",

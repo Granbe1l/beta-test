@@ -92,6 +92,8 @@ def test_six_view_navigation_and_purple_mobile_theme():
     assert overview.index('trend_panel(chosen)') < overview.index('_coverage_banner(chosen)')
     assert overview.index('trend_panel(chosen)') < overview.index('_findings_view(')
     assert '_finding_visual(f)' in v2
+    assert 'Issues closed · two verified 28-day periods' in v2
+    assert 'f["previous_count"]' in v2 and 'f["recent_count"]' in v2
     assert 'st.metric(' in v2
     assert 'help=f.get("evidence")' in v2
     assert 'title="{esc(label)}: {esc(context)}"' in v2

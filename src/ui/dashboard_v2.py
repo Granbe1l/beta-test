@@ -355,7 +355,16 @@ def _findings_view(findings):
                     f'· {f["scope"]}'
                 )
                 st.markdown(f'**{types.get(f["type"], "Evidence to inspect")}**')
-                if f.get("metric_value"):
+                if f["type"] == "closure-change":
+                    st.caption("Issues closed · two verified 28-day periods")
+                    earlier, latest = st.columns(2, gap="small")
+                    with earlier:
+                        st.metric("Previous 28 days", f["previous_count"],
+                                  help="Issue closures observed in the earlier period.")
+                    with latest:
+                        st.metric("Latest 28 days", f["recent_count"],
+                                  help="Issue closures observed in the current period.")
+                elif f.get("metric_value"):
                     st.metric(f.get("metric_label", "Observed metric"),
                               f["metric_value"], help=f.get("evidence"))
                 else:
