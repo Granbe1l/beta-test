@@ -43,12 +43,20 @@ try:
         time.sleep(2)
         desktop.screenshot(path=str(OUT / "desktop-overview.png"), full_page=True)
         print("Captured desktop overview", flush=True)
-        # Streamlit scrolls inside the main element; capture charts below the fold.
-        desktop.get_by_text("02 / Compare change without sample bias", exact=True).scroll_into_view_if_needed(timeout=10000)
-        time.sleep(1.5)
+        # Capture the real 28-day line chart, not only the hero or KPIs.
+        desktop.get_by_text("Daily development activity", exact=True).scroll_into_view_if_needed(timeout=10000)
+        time.sleep(1.4)
+        desktop.screenshot(path=str(OUT / "desktop-line-issues.png"), full_page=False)
+        desktop.get_by_role("tab", name="Pull requests · code changes").click(timeout=10000)
+        time.sleep(1.2)
+        desktop.screenshot(path=str(OUT / "desktop-line-prs.png"), full_page=False)
+        desktop.get_by_role("tab", name="Issues · tasks & reports").click(timeout=10000)
+        time.sleep(.8)
+        desktop.get_by_text("03 / Compare change without sample bias", exact=True).scroll_into_view_if_needed(timeout=10000)
+        time.sleep(1.0)
         desktop.screenshot(path=str(OUT / "desktop-charts.png"), full_page=False)
         desktop.evaluate("window.scrollTo(0, 0)")
-        print("Captured actual overview charts", flush=True)
+        print("Captured line charts for issues and pull requests", flush=True)
 
         for label, file in [("Explore repositories", "desktop-repositories.png"),
                             ("Open issues", "desktop-issues.png"),

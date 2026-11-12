@@ -25,6 +25,7 @@ from src.ui.pages import (status_for, select_repo, table_rows, source_coverage,
                           comparison, methodology_contents, at_time)
 from src.ui.theme import esc, empty_state
 from src.ui.observed import summary
+from src.ui.trend_panels import trend_panel, coverage_progress, compare_two_repositories
 
 PURPLE = "#6941C6"
 PURPLE_LIGHT = "#AE8BE8"
@@ -477,16 +478,29 @@ def overview(reports, selection):
          "GitHub last-push metadata, not feature releases", "↗"),
     ])
     _coverage_banner(chosen)
+    coverage_progress(chosen)
     st.markdown(
-        '<div class="d-context"><strong>Last 7 days (retrieved records):</strong> '
-        f'{activity["new_issues"]:,} issues opened · '
-        f'{activity["closed_issues"]:,} issues closed · '
-        f'{activity["new_prs"]:,} PRs opened · '
-        f'{activity["merged_prs"]:,} PRs merged. '
-        '<span>These are recorded events; incomplete collection can omit activity.</span>'
+        '<div class="d-context"><strong>Executive summary · last 7 days:</strong> '
+        f'{activity["pushed_recently"]:,} of {len(chosen):,} projects show a recent code push. '
+        f'{activity["new_issues"]:,} tasks were reported and '
+        f'{activity["closed_issues"]:,} marked closed; '
+        f'{activity["new_prs"]:,} code changes were proposed and '
+        f'{activity["merged_prs"]:,} merged in retrieved records. '
+        '<span>These are observed events, not estimates of total work or quality.</span>'
         '</div>', unsafe_allow_html=True)
+    with st.expander("What do issue, PR, merge and CI/CD mean?"):
+        st.markdown(
+            "**Issue:** a reported task, bug or request. "
+            "**Pull request (PR):** a proposal to change code. "
+            "**Merge:** that proposed change was combined into the project. "
+            "**CI/CD checks:** automated tests/build steps, not a software-quality guarantee."
+        )
 
-    _section("01 / Delivery activity", "What is still open, and what happened in recent automated checks?")
+    _section("01 / Activity over time",
+             "See real recorded task and code-change events across recent days.")
+    trend_panel(chosen)
+
+    _section("02 / Delivery activity", "What remains open, and how did automatic checks perform?")
     left, right = st.columns([1.1, 1], gap="large")
     with left, st.container(border=True):
         _chart_title("Open issues by age", "Time since creation · not a deadline assessment.")
@@ -497,13 +511,13 @@ def overview(reports, selection):
         _chart_title("Automated check outcomes", "Share of known GitHub Actions results · last 30 days.")
         _ci_donut(info["ci_rows"], period=30)
 
-    _section("02 / Compare change without sample bias",
+    _section("03 / Compare change without sample bias",
              "A trend is shown only for projects with comparable validated observations on two different days.")
     _matched_snapshot_chart(chosen)
 
-    _section("03 / What needs a closer look?", "Only findings supported by sufficient verified source data appear below.")
+    _section("04 / What needs a closer look?", "Only findings supported by sufficient verified source data appear below.")
     _findings_view(_findings(chosen))
-    _section("04 / Where are new changes happening?", "Recent activity is not a score of project quality or developer productivity.")
+    _section("05 / Where are new changes happening?", "Recent activity is not a score of project quality or developer productivity.")
     rows = []
     for report, a in sample_activity(chosen, days=7)["items"]:
         events = a["new_issues"] + a["closed_issues"] + a["new_prs"] + a["merged_prs"]
@@ -601,7 +615,8 @@ def project_details(reports):
          "GitHub metadata timestamp", "↗"),
     ])
     st.caption("Counts describe retrieved records. Use Source details to inspect completeness.")
-    a, b, c = st.tabs(["Activity history", "Compare projects", "Source details"])
+    a, side_by_side, b, c = st.tabs(["Activity history", "Compare two projects",
+                                      "Compare projects", "Source details"])
     with a:
         observations = sorted(r.get("observations") or [],
                               key=lambda x: utc(x["measured_at"]))
@@ -627,6 +642,8 @@ def project_details(reports):
                 st.info("There are no collected open issue records to chart yet.")
         else:
             st.info("No observation history has been collected yet.")
+    with side_by_side:
+        compare_two_repositories(reports)
     with b:
         comparison(reports, embedded=True)
     with c:
@@ -660,7 +677,11 @@ def issues_backlog(reports):
         _horizontal_bars(["Opened", "Closed"],
                          [a["new_issues"], a["closed_issues"]],
                          [PURPLE, GREEN], height=248, unit="Issue events")
-        st.caption("Activity can be incomplete when the bounded source scan is partial.")
+        st.caption(
+            f"Reading: {a['new_issues']:,} observed tasks opened vs "
+            f"{a['closed_issues']:,} closed in 7 days. "
+            "These event counts do not prove how the entire project backlog changed."
+        )
     _section("Inspect the original issues")
     a, b, c = st.columns([2, 1, 1])
     with a:
@@ -702,8 +723,13 @@ def pull_request_review(reports):
             _chart_title("Time from PR creation to merge",
                          "Observed merged pull requests · last 90 days.")
             _duration_columns(buckets)
-            st.caption("This describes observed merge duration, not developer productivity. "
-                       "Longer changes may differ in complexity or review requirements.")
+            merged_total = sum(buckets.values())
+            first_bucket = next(iter(buckets.values()))
+            st.caption(
+                f"Reading: {first_bucket:,} of {merged_total:,} observed merged changes "
+                f"({first_bucket / merged_total:.0%}) finished within the first duration band. "
+                "Change complexity differs; this is not a developer productivity ranking."
+            )
         elif observed["open_changes"]:
             _chart_title("Open pull requests by status",
                          "No merged pull requests were retrieved in this period.")
@@ -751,7 +777,11 @@ def cicd_activity(reports):
     st.caption(
         f'{info["unknown"]} completed runs with unknown conclusions are excluded '
         "from the success share and plotted outcomes. "
+        f"Reading: {info['success']:,} of {info['known']:,} known check outcomes "
+        f"were successful ({info['success_percent']:.0f}% of known results). "
         "A successful check does not prove software quality."
+        if info["known"] else
+        "No known outcomes are available; a success rate cannot be calculated."
     )
     left, right = st.columns([1.12, .88], gap="large")
     with left, st.container(border=True):

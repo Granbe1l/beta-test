@@ -121,3 +121,20 @@ browser sessions, not generated mockups.
 Labels use counts and units; captions explain the limits of recent-window public
 GitHub collection. Every visual is derived from the same read-only snapshot.
 No fabricated scores, new external data sources or artificial up/down lines.
+
+## V4 · Observed daily line chart and readable insights
+
+- Priority line chart added directly below the four overview KPI cards:
+  issues opened vs closed or pull requests opened vs merged.
+- Data is built from real UTC dates and issue/PR timestamp fields; no API
+  history is invented. User can select 7 or 28 days and download the exact
+  displayed daily values as CSV.
+- New executive summary and glossary define Issue, PR, merge and CI/CD in
+  nontechnical language.
+- Source completeness shows explicit proportions for Issues, PRs and
+  GitHub Actions, with a bounded-scan disclaimer.
+- Explorer has an optional "Compare two projects" tab with observed counts
+  and direct links to both GitHub repositories.
+- Source evidence limitations and plain-language interpretations remain
+  visible; unmatched historical snapshots cannot be mistaken for growth.
+- Browser screenshot workflow captures both line-chart tabs separately.

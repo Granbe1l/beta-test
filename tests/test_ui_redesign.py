@@ -71,6 +71,14 @@ def test_six_view_navigation_and_purple_mobile_theme():
     assert 'comparable_observation_pair(chosen)' in v2
     assert 'checks_in_period(r["ci_rows"], days=period)' in v2
     assert 'Bounded source scans complete / tracked:' in v2
+    trend = (ROOT / 'src/ui/trend_panels.py').read_text()
+    assert 'trend_panel(chosen)' in v2
+    assert 'coverage_progress(chosen)' in v2
+    assert 'compare_two_repositories(reports)' in v2
+    assert 'st.download_button(' in trend
+    assert 'go.Scatter(' in trend
+    assert 'Zeros describe retrieved rows' in trend
+    assert 'What do issue, PR, merge and CI/CD mean?' in v2
     # Visual diversity must match analytic questions and real data contracts.
     assert 'go.Pie(' in v2  # part-to-whole
     assert 'go.Scatter(' in v2  # matched two-date comparison

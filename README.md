@@ -265,3 +265,22 @@ Operational commands for the snapshot workflow: `python scripts/restore_public_s
 Data coverage is still constrained by GitHub REST pagination, collection
 windows, API quotas, and scheduled runner availability; these limitations
 must be disclosed rather than hidden by manufactured or estimated totals.
+
+## Visual-first activity trends and HR-friendly interpretation
+
+The Dashboard now includes a **real observed daily line chart** with two tabs:
+GitHub issues opened/closed and PRs opened/merged. It defaults to the last
+28 calendar days (UTC) and offers 7 days. The line uses timestamped GitHub
+events **only**, not fabricated observations or smoothed estimates. A value
+of zero means *none in retrieved rows*, not no actual activity on GitHub.
+
+Daily event values can be exported as CSV. Executive summary, a concise
+GitHub-term glossary, source-coverage progress bars, and one-sentence
+interpretation near key charts help nontechnical readers. The Explorer
+includes two-repository comparison based on retrieved records, not rankings.
+
+Historical events can be underrepresented by bounded, recent-focused API
+extraction. The line chart is a **visualization of collected activity**, not
+a reliable estimate of growth, productivity, backlog change, or project
+success. Matched-cohort snapshot comparisons remain a separate,
+conservative analytical view.
