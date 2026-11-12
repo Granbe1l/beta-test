@@ -880,7 +880,7 @@ def risks_recommendations(reports, selection):
     found = _findings(reports, limit=3)
     verified = coverage_counts(reports)
     _kpis([
-        ("Evidence-based findings", _number(len(found)), "Backed by verified source records", "◎"),
+        ("Evidence-based findings", _number(len(found)), "Observed data with original source links", "◎"),
         ("Projects for review", _number(len({x["scope"] for x in found})),
          "Suggestions, not confirmed defects", "◷"),
         ("Verified issue sources", f'{verified["issues"]}/{len(reports)}' if reports else "—",
@@ -888,18 +888,11 @@ def risks_recommendations(reports, selection):
     ])
     if reports:
         _coverage_banner(reports)
-    _section("Priorities for a closer look", "Each finding requires sufficient verified evidence from its specific source.")
+    _section("Priorities for a closer look",
+             "Source-linked observations; inspection priority is not a project-quality ranking.")
     _findings_view(found)
-    kinds = Counter(x["type"] for x in found)
-    if kinds:
-        _section("What types of review appear?", "Number of evidence-backed observations by category.")
-        titles = {"issue-aging": "Older issues", "merge-duration": "Merge duration",
-                  "closure-change": "Closure activity", "ci": "Automated checks"}
-        frame = pd.DataFrame([{"Type": titles.get(k, k), "Findings": n}
-                              for k, n in kinds.items()])
-        fig = px.bar(frame, x="Type", y="Findings", color_discrete_sequence=[PURPLE],
-                     text="Findings")
-        _chart(fig, height=260)
+    st.caption("Review first means inspect the underlying records sooner—not that a project "
+               "is delayed, low-quality, or has a confirmed defect.")
     with st.expander("Data selection, formulas and limitations"):
         methodology_contents(reports, selection)
 

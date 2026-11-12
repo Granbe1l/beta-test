@@ -1,5 +1,20 @@
 """Evidence-first, bounded business insights from verified figures."""
 from __future__ import annotations
+from datetime import datetime, timedelta, timezone
+
+from src.analytics.metrics import utc
+
+
+def _has_verified_history(report: dict, source: str, days: int, now=None) -> bool:
+    """A previous-period comparison requires a complete, current scan."""
+    if report.get("status", {}).get(source) != "complete":
+        return False
+    cp = (report.get("coverage") or {}).get(source) or {}
+    first = utc(cp.get("coverage_start"))
+    now = utc(now or datetime.now(timezone.utc))
+    return first is not None and first <= now - timedelta(days=days)
+
+
 
 
 def findings_for_repo(report: dict) -> list[dict]:
@@ -25,7 +40,10 @@ def findings_for_repo(report: dict) -> list[dict]:
                     "interpretation": "This describes observed completion time, not the cause of slower or faster merges.",
                     "review": "Inspect a few long-running merges alongside PR complexity and review activity.",
                     "url": p["merged_evidence"][0] if p["merged_evidence"] else url + "/pulls", "scope": name, "review_priority": "Explore context"})
-    if c and c["denominator"] >= 5 and c["change_percent"] is not None and abs(c["change_percent"]) >= 20:
+    if (_has_verified_history(report, "issues", days=56)
+            and c and c["denominator"] >= 5
+            and c["change_percent"] is not None
+            and abs(c["change_percent"]) >= 20):
         direction = "increased" if c["change_percent"] > 0 else "decreased"
         out.append({"type": "closure-change", "headline": f"Issue closures {direction} {abs(c['change_percent']):.0f}% (28d vs prior 28d)",
                     "evidence": f"{c['recent']} closures vs {c['previous']} closures in adjacent equal-length windows.",

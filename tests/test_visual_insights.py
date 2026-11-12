@@ -1,4 +1,6 @@
 """Visual findings must derive their numbers from existing sampled records."""
+from datetime import datetime, timedelta, timezone
+
 from src.analytics.findings import findings_for_repo
 
 
@@ -53,3 +55,32 @@ def test_ui_does_not_show_fictitious_percentage_when_sample_is_empty():
                "success": 0},
     }
     assert findings_for_repo(report) == []
+
+
+
+def test_adjacent_month_comparison_requires_complete_56_day_source_window():
+    """Do not claim a 100% decline when older issue activity is undercollected."""
+    now = datetime.now(timezone.utc)
+    report = {
+        "repository": {
+            "full_name": "example/repo",
+            "url": "https://github.com/example/repo",
+        },
+        "issues": {"aged_denominator": 0, "aged_percent": None,
+                   "aged_open": 0},
+        "prs": {"median_merge_days": None, "merge_duration_n": 0},
+        "ci": {"known_conclusion_denominator": 0, "success_percent": None,
+               "success": 0},
+        "closure": {"denominator": 21, "change_percent": -100,
+                    "recent": 0, "previous": 21},
+        "status": {"issues": "partial"},
+        "coverage": {"issues": {"coverage_start": now - timedelta(days=90)}},
+    }
+    assert not any(x["type"] == "closure-change" for x in findings_for_repo(report))
+    report["status"]["issues"] = "complete"
+    report["coverage"]["issues"]["coverage_start"] = now - timedelta(days=14)
+    assert not any(x["type"] == "closure-change" for x in findings_for_repo(report))
+    report["coverage"]["issues"]["coverage_start"] = now - timedelta(days=57)
+    found = [x for x in findings_for_repo(report) if x["type"] == "closure-change"]
+    assert len(found) == 1
+    assert found[0]["metric_value"] == "-100%"
