@@ -359,10 +359,10 @@ def _findings_view(findings):
                     st.caption("Issues closed · two verified 28-day periods")
                     earlier, latest = st.columns(2, gap="small")
                     with earlier:
-                        st.metric("Previous 28 days", f["previous_count"],
+                        st.metric("Earlier 28d", f["previous_count"],
                                   help="Issue closures observed in the earlier period.")
                     with latest:
-                        st.metric("Latest 28 days", f["recent_count"],
+                        st.metric("Latest 28d", f["recent_count"],
                                   help="Issue closures observed in the current period.")
                 elif f.get("metric_value"):
                     st.metric(f.get("metric_label", "Observed metric"),
