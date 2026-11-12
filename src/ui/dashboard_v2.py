@@ -141,11 +141,14 @@ def _donut(labels, values, colors, total_label, height=245):
     if not count:
         st.info("No usable records were retrieved for this chart.")
         return
+    # Remove zero-size sectors so overlapping "0%" labels cannot appear.
+    sectors = [(label, value, color) for label, value, color in zip(labels, values, colors)
+               if value > 0]
     fig = go.Figure(go.Pie(
-        labels=list(labels), values=list(values), hole=.69,
+        labels=[x[0] for x in sectors], values=[x[1] for x in sectors], hole=.69,
         sort=False, direction="clockwise",
-        marker=dict(colors=list(colors), line=dict(color="#FFFFFF", width=2)),
-        textinfo="percent", textposition="outside",
+        marker=dict(colors=[x[2] for x in sectors], line=dict(color="#FFFFFF", width=2)),
+        textinfo="none", texttemplate="%{percent:.1%}", textposition="outside",
         textfont=dict(size=10, color=INK), automargin=True,
         hovertemplate="%{label}: %{value:,} (%{percent})<extra></extra>",
     ))
