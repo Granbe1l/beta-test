@@ -52,9 +52,9 @@ def trend_panel(reports):
         with scope_col:
             scope = st.selectbox(
                 "Evidence scope",
-                ["All retrieved events (exploratory)", "Verified source windows"],
+                ["Verified source windows", "All retrieved events (exploratory)"],
                 key="trend_evidence_scope",
-                help="Verified excludes any repository lacking a completed source scan covering all selected days.",
+                help="Verified: use only projects with the entire selected period collected. Exploratory: include all observed records with missing-data warnings.",
             )
         exploratory = scope.startswith("All retrieved")
         if exploratory:
@@ -66,8 +66,9 @@ def trend_panel(reports):
             )
         else:
             st.caption(
-                "Verified-window view: repositories whose full chosen source "
-                "window is incomplete are excluded—not treated as zero activity."
+                "**Comparable records only:** the chart uses projects with a "
+                "verified scan for all selected days. Others are excluded, "
+                "not counted as inactive."
             )
 
         issue_tab, pr_tab = st.tabs([
@@ -83,15 +84,15 @@ def trend_panel(reports):
             displayed = reports if exploratory else eligible
             with tab:
                 st.caption(
-                    f"{len(displayed)}/{len(reports)} repositories displayed · "
-                    f"{len(eligible)}/{len(reports)} have a complete {days}-day "
-                    f"{topic} source window"
+                    f"**{len(displayed)} of {len(reports)} projects shown** · "
+                    f"{len(eligible)} have checked {topic} data for all "
+                    f"{days} days. Other projects are excluded from this graph."
                 )
                 if not displayed:
                     st.info(
                         f"No repositories qualify for the verified {days}-day "
-                        f"{topic} view. Choose a 7-day window or view the "
-                        "observed sample with its incompleteness warning."
+                        f"{topic} view. Data are missing for the requested period; "
+                        "choose 7 days or inspect all retrieved records (with a warning)."
                     )
                     if st.button(
                         "Show observed sample instead",

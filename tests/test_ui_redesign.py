@@ -96,6 +96,11 @@ def test_six_view_navigation_and_purple_mobile_theme():
     assert 'help=f.get("evidence")' in v2
     assert 'title="{esc(label)}: {esc(context)}"' in v2
 
+    # Default charts must not infer trends from incomplete source windows.
+    assert '["Verified source windows", "All retrieved events (exploratory)"]' in trend
+    assert 'qualified_reports(reports, source, days)' in trend
+    assert 'Other projects are excluded from this graph' in trend
+    assert 'not counted as inactive' in trend
     assert 'Show observed sample instead' in trend
     assert 'No repositories qualify for the verified' in trend
     assert 'd-trend-caveat' in trend
