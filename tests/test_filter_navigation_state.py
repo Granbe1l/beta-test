@@ -95,3 +95,16 @@ def test_independent_open_backlog_coverage_never_crashes_or_claims_issue_scan():
         "Open Backlog"]["Status"] == "complete"
     assert {x["Source"]: x for x in source_coverage_rows(row)}[
         "Issues"]["Status"] == "partial"
+
+
+def test_original_pr_table_handles_missing_pandas_nat_dates():
+    import pandas as pd
+    from datetime import datetime, timezone
+    from src.ui.pages import _display_table_date
+    assert _display_table_date(None) == "—"
+    assert _display_table_date(pd.NaT) == "—"
+    assert _display_table_date(pd.Timestamp("2026-11-13T01:00:00Z")) == "13 Nov 2026"
+    assert _display_table_date("2026-11-12T00:00:00Z") == "12 Nov 2026"
+    assert _display_table_date(datetime(2026, 11, 11, tzinfo=timezone.utc)) == "11 Nov 2026"
+    values = pd.Series([pd.Timestamp("2026-11-13T01:00:00Z"), pd.NaT])
+    assert values.map(_display_table_date).tolist() == ["13 Nov 2026", "—"]
