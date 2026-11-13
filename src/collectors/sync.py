@@ -118,6 +118,12 @@ def fetch_ci_windowed(client: GitHubClient, repo: Repository,
             continue
         try:
             parsed = datetime.fromisoformat(str(last_verified).replace("Z", "+00:00"))
+            # Today's bucket is incomplete until we collect through *now*.
+            # Reusing a checkpoint from six hours ago would otherwise certify
+            # the new six hours of workflow events without querying GitHub.
+            # Closed prior UTC days can be cached subject to freshness rules.
+            if date >= now.date().isoformat():
+                continue
             if date < cutoff.isoformat() or utc(parsed) >= now - timedelta(hours=24):
                 reusable[date] = str(last_verified)
         except (ValueError, TypeError):
