@@ -21,6 +21,8 @@ def main():
     parser.add_argument("--expand", action="store_true", help="Expand vetted selection toward MAX_REPOS without removing existing repositories")
     parser.add_argument("--initial-batch", type=int, default=0, help="New-repository bootstrap limit; all repos update after seeding")
     parser.add_argument("--max-requests", type=int, default=0, help="Bound entire collection run to avoid rate-limit exhaustion")
+    parser.add_argument("--audit-open-backlog", action="store_true",
+                        help="Use spare API budget for independent full-open-Issue scans")
     args=parser.parse_args()
     cfg=Settings.from_env()
     client=GitHubClient(cfg.github_token,cfg.timeout_seconds,cfg.max_retries,
@@ -51,7 +53,8 @@ def main():
                 else:
                     print("Keeping audited selection; expansion already attempted")
             results=synchronize(session,client,cfg,reconcile=args.reconcile,
-                                initial_batch_size=args.initial_batch or None)
+                                initial_batch_size=args.initial_batch or None,
+                                audit_open_backlog=args.audit_open_backlog)
             for row in results: print(row)
             if not results:
                 print("No selected repositories. Run scripts/run_sync.py --discover when GitHub API is accessible.")
