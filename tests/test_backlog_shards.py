@@ -127,3 +127,40 @@ def test_partial_search_does_not_fabricate_closed_at(db, cfg):
     assert existing.state == "open"
     assert existing.closed_at is None
     assert db.get(SyncCheckpoint, (101, "open_backlog")).status == "partial"
+
+
+def test_backlog_audit_prioritizes_verified_source_cohort(db, cfg):
+    from src.collectors.sync import backlog_priority_order
+    from sqlalchemy import select
+    candidate_repo = Repository(
+        id=305, full_name="org/verified", name="verified", owner="org",
+        url="https://github.com/org/verified", language="Python",
+        category="Data & backend", stars=100, selected=True,
+        created_at=NOW-timedelta(days=400))
+    db.add(candidate_repo)
+    for source in ("issues", "pull_requests", "workflow_runs"):
+        db.add(SyncCheckpoint(
+            repo_id=305, source=source, status="complete",
+            last_success_at=NOW-timedelta(hours=1),
+            coverage_start=NOW-timedelta(days=31)))
+    db.commit()
+    repos = list(db.scalars(select(Repository).where(
+        Repository.selected.is_(True))))
+    ordered = backlog_priority_order(db, repos, cfg, NOW)
+    assert ordered[0].full_name == "org/verified"
+    assert set(r.full_name for r in ordered) == {
+        "org/verified", "sample/project"}
+    # Existing tracked repository rows were not de-selected or removed.
+    assert all(r.selected for r in repos)
+
+
+def test_full_backlog_checkpoint_is_not_repeated_while_fresh(db, cfg):
+    from src.collectors.sync import backlog_priority_order
+    from sqlalchemy import select
+    repo = db.get(Repository, 101)
+    db.add(SyncCheckpoint(
+        repo_id=101, source="open_backlog", status="complete",
+        last_success_at=NOW-timedelta(hours=1),
+        coverage_start=NOW-timedelta(hours=1)))
+    db.commit()
+    assert backlog_priority_order(db, [repo], cfg, NOW) == []
