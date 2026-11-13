@@ -1,28 +1,28 @@
 {
-  "at": "2026-11-13T18:56:43.480371+00:00",
-  "proof_at": "2026-11-13T18:52:59.178536+00:00",
+  "at": "2026-11-13T19:17:07.174885+00:00",
+  "proof_at": "2026-11-13T19:10:06.527048+00:00",
   "active": 75,
-  "verified_before": 41,
-  "verified_after": 49,
+  "verified_before": 40,
+  "verified_after": 47,
   "replacements": [
     {
-      "old_id": 1424382782,
-      "old": "open-artifacts-ai/open-artifacts",
-      "new_id": 273043452,
-      "new": "getsentry/action-release",
+      "old_id": 484434975,
+      "old": "dagucloud/dagu",
+      "new_id": 60978152,
+      "new": "terraform-docs/terraform-docs",
       "sources": [
         {
-          "repo": "getsentry/action-release",
+          "repo": "terraform-docs/terraform-docs",
           "source": "issues",
           "status": "complete",
-          "records": 9,
+          "records": 5,
           "pages": 1,
           "attempts": 1,
           "window_days": 29.0,
           "requested_repair_window_days": 29
         },
         {
-          "repo": "getsentry/action-release",
+          "repo": "terraform-docs/terraform-docs",
           "source": "pull_requests",
           "status": "complete",
           "records": 16,
@@ -32,10 +32,10 @@
           "requested_repair_window_days": 29
         },
         {
-          "repo": "getsentry/action-release",
+          "repo": "terraform-docs/terraform-docs",
           "source": "workflow_runs",
           "status": "complete",
-          "records": 288,
+          "records": 55,
           "pages": 5,
           "attempts": 5,
           "window_days": 29.0,
@@ -44,113 +44,37 @@
       ]
     },
     {
-      "old_id": 1250321811,
-      "old": "Servosity/msp-skills",
-      "new_id": 492260622,
-      "new": "crossplane/upjet",
+      "old_id": 369010411,
+      "old": "fedimint/fedimint",
+      "new_id": 481230318,
+      "new": "squidowl/halloy",
       "sources": [
         {
-          "repo": "crossplane/upjet",
+          "repo": "squidowl/halloy",
           "source": "issues",
           "status": "complete",
-          "records": 17,
-          "pages": 1,
-          "attempts": 1,
-          "window_days": 29.0,
-          "requested_repair_window_days": 29
-        },
-        {
-          "repo": "crossplane/upjet",
-          "source": "pull_requests",
-          "status": "complete",
-          "records": 35,
-          "pages": 1,
-          "attempts": 1,
-          "window_days": 29.0,
-          "requested_repair_window_days": 29
-        },
-        {
-          "repo": "crossplane/upjet",
-          "source": "workflow_runs",
-          "status": "complete",
-          "records": 300,
-          "pages": 6,
-          "attempts": 5,
-          "window_days": 29.0,
-          "requested_repair_window_days": 29
-        }
-      ]
-    },
-    {
-      "old_id": 1194256273,
-      "old": "compozy/compozy",
-      "new_id": 1198207465,
-      "new": "umputun/revdiff",
-      "sources": [
-        {
-          "repo": "umputun/revdiff",
-          "source": "issues",
-          "status": "complete",
-          "records": 26,
-          "pages": 1,
-          "attempts": 1,
-          "window_days": 29.0,
-          "requested_repair_window_days": 29
-        },
-        {
-          "repo": "umputun/revdiff",
-          "source": "pull_requests",
-          "status": "complete",
-          "records": 45,
-          "pages": 1,
-          "attempts": 1,
-          "window_days": 29.0,
-          "requested_repair_window_days": 29
-        },
-        {
-          "repo": "umputun/revdiff",
-          "source": "workflow_runs",
-          "status": "complete",
-          "records": 159,
-          "pages": 5,
-          "attempts": 5,
-          "window_days": 29.0,
-          "requested_repair_window_days": 29
-        }
-      ]
-    },
-    {
-      "old_id": 1155081460,
-      "old": "ancsemi/Haven",
-      "new_id": 351085488,
-      "new": "cpvalente/ontime",
-      "sources": [
-        {
-          "repo": "cpvalente/ontime",
-          "source": "issues",
-          "status": "complete",
-          "records": 14,
+          "records": 73,
           "pages": 2,
           "attempts": 1,
           "window_days": 29.0,
           "requested_repair_window_days": 29
         },
         {
-          "repo": "cpvalente/ontime",
+          "repo": "squidowl/halloy",
           "source": "pull_requests",
           "status": "complete",
-          "records": 92,
-          "pages": 1,
+          "records": 113,
+          "pages": 2,
           "attempts": 1,
           "window_days": 29.0,
           "requested_repair_window_days": 29
         },
         {
-          "repo": "cpvalente/ontime",
+          "repo": "squidowl/halloy",
           "source": "workflow_runs",
           "status": "complete",
-          "records": 346,
-          "pages": 6,
+          "records": 1356,
+          "pages": 16,
           "attempts": 5,
           "window_days": 29.0,
           "requested_repair_window_days": 29
@@ -158,36 +82,36 @@
       ]
     },
     {
-      "old_id": 1450012790,
-      "old": "jhaizhou-ops/S2Arm",
-      "new_id": 87402251,
-      "new": "codecentric/chaos-monkey-spring-boot",
+      "old_id": 1385776214,
+      "old": "Droid-Deck/DroidDeck",
+      "new_id": 482265185,
+      "new": "breezy-weather/breezy-weather",
       "sources": [
         {
-          "repo": "codecentric/chaos-monkey-spring-boot",
+          "repo": "breezy-weather/breezy-weather",
           "source": "issues",
           "status": "complete",
-          "records": 3,
+          "records": 24,
           "pages": 1,
           "attempts": 1,
           "window_days": 29.0,
           "requested_repair_window_days": 29
         },
         {
-          "repo": "codecentric/chaos-monkey-spring-boot",
+          "repo": "breezy-weather/breezy-weather",
           "source": "pull_requests",
           "status": "complete",
-          "records": 32,
+          "records": 22,
           "pages": 1,
           "attempts": 1,
           "window_days": 29.0,
           "requested_repair_window_days": 29
         },
         {
-          "repo": "codecentric/chaos-monkey-spring-boot",
+          "repo": "breezy-weather/breezy-weather",
           "source": "workflow_runs",
           "status": "complete",
-          "records": 223,
+          "records": 182,
           "pages": 5,
           "attempts": 5,
           "window_days": 29.0,
@@ -196,36 +120,36 @@
       ]
     },
     {
-      "old_id": 1283291297,
-      "old": "LUC4N3X/Levyra-deepsound",
-      "new_id": 34525124,
-      "new": "Waboodoo/HTTP-Shortcuts",
+      "old_id": 1432967563,
+      "old": "ccch1mneyyy/dsh-Go",
+      "new_id": 478710402,
+      "new": "T8RIN/ImageToolbox",
       "sources": [
         {
-          "repo": "Waboodoo/HTTP-Shortcuts",
+          "repo": "T8RIN/ImageToolbox",
           "source": "issues",
           "status": "complete",
-          "records": 9,
-          "pages": 1,
+          "records": 70,
+          "pages": 2,
           "attempts": 1,
           "window_days": 29.0,
           "requested_repair_window_days": 29
         },
         {
-          "repo": "Waboodoo/HTTP-Shortcuts",
+          "repo": "T8RIN/ImageToolbox",
           "source": "pull_requests",
           "status": "complete",
-          "records": 3,
+          "records": 39,
           "pages": 1,
           "attempts": 1,
           "window_days": 29.0,
           "requested_repair_window_days": 29
         },
         {
-          "repo": "Waboodoo/HTTP-Shortcuts",
+          "repo": "T8RIN/ImageToolbox",
           "source": "workflow_runs",
           "status": "complete",
-          "records": 2,
+          "records": 45,
           "pages": 5,
           "attempts": 5,
           "window_days": 29.0,
@@ -234,36 +158,74 @@
       ]
     },
     {
-      "old_id": 1383677612,
-      "old": "baocode-dev/baocode",
-      "new_id": 61319303,
-      "new": "adrcotfas/goodtime",
+      "old_id": 1021895365,
+      "old": "slopus/happy",
+      "new_id": 750550657,
+      "new": "iamgio/quarkdown",
       "sources": [
         {
-          "repo": "adrcotfas/goodtime",
+          "repo": "iamgio/quarkdown",
           "source": "issues",
           "status": "complete",
-          "records": 9,
+          "records": 15,
           "pages": 1,
           "attempts": 1,
           "window_days": 29.0,
           "requested_repair_window_days": 29
         },
         {
-          "repo": "adrcotfas/goodtime",
+          "repo": "iamgio/quarkdown",
           "source": "pull_requests",
           "status": "complete",
-          "records": 26,
+          "records": 34,
           "pages": 1,
           "attempts": 1,
           "window_days": 29.0,
           "requested_repair_window_days": 29
         },
         {
-          "repo": "adrcotfas/goodtime",
+          "repo": "iamgio/quarkdown",
           "source": "workflow_runs",
           "status": "complete",
-          "records": 47,
+          "records": 361,
+          "pages": 8,
+          "attempts": 5,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        }
+      ]
+    },
+    {
+      "old_id": 1387586059,
+      "old": "n8n-io/nod",
+      "new_id": 772283421,
+      "new": "usesend/useSend",
+      "sources": [
+        {
+          "repo": "usesend/useSend",
+          "source": "issues",
+          "status": "complete",
+          "records": 8,
+          "pages": 1,
+          "attempts": 1,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        },
+        {
+          "repo": "usesend/useSend",
+          "source": "pull_requests",
+          "status": "complete",
+          "records": 41,
+          "pages": 1,
+          "attempts": 1,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        },
+        {
+          "repo": "usesend/useSend",
+          "source": "workflow_runs",
+          "status": "complete",
+          "records": 90,
           "pages": 5,
           "attempts": 5,
           "window_days": 29.0,
@@ -272,36 +234,36 @@
       ]
     },
     {
-      "old_id": 1035165731,
-      "old": "cogwheel0/conduit",
-      "new_id": 16479425,
-      "new": "owntracks/android",
+      "old_id": 402212200,
+      "old": "spr-networks/super",
+      "new_id": 373308826,
+      "new": "formkit/formkit",
       "sources": [
         {
-          "repo": "owntracks/android",
+          "repo": "formkit/formkit",
           "source": "issues",
           "status": "complete",
-          "records": 23,
-          "pages": 1,
+          "records": 64,
+          "pages": 2,
           "attempts": 1,
           "window_days": 29.0,
           "requested_repair_window_days": 29
         },
         {
-          "repo": "owntracks/android",
+          "repo": "formkit/formkit",
           "source": "pull_requests",
           "status": "complete",
-          "records": 37,
+          "records": 38,
           "pages": 1,
           "attempts": 1,
           "window_days": 29.0,
           "requested_repair_window_days": 29
         },
         {
-          "repo": "owntracks/android",
+          "repo": "formkit/formkit",
           "source": "workflow_runs",
           "status": "complete",
-          "records": 205,
+          "records": 96,
           "pages": 5,
           "attempts": 5,
           "window_days": 29.0,
@@ -311,7 +273,7 @@
     }
   ],
   "skipped": [],
-  "request_count": 67,
+  "request_count": 74,
   "archive": "data/archived_repository_reports.json.gz",
   "caveat": "Curated and composition-changing sample, not random or representative of all GitHub projects."
 }
