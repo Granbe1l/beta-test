@@ -178,10 +178,17 @@ def _ci_donut(rows, period=30):
            [palette[k] for k in labels], "known checks", height=245)
     success = info["success_percent"]
     if success is not None:
-        st.caption(f'{success:.1f}% of {info["known"]:,} known checks succeeded over {period} days. '
-                   "A passed check is not a software-quality score.")
+        st.caption(
+            f'**{info["success"]:,} succeeded / {info["known"]:,} known outcomes '
+            f'({success:.1f}%)** · Failed/timed out {info["failure"]:,} · '
+            f'Skipped {info["skipped"]:,} · Other known {info["other"]:,}. '
+            "Skipped and other outcomes remain in the known denominator; "
+            "they are not all software failures. A passed check is not a "
+            "software-quality score."
+        )
     if info["unknown"]:
-        st.caption(f'{info["unknown"]:,} completed runs with unknown conclusions are excluded.')
+        st.caption(f'{info["unknown"]:,} completed runs with unknown '
+                   "conclusions are excluded from the success rate.")
 
 
 def _issue_age_donut(rows):
@@ -397,12 +404,19 @@ def _findings_view(findings):
         st.info("No evidence-backed findings meet the sample rules yet. "
                 "Try a different repository or inspect collected source coverage.")
         return
+    st.caption(
+        "Inspection order is an evidence-review sequence, not a severity "
+        "or project-health ranking. Multiple findings may meet the same "
+        "'Review first' trigger; confirm the original GitHub record before "
+        "deciding whether action is needed."
+    )
     columns = st.columns(min(3, len(findings)), gap="small")
     for idx, f in enumerate(findings):
         with columns[idx % len(columns)]:
             with st.container(border=True):
                 st.caption(
-                    f'{idx + 1:02d} · {f.get("review_priority", "Explore context")} '
+                    f'CHECK {idx + 1}/{len(findings)} · '
+                    f'{f.get("review_priority", "Explore context")} '
                     f'· {f["scope"]}'
                 )
                 st.markdown(f'**{types.get(f["type"], "Evidence to inspect")}**')
@@ -1062,13 +1076,19 @@ def cicd_activity(reports):
          f'{info["known"]} known results · {period}d', "%"),
     ])
     st.caption(
-        f'{info["unknown"]} completed runs with unknown conclusions are excluded '
-        "from the success share and plotted outcomes. "
-        f"Reading: {info['success']:,} of {info['known']:,} known check outcomes "
-        f"were successful ({info['success_percent']:.0f}% of known results). "
-        "A successful check does not prove software quality."
-        if info["known"] else
-        "No known outcomes are available; a success rate cannot be calculated."
+        (
+            f'**Outcome definitions · {period} days:** '
+            f'{info["success"]:,} succeeded · '
+            f'{info["failure"]:,} failed/timed out · '
+            f'{info["skipped"]:,} skipped · '
+            f'{info["other"]:,} other known results. '
+            f'{info["unknown"]:,} runs have unknown conclusions and are excluded '
+            f'from the success rate. **{info["success"]:,}/{info["known"]:,}** '
+            "known outcomes succeeded. Skipped/cancelled/other are not "
+            "automatically software failures; CI outcome is not a quality score."
+        ) if info["known"] else
+        "No completed runs with known conclusions are available. A success "
+        "rate cannot be calculated; missing conclusions are not failures."
     )
     left, right = st.columns([1.12, .88], gap="large")
     with left, st.container(border=True):
