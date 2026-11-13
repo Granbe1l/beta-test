@@ -360,9 +360,18 @@ def sync_one(session: Session, client: GitHubClient, repo: Repository, source: s
         log.finished_at = utcnow()
         log.record_count = len(rows)
         log.page_count = total_pages
-        cp.status = status
-        cp.pages_fetched = total_pages
-        cp.records_fetched = len(rows)
+        # A failed OPTIONAL broad repair is not evidence that an already
+        # verified narrow checkpoint became incomplete. Keep the last
+        # complete window and timestamp until genuinely replaced, but log
+        # the new partial attempt separately and never claim 28-day coverage.
+        preserve_old_complete = bool(
+            min_window_days and not pagination.complete
+            and cp.status == "complete" and cp.last_success_at
+        )
+        if not preserve_old_complete:
+            cp.status = status
+            cp.pages_fetched = total_pages
+            cp.records_fetched = len(rows)
         if source == "workflow_runs" and hasattr(pagination, "verified_days"):
             # Persist verified day buckets even for partially complete scans.
             # On the next runner, snapshot restore brings these checkpoints
@@ -396,7 +405,12 @@ def sync_one(session: Session, client: GitHubClient, repo: Repository, source: s
         # Revert all in-flight rows/checkpoint changes, keep historical records.
         session.rollback()
         cp = get_checkpoint(session, repo.id, source)
-        cp.status = "failed"
+        # An optional historical repair error must not erase an earlier
+        # properly completed narrow window; keep its timestamp and status
+        # while the failed attempt is recorded in the SyncLog.
+        if not (min_window_days and cp.status == "complete"
+                and cp.last_success_at):
+            cp.status = "failed"
         cp.last_error = safe_error(exc)
         persisted_log = session.get(SyncLog, log.id)
         persisted_log.status = "failed"
