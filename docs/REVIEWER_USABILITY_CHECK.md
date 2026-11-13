@@ -72,3 +72,61 @@ A real participant's first unexplained interpretation is the key
 outcome. If someone calls an Issue "overdue" or a failed CI run
 "a confirmed project failure", count the corresponding comprehension
 task as not independently completed, revise the wording and retest.
+
+
+## Portfolio-ready alternative: reproducible non-human evaluation
+
+**You may publish this project in a portfolio without recruiting human
+participants.** Do not claim that HRD, participants or real users understood
+it until such a study actually occurs. Treat the checks below as *automated
+UI and evidence audits*, not a usability success percentage.
+
+The existing screenshot workflow now makes a real desktop (1440px) and
+mobile (390px) Streamlit session with Playwright. It checks the actual
+navigation, collapsed glossary, charts, export, evidence finding state,
+comparison table and mobile menu. Its new
+`recruiter-browser-audit.json` also records observable viewport width,
+horizontal overflow, KPI-card count, rendered chart count, source timestamp
+disclosure, analysis-cohort disclosure and the review-action prompt.
+Any failed required assertion fails the workflow rather than silently
+producing an attractive screenshot.
+
+The CI workflow separately runs `scripts/audit_reviewer_evidence.py`
+against the **real committed snapshot**, preserving
+`reviewer-evidence-audit.json` as an Actions artifact. It cross-checks
+selected verified projects, bounded numeric findings, links to genuine
+stored GitHub records, the three-step inspection plan and
+unavailable-example listing fallbacks. A missing individual example is
+explicitly **not** interpreted as verified record-level evidence.
+
+`tests/test_recruiter_accessibility.py` checks normal-text contrast of
+the specific palette pairs used in key reviewer-facing labels and mobile
+supporting-text size. It does not establish full WCAG 2.2 conformance
+or guarantee readability for every browser and font configuration.
+
+**Recommended reviewer demonstration (without creating sample data):**
+
+1. On Dashboard, explain the exact selected cohort and snapshot age.
+2. Inspect one quantified `What should we inspect?` finding.
+3. Follow the original GitHub record, then return to the review plan.
+4. Switch to exploratory scope and explain why incomplete sources are
+   not zero activity.
+5. On mobile, verify navigation and charts do not overflow.
+
+Use `python -m pytest -q` and the GitHub Actions screenshots/audit
+artifacts as reproducible evidence. Human task testing remains an optional
+future strengthening step if you want to say "tested with nontechnical
+participants"; it is **not** a prerequisite to listing the technical
+project on a CV/portfolio.
+
+### References (patterns and criteria, not borrowed code)
+
+- https://github.com/pingcap/ossinsight : project exploration, comparisons
+- https://github.com/chaoss/grimoirelab-sigils : source-specific dashboard views
+- https://www.nngroup.com/articles/ten-usability-heuristics/ :
+  recognition rather than recall; visibility of status; use familiar language
+- https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html :
+  4.5:1 minimum normal-size text contrast
+
+Only the principles are referenced; these audits inspect this project's
+own actual code, browser renderings and sourced records.
