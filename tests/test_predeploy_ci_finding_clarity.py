@@ -29,7 +29,7 @@ def test_ci_denominator_counts_skipped_and_other_but_not_unknown():
 def test_ci_ui_explains_unknown_other_and_skipped_not_all_failures():
     ui = (ROOT/"src/ui/dashboard_v2.py").read_text(encoding="utf-8")
     assert 'f\'Skipped {info["skipped"]:,}' in ui
-    assert 'f\'Other known {info["other"]:,}' in ui
+    assert 'Other known {info["other"]:,}' in ui
     assert "they are not all software failures" in ui
     assert "not a quality score" in ui
     assert "Skipped/cancelled/other are not" in ui
