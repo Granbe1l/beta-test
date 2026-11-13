@@ -1,0 +1,87 @@
+name: Verify and promote individually screened GitHub projects
+
+on:
+  workflow_dispatch:
+  # One supervised run on first merge; later runs must be explicitly requested.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/promote-targets.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: public-snapshot-main
+  cancel-in-progress: false
+
+jobs:
+  verify-and-promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: sqlite:///local.sqlite3
+      GITHUB_TOKEN: ${{ github.token }}
+      MAX_PAGES_PER_SOURCE: '6'
+      PER_PAGE: '100'
+      STALE_HOURS: '12'
+      TARGET_AUDIT_REQUEST_BUDGET: '280'
+      PROMOTION_MAX_SWAPS: '9'
+      PROMOTION_API_BUDGET: '350'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Independently verify real Issues, PR and Actions for 28 days
+        run: python scripts/audit_targeted_candidates.py
+      - name: Restore current original 75 source reports to SQLite
+        run: python scripts/restore_public_snapshot.py
+      - name: Independently recollect 29d and archive only when fully verified
+        run: python scripts/promote_verified_candidates.py target-candidate-verified-audit.json
+      - name: Export new real source snapshot
+        run: python scripts/build_public_snapshot.py
+      - name: Recheck active repository count and full-source denominator
+        run: |
+          python scripts/audit.py > target-promoted-source-audit.json
+          python - <<'PY'
+          import json
+          with open("data/verified_cohort_change_receipt.json", encoding="utf-8") as f:
+              receipt = json.load(f)
+          with open("target-promoted-source-audit.json", encoding="utf-8") as f:
+              audit = json.load(f)
+          if receipt["active"] != 75 or len(audit["repositories"]) != 75:
+              raise SystemExit("Active repository count must remain 75")
+          added = len(receipt["replacements"])
+          if not added or receipt["verified_after"] < receipt["verified_before"] + added:
+              raise SystemExit("Verified membership increase not substantiated")
+          print("Replaced", added, "sources and improved strict 28d Verified:",
+                receipt["verified_before"], "to", receipt["verified_after"])
+          PY
+      - name: Save original candidate and promoted cohort proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: targeted-verified-cohort-proof
+          path: |
+            target-candidate-verified-audit.json
+            target-promoted-source-audit.json
+            data/verified_cohort_change_receipt.json
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Commit current cohort, prior-source archive, and replacement receipt
+        run: |
+          set -euo pipefail
+          git config user.name "Candy Ristyan"
+          git config user.email "103526238+Granbe1l@users.noreply.github.com"
+          git add data/github_public_snapshot.json.gz \
+                  data/archived_repository_reports.json.gz \
+                  data/verified_cohort_change_receipt.json
+          git diff --cached --quiet && { echo 'No verified cohort change'; exit 1; }
+          git commit -m "data: promote audited projects toward 50 Verified [skip ci]"
+          git push origin HEAD:main
