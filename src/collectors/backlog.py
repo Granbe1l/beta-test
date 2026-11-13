@@ -8,6 +8,7 @@ at collection time. Pull requests in the Issues endpoint are excluded.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import os
 from sqlalchemy import select
 
 from src.collectors.normalize import issue
@@ -36,8 +37,14 @@ def fetch_open_backlog(client, repo, settings, *, now=None):
         if value is not None and value.get("state") == "open":
             rows[value["id"]] = value
     if not result.complete and callable(getattr(client, "get", None)):
+        # Search uses a separate secondary API rate limit. Limit the
+        # number of query/page requests per repository; a shortfall must
+        # remain partial rather than silently advancing the checkpoint.
+        search_limit = int(os.getenv("BACKLOG_SEARCH_MAX_CALLS", "20"))
+        if not 1 <= search_limit <= 30:
+            raise ValueError("BACKLOG_SEARCH_MAX_CALLS must be 1..30")
         shard = search_open_issues_by_created(
-            client, repo, settings, now=now, max_calls=20)
+            client, repo, settings, now=now, max_calls=search_limit)
         if shard.complete:
             # Fully exhausted shards, not an inferred total from partial REST
             rows = {row["id"]: row for row in shard.items}
