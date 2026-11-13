@@ -914,8 +914,7 @@ def risks_recommendations(reports, selection):
     _findings_view(found)
     st.caption("Review first is a transparent inspection priority—not proof of delay. "
                "Record-level links in each expanded finding allow the reviewer to test the claim. "
-               "It does not mean a project 
-               "is delayed, low-quality, or has a confirmed defect.")
+               "It does not mean a project is delayed, low-quality, or has a confirmed defect.")
     with st.expander("Data selection, formulas and limitations"):
         methodology_contents(reports, selection)
 
