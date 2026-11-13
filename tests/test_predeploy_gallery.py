@@ -30,7 +30,7 @@ def test_preview_generator_requires_all_original_images_and_browser_audit():
     assert 'audit.get("mobile_page_count") == 6' in code
     assert "original_sha256" in code
     assert "Actual Playwright screenshots" in code
-    assert "image.thumbnail" in code
+    assert "actual.thumbnail" in code
 
 
 def test_only_trusted_main_gallery_job_has_write_permission():
