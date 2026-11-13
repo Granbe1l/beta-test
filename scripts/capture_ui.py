@@ -110,6 +110,17 @@ try:
         desktop.get_by_text("How complete is the evidence?", exact=True).wait_for(timeout=30000)
         time.sleep(2)
         desktop.screenshot(path=str(OUT / "desktop-overview.png"), full_page=True)
+        desktop.get_by_text("Reading guide · 1 minute", exact=True).first.click(
+            timeout=10000)
+        desktop.get_by_text(
+            "Uncollected or stale records cannot be counted as zero activity.",
+            exact=False).first.wait_for(timeout=10000)
+        desktop.screenshot(path=str(OUT / "desktop-reader-guide.png"),
+                           full_page=False)
+        desktop.get_by_text("Reading guide · 1 minute", exact=True).first.click(
+            timeout=10000)
+        print("Validated plain-language reviewer glossary in the real browser",
+              flush=True)
         # A valid dashboard can have no qualifying findings. In that case
         # require the explicit empty-state explanation instead of a fake
         # source link. When a finding exists, check its *rendered text* rather
