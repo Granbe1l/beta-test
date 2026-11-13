@@ -73,7 +73,14 @@ def probe_candidate(client, raw, settings, *, now):
     cutoff = now - timedelta(days=28)
     sources = {}
     complete = True
-    for source in SOURCES:
+    # Inspect the typically cheaper CI/PR evidence first when screening a
+    # large replacement pool. A candidate still needs ALL three sources.
+    # The default order remains stable for existing callers and tests.
+    source_order = (
+        ("workflow_runs", "pull_requests", "issues")
+        if os.getenv("CANDIDATE_CHEAPEST_FIRST") == "1" else SOURCES
+    )
+    for source in source_order:
         max_requests = getattr(client, "max_requests", None)
         used = getattr(client, "request_count", 0)
         if max_requests is not None and max_requests - used < settings.max_pages + 8:
@@ -134,7 +141,15 @@ def audit_candidates(client, settings, known_ids, *, now=None,
     count = len(candidates)
     max_probes = max(0, int(max_probes))
     cycles = max(1, (count + max(1, max_probes) - 1) // max(1, max_probes))
-    cycle = (now.date().toordinal() % cycles) if count else 0
+    # An opt-in six-hour rotation allows repeated real audits to cover
+    # more candidates without rechecking the same eight every day.
+    # Preserve historic daily behavior unless configured otherwise.
+    rotation_hours = max(1, int(os.getenv("CANDIDATE_ROTATION_HOURS", "24")))
+    rotation_index = (
+        int(now.timestamp()) // (rotation_hours * 3600)
+        if rotation_hours < 24 else now.date().toordinal()
+    )
+    cycle = (rotation_index % cycles) if count else 0
     start_index = min(cycle * max_probes, count)
     to_probe = candidates[start_index:start_index + max_probes]
     results = []
@@ -147,6 +162,7 @@ def audit_candidates(client, settings, known_ids, *, now=None,
         results.append(probe_candidate(client, raw, settings, now=now))
     return {
         "rotation_cycle": cycle,
+        "rotation_hours": rotation_hours,
         "rotation_cycles": cycles,
         "rotation_start_index": start_index,
         "candidate_pool_size": count,

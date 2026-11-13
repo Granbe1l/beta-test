@@ -1,14 +1,16 @@
 name: Audit verified replacement candidates
 on:
   workflow_dispatch:
-  # UTC daily; GitHub may delay cron delivery. Four daily audits rotate
-  # across the fixed 32-candidate discovery pool without touching main data.
+  # Rotate through eligible projects every six hours; GitHub may delay cron.
+  # Audits are read-only, and incomplete candidates are never promoted.
   schedule:
-    - cron: '53 3 * * *'
+    - cron: '53 0,6,12,18 * * *'
   push:
     branches: [main]
     paths:
       - '.github/workflows/candidate-audit.yml'
+      - 'scripts/audit_candidate_pool.py'
+      - 'scripts/replacement_plan.py'
 permissions:
   contents: read
 concurrency:
@@ -17,12 +19,16 @@ concurrency:
 jobs:
   candidate-probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       GITHUB_TOKEN: ${{ github.token }}
-      CANDIDATE_REQUEST_BUDGET: '220'
-      CANDIDATE_POOL_LIMIT: '32'
-      CANDIDATE_PROBE_LIMIT: '8'
+      # The GitHub Actions repository token has a finite API quota.
+      # Target ~32 strict source probes per run, not a blind 96-repo assertion.
+      CANDIDATE_REQUEST_BUDGET: '850'
+      CANDIDATE_POOL_LIMIT: '96'
+      CANDIDATE_PROBE_LIMIT: '32'
+      CANDIDATE_ROTATION_HOURS: '6'
+      CANDIDATE_CHEAPEST_FIRST: '1'
       MAX_PAGES_PER_SOURCE: '6'
       PER_PAGE: '100'
       MAX_RETRIES: '2'

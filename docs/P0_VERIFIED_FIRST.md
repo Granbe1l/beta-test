@@ -1,6 +1,6 @@
 # P0 data integrity and verified-first portfolio policy
 
-Updated 13 November 2026.
+Updated 14 November 2026.
 
 ## Main dataset and candidate sources
 
@@ -41,6 +41,38 @@ Important selection caveat: favoring sources that can fit REST pagination
 limits can bias the verified cohort toward quieter or smaller projects.
 Never describe the cohort as representative of GitHub at large or as
 a ranking of developer performance.
+
+## November 14 P0.1 verified replacement expansion
+
+The most recent available real source-audit artifact from the successful
+November 13 17:48 UTC refresh had **31 of 75 original repositories**
+verified on all three Issues, PR, and CI/CD sources for the SAME complete
+28-day window. The new immediate portfolio target is **at least 50 of 75**,
+which requires at least **19 additional genuinely verified active repos**
+from that baseline.
+
+**First step (this PR):** the independently auditable candidate workflow
+searches a diversified pool of up to **96** eligible public repositories
+and probes at most **32** every **six hours**. Each run has a hard GitHub
+request budget of **850**, and a new early-failure order checks CI/CD and
+PR coverage before potentially expensive Issues history. Candidates
+must still pass the unchanged *all three sources, complete 28 days,
+minimum real records* requirements. A 7-day fallback, 404, partial
+pagination, stale checkpoint, or quota exhaustion does not qualify.
+
+**Important:** faster scouting is not the same as replacement. The
+original selection is untouched in this stage. A verified candidate must
+be checked against up-to-date evidence and ingested into the stored
+snapshot, with old records retained and a documented selection change,
+before it is promoted. These enhancements **do not** claim 50/75 yet.
+GitHub's scheduled jobs may be delayed, and the 850-call limit may cause
+fewer than 32 probes; exact completed counts belong to the run artifacts.
+
+The earlier candidate proof (Nov 13 03:15 UTC) found 3 verified candidate
+repositories and 2 matched-category-and-size proposals. That audit is
+more than 12 hours old at this update, so it is *not* a fresh swap
+authorization. Never copy those results into a claimed count of
+active Verified repositories.
 
 ## P0.2: old open-Issue inventory
 
