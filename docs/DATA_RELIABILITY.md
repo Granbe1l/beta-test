@@ -84,10 +84,12 @@ This information survives across GitHub Actions runners through the
 compressed snapshot even when the full scan remains partial.
 
 A complete weekly range certifies its dates. When a week is capped,
-each calendar day is checked; a capped day remains unverified. Recent
-verified days are reused only for 24 hours, and older completed
-creation-date buckets can be reused to save GitHub requests. Source
-completeness requires the requested interval to be fully covered.
+each calendar day is checked; a capped day remains unverified. Previously verified **closed** UTC calendar days may be reused for at
+most 24 hours when recent, and older completed creation-date buckets can
+be reused to save GitHub requests. The **current UTC day is always
+rechecked through the current run time**, even if its last checkpoint was
+verified a few hours ago. Source completeness requires the actual
+requested interval to be fully covered.
 
 The collector prioritizes stale previously-complete sources, keeps
 partials in the fair rotation, and rotates Issues/PR/CI ordering across
@@ -98,3 +100,19 @@ Real 75-repository load/analysis benchmarks appear in GitHub Actions
 summaries, and screenshot browser checks are triggered after successfully
 published source refreshes. These checks do not prove exact six-hour
 punctuality, 100% lifetime data completeness, or public app uptime.
+
+## Current collection efficiency and independent schedule evidence
+
+The initial bounded Issues/PR scan starts at the **exact 28-day analysis
+window** rather than fetching a near-duplicate 30-day window first.
+An explicit long history reconciliation still attempts the configured
+backfill, with 28-, 7- and 1-day fallbacks when capped. This reduces
+wasted REST pages but cannot guarantee 75/75 source completion.
+
+Scheduled reliability is assessed by `scripts/schedule_reliability.py`.
+It examines the most recent **three actual `schedule` events** on main
+and their observed spacing. Workflow `push`/`workflow_dispatch`
+successes are explicitly excluded, and missing history returns an
+insufficient-evidence status rather than a positive reliability claim.
+A green data pipeline and a fully verified 28-day dataset are separate
+states.
