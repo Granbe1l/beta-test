@@ -477,39 +477,47 @@ def _matched_snapshot_chart(chosen):
     paired = comparable_observation_pair(chosen)
     if paired:
         with st.container(border=True):
-            _chart_title("Change across two verified snapshots",
+            _chart_title(
+                "Open Issues across two verified inventory checks",
                 f'{paired["previous_date"]} → {paired["current_date"]} · '
-                f'{paired["matched_count"]} identical repositories measured on both dates')
+                f'{paired["matched_count"]} identical repositories with '
+                'complete open-Issue inventories on both dates'
+            )
             first, second = paired["previous_date"], paired["current_date"]
-            left, right = st.columns(2, gap="medium")
-            for column, label, before, after, color in (
-                (left, "Open issues", paired["previous_issues"], paired["current_issues"], PURPLE),
-                (right, "Open pull requests", paired["previous_prs"], paired["current_prs"], GREEN),
-            ):
-                with column:
-                    delta = after - before
-                    st.caption(f'{label}: {before:,} → {after:,} '
-                               f'({delta:+,} observed items)')
-                    ylo = max(0, min(before, after) - max(1, round(max(before, after) * .10)))
-                    yhi = max(before, after) + max(1, round(max(before, after) * .15))
-                    if yhi <= ylo:
-                        yhi = ylo + 1
-                    fig = go.Figure(go.Scatter(
-                        x=[first, second], y=[before, after],
-                        mode="lines+markers+text",
-                        line=dict(color=color, width=3),
-                        marker=dict(size=11, color=color, line=dict(color="white", width=2)),
-                        text=[f'{before:,}', f'{after:,}'],
-                        textposition="top center",
-                        hovertemplate="%{x}<br>Observed open items: %{y:,}<extra></extra>",
-                    ))
-                    fig.update_layout(
-                        yaxis=dict(range=[ylo, yhi], title="Observed open items"),
-                        xaxis=dict(type="category", title=None),
-                    )
-                    _chart(fig, height=205)
-            st.caption("Two verified observations show only a net change in recorded open work, "
-                       "not a productivity trend, cause of delay, or comparison of all 75 projects.")
+            before, after = paired["previous_issues"], paired["current_issues"]
+            st.caption(
+                f'Verified open Issues: {before:,} → {after:,} '
+                f'({after-before:+,} items in the matched cohort). '
+                'This is a change in observed open work, not a deadline '
+                'or productivity score.'
+            )
+            ylo = max(0, min(before, after) -
+                      max(1, round(max(before, after) * .10)))
+            yhi = max(before, after) + max(
+                1, round(max(before, after) * .15))
+            if yhi <= ylo:
+                yhi = ylo + 1
+            fig = go.Figure(go.Scatter(
+                x=[first, second], y=[before, after],
+                mode="lines+markers+text",
+                line=dict(color=PURPLE, width=3),
+                marker=dict(size=11, color=PURPLE,
+                            line=dict(color="white", width=2)),
+                text=[f'{before:,}', f'{after:,}'],
+                textposition="top center",
+                hovertemplate="%{x}<br>Verified open Issues: %{y:,}<extra></extra>",
+            ))
+            fig.update_layout(
+                yaxis=dict(range=[ylo, yhi], title="Open Issues in matched projects"),
+                xaxis=dict(type="category", title=None),
+            )
+            _chart(fig, height=245)
+            st.caption(
+                "Open pull requests are intentionally excluded from this "
+                "backlog-change chart because a full-open PR inventory has "
+                "not been independently verified. A sampling change must "
+                "not masquerade as real project progress."
+            )
     else:
         with st.container(border=True):
             _chart_title("Opened vs completed activity · last 7 days",
@@ -793,7 +801,7 @@ def project_details(reports):
             else:
                 st.info("There are no collected open issue records to chart yet.")
         else:
-            st.info("No observation history has been collected yet.")
+            st.info("No comparable verified open-inventory history is available yet.")
     with side_by_side:
         compare_two_repositories(reports)
     with b:
