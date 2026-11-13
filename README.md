@@ -28,6 +28,29 @@ tracker, SLA monitor or employee-productivity ranking.
 [deployment and verification guide](docs/PUBLIC_DEPLOYMENT.md).
 Do not claim recruiters can open a hosted app before its public verification passes.
 
+## Actual dashboard screenshots · verified browser capture
+
+The images below are **scaled copies of real Playwright screenshots** produced
+from the checked-in public GitHub dataset, not UI mockups. They demonstrate
+the six interface pages; they do **not** prove public Streamlit hosting,
+complete API history or an actual recruiter usability session. The latest
+capture metadata and source commit are in the
+[gallery provenance manifest](docs/gallery/manifest.json).
+
+| Dashboard | Explore repositories | Issues & backlog |
+| :---: | :---: | :---: |
+| ![Dashboard](docs/gallery/dashboard.jpg) | ![Repository explorer](docs/gallery/repositories.jpg) | ![Issue analysis](docs/gallery/issues.jpg) |
+| Pull requests | CI/CD | Evidence-backed findings |
+| ![Pull requests](docs/gallery/pull-requests.jpg) | ![CI checks](docs/gallery/ci-cd.jpg) | ![Key findings](docs/gallery/findings.jpg) |
+
+![Real 390px mobile overview](docs/gallery/mobile.jpg)
+
+The permanent gallery updates from a **successful main-branch browser audit
+when UI/capture code changes**, not from every six-hour data refresh.
+Original full-resolution screenshots and all six mobile-page checks remain
+available as time-limited [GitHub Actions screenshot artifacts](https://github.com/Granbe1l/beta-test/actions/workflows/ui-screenshots.yml).
+See [gallery limitations and provenance](docs/gallery/README.md).
+
 ## What SQL is used for
 
 This project **uses SQLite in the collector and for source-level checkpoints**, with optional PostgreSQL support. `src/analytics/read.py` retrieves tables through SQLAlchemy in **batched SELECTs** (measured on a restored real snapshot), while `scripts/sql_insights.py` runs **actual read-only SQL** with grouped CTEs and source-coverage safeguards. The default public Streamlit view reads a committed, compressed JSON snapshot and uses Python/Pandas for presentation; it does not run remote SQL on each visitor's request. See [schema and SQL usage](docs/SQL_DATABASE_USAGE.md) and [the measured performance gate](https://github.com/Granbe1l/beta-test/pull/15).
