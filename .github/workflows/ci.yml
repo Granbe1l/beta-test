@@ -25,3 +25,5 @@ jobs:
         run: |
           python scripts/restore_public_snapshot.py
           python scripts/sql_insights.py
+      - name: Generate CV evidence receipt from real GitHub snapshot
+        run: python scripts/cv_evidence.py

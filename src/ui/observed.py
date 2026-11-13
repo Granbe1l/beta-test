@@ -68,6 +68,48 @@ def analysis_window_coverage(reports: list[dict], days: int = 28, now=None) -> d
     return counts
 
 
+
+def verified_joint_cohort(reports: list[dict], days: int = 7, now=None) -> list[dict]:
+    """Exactly the same repositories with all three sources verified.
+
+    An individual source's verified subset can be larger. Requiring an
+    intersection avoids claiming comparable cross-source activity from
+    repositories whose CI, Issue, or PR history is missing.
+    """
+    if days < 1:
+        raise ValueError("days must be positive")
+    qualifying_ids = [
+        {id(report) for report in qualified_reports(reports, source, days, now)}
+        for source, _, _ in SOURCES
+    ]
+    common = set.intersection(*qualifying_ids) if qualifying_ids else set()
+    return [report for report in reports if id(report) in common]
+
+
+def evidence_readiness(reports: list[dict], now=None) -> dict:
+    """Source denominators and strict matched cohorts for CV-safe summaries.
+
+    Does not replace source-specific analysis. The tracked 75 remain
+    tracked even when a verified subset is smaller.
+    """
+    return {
+        "tracked": len(reports),
+        "verified_7d": analysis_window_coverage(reports, days=7, now=now),
+        "verified_28d": analysis_window_coverage(reports, days=28, now=now),
+        "joint_verified_7d": len(verified_joint_cohort(reports, 7, now)),
+        "joint_verified_28d": len(verified_joint_cohort(reports, 28, now)),
+        "full_open_backlog": sum(
+            r.get("open_backlog_status") == "complete" for r in reports
+        ),
+        "scope_notice": (
+            "Only the verified cohort qualifies for cross-source trend "
+            "analysis. Incomplete source data are available for clearly "
+            "labelled exploratory inspection, not a claim of zero activity."
+        ),
+    }
+
+
+
 def summary(reports: list[dict], now=None, observation_days=90) -> dict:
     """Counts of *retrieved* items, with source coverage and period attached.
 
