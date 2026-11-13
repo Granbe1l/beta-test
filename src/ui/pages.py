@@ -79,8 +79,31 @@ def chart_style(fig, height=290, showlegend=False):
     return fig
 
 
+def _prepare_repo_picker(state, names, key, default):
+    """Respect a user change on the current page and sync when pages change.
+
+    Separate Streamlit widget keys otherwise retain stale per-page selections.
+    Remove only the stale widget key before rendering; never reset a choice
+    the user is making on the current page.
+    """
+    choice = state.get("active_repo")
+    if choice not in names:
+        choice = default
+    if state.get("_last_repo_picker") != key or state.get(key) not in names:
+        state.pop(key, None)
+        index = names.index(choice)
+    else:
+        index = names.index(state[key])
+    state["_last_repo_picker"] = key
+    return index
+
+
+def _remember_repo_picker(key):
+    st.session_state["active_repo"] = st.session_state[key]
+
+
 def select_repo(reports, key="project_choice"):
-    """Keep the selected repository when navigating between pages."""
+    """Keep the same active repository through all six navigation pages."""
     if not reports:
         return None
     names = [r["repository"]["full_name"] for r in reports]
@@ -95,8 +118,12 @@ def select_repo(reports, key="project_choice"):
             + min(len(report.get("ci_rows", [])), 30),
         )
     default = max(reports, key=evidence_depth)["repository"]["full_name"]
-    index = names.index(chosen) if chosen in names else names.index(default)
-    selection = st.selectbox("Repository", names, index=index, key=key)
+    index = _prepare_repo_picker(st.session_state, names, key, default)
+    selection = st.selectbox(
+        "Repository", names, index=index, key=key,
+        on_change=_remember_repo_picker, args=(key,),
+        help="This project selection is shared between the detailed screens.",
+    )
     st.session_state["active_repo"] = selection
     return next(r for r in reports if r["repository"]["full_name"] == selection)
 
@@ -117,11 +144,35 @@ def card_grid(items, columns=4):
             stat(*item)
 
 
+def _reset_page_on_results_change(state, rows, key):
+    """Keep pagination within matching rows after search/repository changes.
+
+    A stable digest of source record identity/order is a UI-only value.
+    It is never used to classify completeness or compute business KPIs.
+    """
+    from hashlib import blake2b
+    digest = blake2b(digest_size=12)
+    for index, record in enumerate(rows):
+        identity = (record.get("url") or record.get("id")
+                    or record.get("number") or record.get("created_at")
+                    or index)
+        digest.update(str(identity).encode("utf-8"))
+        digest.update(bytes((0,)))
+    state_key = "_row_set_" + key
+    signature = digest.hexdigest()
+    if state.get(state_key) != signature:
+        state.pop(key, None)
+        state[state_key] = signature
+
+
 def paginate(rows, key, page_size=PER_PAGE):
     count = len(rows)
     if not count:
         return [], 0, 0
     pages = math.ceil(count / page_size)
+    _reset_page_on_results_change(st.session_state, rows, key)
+    if st.session_state.get(key, 1) > pages:
+        st.session_state.pop(key, None)
     col1, col2 = st.columns([3, 1])
     with col1:
         st.caption(f"Showing {count:,} observed matching records · {page_size} per page")
@@ -129,6 +180,14 @@ def paginate(rows, key, page_size=PER_PAGE):
         page = st.number_input("Page", min_value=1, max_value=pages, value=1, key=key)
     start = (page - 1) * page_size
     return page_slice(rows, page, page_size), page, pages
+
+
+def _display_table_date(value):
+    """Format actual timestamps; pandas NaT is truthy but has no strftime."""
+    if value is None or pd.isna(value):
+        return "—"
+    stamp = utc(value)
+    return stamp.strftime("%d %b %Y") if stamp is not None and not pd.isna(stamp) else "—"
 
 
 def table_rows(rows, fields, key):
@@ -143,7 +202,7 @@ def table_rows(rows, fields, key):
     frame = frame[fields]
     for col in ("created_at", "updated_at", "closed_at", "merged_at"):
         if col in frame:
-            frame[col] = frame[col].map(lambda d: utc(d).strftime("%d %b %Y") if d else "—")
+            frame[col] = frame[col].map(_display_table_date)
     column_names = {"number": "#", "title": "Title", "state": "State", "draft": "Draft",
                     "created_at": "Created", "updated_at": "Updated", "closed_at": "Closed",
                     "merged_at": "Merged", "url": "Evidence ↗", "workflow_name": "Workflow",
@@ -295,14 +354,33 @@ def project_details(reports):
         source_coverage(r)
 
 
+def source_coverage_rows(r):
+    """Keep distinct Issue-event coverage and independent open-backlog status.
+
+    The three event-source statuses live in report["status"], whereas the
+    independent full open-Issue inventory has its own status field. Neither
+    should be inferred from the other, including when checkpoints are absent.
+    """
+    rows = []
+    for source, checkpoint in (r.get("coverage") or {}).items():
+        cp = checkpoint or {}
+        status = (r.get("open_backlog_status", "unavailable")
+                  if source == "open_backlog"
+                  else (r.get("status") or {}).get(source, "unavailable"))
+        rows.append({
+            "Source": source.replace("_", " ").title(),
+            "Status": status,
+            "Last success": at_time(cp.get("last_success_at")),
+            "Pages fetched": cp.get("pages_fetched"),
+            "Records in last sync": cp.get("records_fetched"),
+            "Coverage begins": at_time(cp.get("coverage_start")),
+        })
+    return rows
+
+
 def source_coverage(r):
     section("Source completeness", "Missing and stale collection is not equivalent to zero activity.")
-    rows = []
-    for source, checkpoint in r["coverage"].items():
-        cp = checkpoint or {}
-        rows.append({"Source": source.replace("_", " ").title(), "Status": r["status"][source],
-                     "Last success": at_time(cp.get("last_success_at")), "Pages fetched": cp.get("pages_fetched"),
-                     "Records in last sync": cp.get("records_fetched"), "Coverage begins": at_time(cp.get("coverage_start"))})
+    rows = source_coverage_rows(r)
     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
     with st.expander("Exact checkpoint metadata"):
         st.json({k: {field: str(v) if isinstance(v, datetime) else v for field,v in (data or {}).items()

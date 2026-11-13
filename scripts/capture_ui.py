@@ -10,6 +10,15 @@ import time
 import requests
 from playwright.sync_api import sync_playwright
 
+def assert_no_streamlit_exception(page, screen: str) -> None:
+    """An attractive screenshot cannot hide a partially failed Streamlit page."""
+    errors = page.locator('[data-testid="stException"]')
+    if errors.count():
+        messages = errors.all_text_contents()
+        raise AssertionError(
+            f"{screen}: rendered Streamlit exception(s): {messages[:3]}")
+    
+
 def reviewer_browser_metrics(page, device: str) -> dict:
     """Observe a genuine rendered viewport; do not simulate human comprehension."""
     result = page.evaluate("""() => ({
@@ -137,6 +146,7 @@ try:
         desktop.get_by_text("What should we inspect?", exact=True).wait_for(timeout=30000)
         desktop.get_by_text("How complete is the evidence?", exact=True).wait_for(timeout=30000)
         time.sleep(2)
+        assert_no_streamlit_exception(desktop, "Dashboard")
         browser_audit = {"desktop": reviewer_browser_metrics(desktop, "desktop")}
         desktop.screenshot(path=str(OUT / "desktop-overview.png"), full_page=True)
         desktop.get_by_text("Reading guide · 1 minute", exact=True).first.click(
@@ -202,6 +212,7 @@ try:
                             ("Key findings", "desktop-findings.png")]:
             desktop.get_by_text(label, exact=False).first.click(timeout=10000)
             time.sleep(1.5)
+            assert_no_streamlit_exception(desktop, label)
             desktop.screenshot(path=str(OUT / file), full_page=False)
             capture_scrolling_main(
                 desktop, OUT / file.replace(".png", "-full.png"))
@@ -271,6 +282,7 @@ try:
         mobile.locator(".d-hero").first.wait_for(timeout=45000)
         mobile.get_by_text("How complete is the evidence?", exact=True).wait_for(timeout=30000)
         time.sleep(2)
+        assert_no_streamlit_exception(mobile, "Mobile Dashboard")
         browser_audit["mobile"] = reviewer_browser_metrics(mobile, "mobile")
         (OUT / "recruiter-browser-audit.json").write_text(
             json.dumps(browser_audit, indent=2, sort_keys=True), encoding="utf-8")
