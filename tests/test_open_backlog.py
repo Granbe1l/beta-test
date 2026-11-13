@@ -157,3 +157,48 @@ def test_backlog_sync_is_explicitly_opt_in_and_uses_spare_budget(db, cfg):
     # independent backlog scan; the scheduled pipeline explicitly opts in.
     result = synchronize(db, SourceClient(), cfg, run_at=NOW)
     assert not any(x["source"] == "open_backlog" for x in result)
+
+
+
+def test_schedule_uses_spare_budget_for_open_inventory_after_primary_sources(db, cfg):
+    from src.collectors.sync import synchronize
+    from .test_scale75 import SourceClient
+
+    class BoundedClient(SourceClient):
+        def __init__(self):
+            self.max_requests = 850
+            self.request_count = 0
+            self.paths = []
+        def paginate(self, path, params, max_pages, **kwargs):
+            self.paths.append((path, params))
+            self.request_count += 1
+            return PageResult([], 1, True, False, False)
+
+    client = BoundedClient()
+    reports = synchronize(db, client, cfg, run_at=NOW,
+                          audit_open_backlog=True, max_backlog_repos=1)
+    assert [r["source"] for r in reports] == [
+        "issues", "pull_requests", "workflow_runs", "open_backlog",
+    ]
+    assert client.paths[-1][1]["state"] == "open"
+    cp = db.get(SyncCheckpoint, (101, "open_backlog"))
+    assert cp.status == "complete"
+    assert cp.last_success_at is not None
+
+
+def test_backlog_scan_never_overruns_shared_request_budget(db, cfg):
+    from src.collectors.sync import synchronize
+    from .test_scale75 import SourceClient
+
+    class NearlyExhaustedClient(SourceClient):
+        max_requests = 80
+        request_count = 30
+        def paginate(self, path, params, max_pages, **kwargs):
+            self.request_count += 1
+            return PageResult([], 1, True, False, False)
+
+    client = NearlyExhaustedClient()
+    results = synchronize(db, client, cfg, run_at=NOW,
+                          audit_open_backlog=True, max_backlog_repos=5)
+    assert len(results) <= 4
+    assert client.request_count <= client.max_requests
