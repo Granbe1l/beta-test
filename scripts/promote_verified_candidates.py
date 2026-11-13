@@ -112,9 +112,11 @@ def archive_originals(swaps, now):
 
 def promote(proof, *, limit=6, request_limit=350):
     now = datetime.now(timezone.utc)
+    cfg = Settings.from_env()
+    target = cfg.max_repos
     previous, _, metadata = read_snapshot(now=now)
-    if len(previous) != 75 or metadata["stale"]:
-        raise ValueError("The active 75-repo snapshot must be current before replacement")
+    if len(previous) != target or metadata["stale"]:
+        raise ValueError("The active curated sample must be current before replacement")
     verified_before = len(verified_joint_cohort(previous, 28, now))
     proposal = proposed_swaps(previous, proof, now=now)
     if not proposal["candidate_evidence_fresh"]:
@@ -122,7 +124,6 @@ def promote(proof, *, limit=6, request_limit=350):
     candidates = proposal["proposed_unapproved_swaps"][:limit]
     if not candidates:
         raise ValueError("No independently verified, diversity-matched candidates")
-    cfg = Settings.from_env()
     api = GitHubClient(cfg.github_token, cfg.timeout_seconds, cfg.max_retries,
                        max_requests=request_limit)
     engine = make_engine(cfg.database_url)
@@ -132,7 +133,7 @@ def promote(proof, *, limit=6, request_limit=350):
         with sync_lock(engine):
             with session_factory(engine)() as session:
                 active = list(session.scalars(select(Repository).where(Repository.selected.is_(True))))
-                if len(active) != 75:
+                if len(active) != target:
                     raise ValueError("Wrong restored active cohort size")
                 original_ids = {r["repository"]["id"] for r in previous}
                 for item in candidates:
@@ -182,14 +183,14 @@ def promote(proof, *, limit=6, request_limit=350):
                 updated = load_reports(session, now=datetime.now(timezone.utc),
                                        observation_days=cfg.comparison_days, stale_hours=cfg.stale_hours)
                 verified_after = len(verified_joint_cohort(updated, 28, datetime.now(timezone.utc)))
-                if len(updated) != 75 or verified_after < verified_before + len(changes):
+                if len(updated) != target or verified_after < verified_before + len(changes):
                     raise ValueError("Unverified swap or cohort count regression; refusing publication")
                 archive_originals(changes, now)
                 selection = SelectionRun(
                     started_at=now, completed_at=datetime.now(timezone.utc),
                     parameters={"method": "strict_verified_swap", "audit_at": proof["generated_at_utc"],
                                 "archived_data_path": str(ARCHIVE), "changes": changes},
-                    candidate_count=75 + len(changes), accepted_count=75, status="complete",
+                    candidate_count=target + len(changes), accepted_count=target, status="complete",
                     notes=("Previously nonverified sources remain in immutable historical archive. "
                            "Replacing project identities changes the curated cohort; compare across "
                            "versions only after accounting for composition changes."),
@@ -209,7 +210,7 @@ def promote(proof, *, limit=6, request_limit=350):
                 receipt = {
                     "at": datetime.now(timezone.utc).isoformat(),
                     "proof_at": proof["generated_at_utc"],
-                    "active": 75,
+                    "active": target,
                     "verified_before": verified_before,
                     "verified_after": verified_after,
                     "replacements": changes,
