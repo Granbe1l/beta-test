@@ -97,3 +97,28 @@ to an independently verified full open inventory must **not** be
 mistaken for a sudden growth in the volume of project work. The
 comparison logic only pairs observations using the same collection
 method and matched repository cohort.
+
+## P1: Evidence → inspection → bounded decision
+
+The dashboard does **not** rank developer productivity or project health.
+Each review opportunity is now a compact, checkable three-step brief:
+
+1. **Why inspect:** a real measured numerator, denominator and source
+   window must pass the documented inspection trigger.
+2. **Where to inspect:** an original GitHub Issue, pull request or workflow
+   run is linked where the stored snapshot includes one; otherwise the
+   app explicitly labels the repository listing as a starting point.
+3. **What decision is allowed:** the reviewer examines maintainer context,
+   check logs, change size or closure reasons before writing a finding.
+   No deadline breach, software defect or employee performance is inferred
+   merely from an older Issue, changed closure count or failed CI run.
+
+The Key findings page has **Export evidence review plan (CSV)**. It uses
+the exact displayed findings and includes GitHub links, source-confidence
+labels, checks, and caveats. Exported user-controlled repository text is
+escaped against spreadsheet formula injection. Review steps and links are
+testable in automated unit and populated browser captures.
+
+**This is an inspection queue, not a validated business outcome.** Real
+nontechnical participant testing is still pending; CI and screenshots
+cannot establish what a human HR reviewer understands.

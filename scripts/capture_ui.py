@@ -166,6 +166,26 @@ try:
             capture_scrolling_main(
                 desktop, OUT / file.replace(".png", "-full.png"))
             print("Captured " + file, flush=True)
+            if label == "Key findings":
+                export_action = desktop.get_by_role(
+                    "button", name="Export evidence review plan (CSV)")
+                if export_action.count():
+                    with desktop.expect_download(timeout=20000) as csv_info:
+                        export_action.click(timeout=10000)
+                    export = csv_info.value
+                    assert export.suggested_filename.endswith(".csv")
+                    saved = OUT / "validated-evidence-review.csv"
+                    export.save_as(saved)
+                    content = saved.read_text(encoding="utf-8-sig")
+                    assert "Reason to inspect" in content
+                    assert "Review step 3" in content
+                    assert "GitHub link (record or listing)" in content
+                    print("Validated source-grounded reviewer CSV export",
+                          flush=True)
+                else:
+                    assert desktop.get_by_text(
+                        "No evidence-backed findings", exact=False).count() > 0, (
+                        "Reviewer findings missing without an empty state")
             # Capture the lower portions of each screen's scrollable main view.
             try:
                 desktop.mouse.move(1000, 700)
