@@ -27,19 +27,23 @@ def comparable_observation_pair(reports: list[dict]) -> dict | None:
             day = when.date().isoformat()
             value = (observation.get("open_issues_observed"),
                      observation.get("open_prs_observed"))
+            basis = observation.get("collection_basis") or "legacy_observed"
             if value[0] is None or value[1] is None:
                 continue
             key = (name, day)
             # Retain the last available measurement on each UTC day
             if key not in daily or when > daily[key][0]:
-                daily[key] = (when, int(value[0]), int(value[1]))
+                daily[key] = (when, int(value[0]), int(value[1]), basis)
     dates = sorted({day for _, day in daily}, reverse=True)
     if len(dates) < 2:
         return None
     for latest in dates:
         for earlier in (d for d in dates if d < latest):
-            matched = sorted({name for name, day in daily if day == latest
-                              and (name, earlier) in daily})
+            matched = sorted({
+                name for name, day in daily if day == latest
+                and (name, earlier) in daily
+                and daily[(name, earlier)][3] == daily[(name, latest)][3]
+            })
             if not matched:
                 continue
             return {
@@ -49,7 +53,7 @@ def comparable_observation_pair(reports: list[dict]) -> dict | None:
                 "current_issues": sum(daily[(r, latest)][1] for r in matched),
                 "previous_prs": sum(daily[(r, earlier)][2] for r in matched),
                 "current_prs": sum(daily[(r, latest)][2] for r in matched),
-                "definition": "Observed open items in exactly the same projects at both snapshots",
+                "definition": "Observed open items in the same projects using the same collection method on both dates",
             }
     return None
 
