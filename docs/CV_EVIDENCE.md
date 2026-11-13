@@ -47,11 +47,27 @@ without refreshing their snapshot timestamp.**
   incomplete exploratory records to prevent misleading trends or
   unsupported claims about delivery performance.
 
-For a one-line CV, use the first two bullets or combine them. Exact
-observed counts may be added only with a validated snapshot date, e.g.
-"11,652 observed Issue records, 26,450 observed PRs, and 87,122 observed
-workflow runs as of 13 November 2026, 08:27 WIB." These counts do **not**
-mean the full history of all 75 repositories was captured.
+For a one-line CV, use the first two bullets or combine them.
+**Do not reuse old examples with hard-coded Issue/PR/CI counts**: source
+records update as GitHub Actions publishes new snapshots. Generate the
+current evidence receipt with `python scripts/cv_evidence.py`, record its
+UTC snapshot timestamp, and report the result as **observed source records**,
+not the complete lifetime activity of all 75 repositories. If space permits,
+a defensible engineering proof is that the real restored 75-repository
+SQL query loader was tested at **6 SELECTs versus the previous 376 SELECTs**
+([P2.1 CI evidence](https://github.com/Granbe1l/beta-test/pull/15)).
+Do not present that as a browser load-time improvement.
+
+## Optional technical-impact bullet for data / IT roles
+
+- Optimized SQL-based snapshot loading from **376 to 6 SELECT queries**
+  across the real 75-repository dataset; validated source-row parity
+  with SQLite and the compressed GitHub snapshot in CI.
+
+This was a measured SQL **query-count reduction**, not a claimed
+98.4% decrease in page latency or proof of production hosting uptime.
+The project also retains direct GitHub source links and explicitly
+distinguishes incomplete exploratory histories.
 
 ## Bahasa Indonesia
 
