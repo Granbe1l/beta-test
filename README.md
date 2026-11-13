@@ -206,12 +206,22 @@ Scheduled Actions do **not** guarantee execution at the exact minute, and GitHub
 
 ## Streamlit Community Cloud
 
-1. Push **only after owner approval** to `Granbe1l/beta-test`, default branch `main`.
-2. Choose **Create app → From repository**, repository `Granbe1l/beta-test`, branch `main`, entrypoint `streamlit_app.py`.
-3. Configure Streamlit Secrets with the managed PostgreSQL `DATABASE_URL`, not the local SQLite path.
-4. Make sure PostgreSQL is reachable through the provider's networking allowlist/TLS settings.
-5. Run a manual initial sync via GitHub Actions or a protected shell. **Do not** use Streamlit Community Cloud as a periodic collector.
-6. Open desktop and mobile browser views, verify data provenance, filter usability, source URLs, and screenshot the **actual running dashboard**. Keep screenshots in `docs/screenshots/` and reference them from this README only when created.
+The **default portfolio demonstration is snapshot-only**, not a live
+PostgreSQL app. A public Streamlit URL has not yet been verified.
+
+1. In Streamlit Community Cloud choose `Granbe1l/beta-test`, branch
+   `main`, entrypoint `streamlit_app.py`.
+2. **No database secret is required** for the checked-in read-only
+   `data/github_public_snapshot.json.gz` mode.
+3. GitHub Actions updates that stored snapshot independently. A visitor
+   does not trigger GitHub API collection or a SQL write.
+4. Check actual deployed desktop/mobile rendering, source links, filter
+   behavior, displayed snapshot time and freshness caveats before publishing
+   the link in a CV.
+5. **Optional, separate path:** for managed PostgreSQL, provision TLS,
+   set `DATABASE_URL` securely and configure the protected collector.
+   Do not claim that deployment exists until credentials, initialization
+   and refresh have been verified.
 
 ## Tests and evidence
 
@@ -227,7 +237,7 @@ The suite covers bounded selection, deduplication, pagination, retry/rate handli
 
 - GitHub Actions produced and audited real public GitHub snapshots. A stored snapshot is not a live API feed; data availability is reported per source.
 - No managed PostgreSQL `DATABASE_URL`, production token, or deployment has been provided.
-- Real-browser desktop/mobile screenshots are pending. Do not substitute a mockup for screenshot evidence.
+- Desktop/mobile real-browser screenshots were captured in GitHub Actions. Actual HRD user-testing and hosted public URL verification remain open.
 - GitHub API pagination and rate-limit behaviors are covered by fixtures, but real API edge cases may require adjustment after live runs.
 - `review-compliance share` remains deliberately Not Available rather than measuring an arbitrary rule.
 - Complete historical issue counts are not claimed. Recent changed-record sampling differs from a full open-backlog scan.
