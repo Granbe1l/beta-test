@@ -1,0 +1,241 @@
+{
+  "at": "2026-11-13T18:40:52.261344+00:00",
+  "proof_at": "2026-11-13T18:07:06.371146+00:00",
+  "active": 75,
+  "verified_before": 35,
+  "verified_after": 41,
+  "replacements": [
+    {
+      "old_id": 507775,
+      "old": "elastic/elasticsearch",
+      "new_id": 35448780,
+      "new": "google/google-java-format",
+      "sources": [
+        {
+          "repo": "google/google-java-format",
+          "source": "issues",
+          "status": "complete",
+          "records": 56,
+          "pages": 2,
+          "attempts": 1,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        },
+        {
+          "repo": "google/google-java-format",
+          "source": "pull_requests",
+          "status": "complete",
+          "records": 46,
+          "pages": 1,
+          "attempts": 1,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        },
+        {
+          "repo": "google/google-java-format",
+          "source": "workflow_runs",
+          "status": "complete",
+          "records": 320,
+          "pages": 6,
+          "attempts": 5,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        }
+      ]
+    },
+    {
+      "old_id": 960279714,
+      "old": "gsrxyz/rusteron",
+      "new_id": 1251728543,
+      "new": "SinaXhpm/Submarine",
+      "sources": [
+        {
+          "repo": "SinaXhpm/Submarine",
+          "source": "issues",
+          "status": "complete",
+          "records": 61,
+          "pages": 2,
+          "attempts": 1,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        },
+        {
+          "repo": "SinaXhpm/Submarine",
+          "source": "pull_requests",
+          "status": "complete",
+          "records": 136,
+          "pages": 2,
+          "attempts": 1,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        },
+        {
+          "repo": "SinaXhpm/Submarine",
+          "source": "workflow_runs",
+          "status": "complete",
+          "records": 31,
+          "pages": 5,
+          "attempts": 5,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        }
+      ]
+    },
+    {
+      "old_id": 180096009,
+      "old": "GoogleCloudPlatform/k8s-config-connector",
+      "new_id": 756594023,
+      "new": "bruin-data/ingestr",
+      "sources": [
+        {
+          "repo": "bruin-data/ingestr",
+          "source": "issues",
+          "status": "complete",
+          "records": 9,
+          "pages": 2,
+          "attempts": 1,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        },
+        {
+          "repo": "bruin-data/ingestr",
+          "source": "pull_requests",
+          "status": "complete",
+          "records": 111,
+          "pages": 2,
+          "attempts": 1,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        },
+        {
+          "repo": "bruin-data/ingestr",
+          "source": "workflow_runs",
+          "status": "complete",
+          "records": 879,
+          "pages": 12,
+          "attempts": 5,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        }
+      ]
+    },
+    {
+      "old_id": 1057960049,
+      "old": "NVIDIA/NVSentinel",
+      "new_id": 385183546,
+      "new": "grafana/rollout-operator",
+      "sources": [
+        {
+          "repo": "grafana/rollout-operator",
+          "source": "issues",
+          "status": "complete",
+          "records": 3,
+          "pages": 1,
+          "attempts": 1,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        },
+        {
+          "repo": "grafana/rollout-operator",
+          "source": "pull_requests",
+          "status": "complete",
+          "records": 35,
+          "pages": 1,
+          "attempts": 1,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        },
+        {
+          "repo": "grafana/rollout-operator",
+          "source": "workflow_runs",
+          "status": "complete",
+          "records": 493,
+          "pages": 8,
+          "attempts": 5,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        }
+      ]
+    },
+    {
+      "old_id": 1412939352,
+      "old": "eyalgolan/statecraft-israel",
+      "new_id": 740175107,
+      "new": "vawser/Smithbox",
+      "sources": [
+        {
+          "repo": "vawser/Smithbox",
+          "source": "issues",
+          "status": "complete",
+          "records": 5,
+          "pages": 1,
+          "attempts": 1,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        },
+        {
+          "repo": "vawser/Smithbox",
+          "source": "pull_requests",
+          "status": "complete",
+          "records": 5,
+          "pages": 1,
+          "attempts": 1,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        },
+        {
+          "repo": "vawser/Smithbox",
+          "source": "workflow_runs",
+          "status": "complete",
+          "records": 510,
+          "pages": 8,
+          "attempts": 5,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        }
+      ]
+    },
+    {
+      "old_id": 1305248057,
+      "old": "finnmckenty/NTSCRT",
+      "new_id": 1345675209,
+      "new": "Own716/OwnBoxForAndroid",
+      "sources": [
+        {
+          "repo": "Own716/OwnBoxForAndroid",
+          "source": "issues",
+          "status": "complete",
+          "records": 18,
+          "pages": 1,
+          "attempts": 1,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        },
+        {
+          "repo": "Own716/OwnBoxForAndroid",
+          "source": "pull_requests",
+          "status": "complete",
+          "records": 21,
+          "pages": 1,
+          "attempts": 1,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        },
+        {
+          "repo": "Own716/OwnBoxForAndroid",
+          "source": "workflow_runs",
+          "status": "complete",
+          "records": 320,
+          "pages": 7,
+          "attempts": 5,
+          "window_days": 29.0,
+          "requested_repair_window_days": 29
+        }
+      ]
+    }
+  ],
+  "skipped": [],
+  "request_count": 69,
+  "archive": "data/archived_repository_reports.json.gz",
+  "caveat": "Curated and composition-changing sample, not random or representative of all GitHub projects."
+}
