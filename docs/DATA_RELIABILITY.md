@@ -157,3 +157,30 @@ windows of **40/75 Issues, 50/75 PRs and 35/75 CI sources**. These
 numbers do not establish full backlog coverage. Later open-inventory
 completeness must be measured from real audits; it cannot be inferred
 from new code or test fixtures.
+
+## P1 operational freshness of scheduled GitHub refresh
+
+A successful `push` or `workflow_dispatch` run shows that GitHub
+collection can execute. It does **not** prove that the six-hour cron
+fires consistently. `scripts/schedule_reliability.py` requires all
+of the following independent observations:
+
+- At least **three actual `schedule` events** on `main`, each completed
+  successfully, evaluated from the refresh workflow's real Actions history.
+- Their consecutive observed start-time intervals must be between **3
+  and 9 hours**, allowing real GitHub scheduler delay.
+- **The newest scheduled event must be within 9 hours** of the audit time.
+  Three successful events months ago never establish current health.
+
+Results now include the most recent scheduled-run timestamp and age.
+`verified_recent_cycles`, `stale_schedule`, `needs_review` and
+`insufficient_history` must not be treated as equivalent. On every
+actual refresh, the machine-readable `schedule-reliability.json` is
+included with the snapshot source-audit artifact (when the GitHub
+Actions history API can be reached).
+
+The last verified public snapshot can be usable even when schedule
+reliability is insufficient. Similarly, a recent snapshot can result
+from a push/manual run. Neither establishes reliable 24/7 operation.
+The current **three-cycle runtime claim remains unverified** until
+three qualifying scheduled runs actually occur.
