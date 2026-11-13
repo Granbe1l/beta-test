@@ -1,0 +1,41 @@
+name: Audit verified replacement candidates
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/candidate-audit.yml'
+permissions:
+  contents: read
+concurrency:
+  group: candidate-audit-main
+  cancel-in-progress: false
+jobs:
+  candidate-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      CANDIDATE_REQUEST_BUDGET: '220'
+      CANDIDATE_POOL_LIMIT: '32'
+      CANDIDATE_PROBE_LIMIT: '8'
+      MAX_PAGES_PER_SOURCE: '6'
+      PER_PAGE: '100'
+      MAX_RETRIES: '2'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Audit actual public candidate Issues, PR and CI coverage
+        run: python scripts/audit_candidate_pool.py
+      - name: Publish read-only proof; never modify curated selection
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-candidate-audit
+          path: candidate-verified-audit.json
+          retention-days: 14
+          if-no-files-found: error
