@@ -4,6 +4,21 @@ An evidence-first, read-only analytics dashboard that helps nontechnical reviewe
 
 > **Current status (12 November 2026):** The audited 75-repository public snapshot exists, GitHub Actions collection has completed successfully, and desktop/mobile browser screenshot tests have passed. GitHub Actions collection is scheduled every six hours, but individual runs can be delayed or fail; never mistake a stored snapshot for real-time data. Hosted Streamlit Cloud deployment and managed PostgreSQL are separate, optional steps and are **not** claimed verified here. All figures are obtained from public GitHub records.
 
+## Public demo — deployment gate
+
+**Status: public URL not yet verified.** The complete Streamlit application
+passes local desktop/mobile browser checks, but do not present a local test
+as an accessible hosted demo.
+
+Deploy from **Granbe1l/beta-test**, branch **main**, entrypoint
+**streamlit_app.py**, then run the GitHub Actions workflow
+**Verify public Streamlit deployment** with the actual public URL.
+That workflow verifies the real hosted page, the latest checked-in
+snapshot timestamp, visible charts, and Key Findings navigation.
+
+For precise owner steps and acceptance criteria, see
+[Publish and verify the public Streamlit demo](docs/PUBLIC_DEPLOYMENT.md).
+
 ## Questions answered
 
 1. What observable software-development activity occurred within the configured window?
