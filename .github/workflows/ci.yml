@@ -19,3 +19,9 @@ jobs:
       - run: python -m pytest -q
       - name: Benchmark real curated snapshot (no fabricated data)
         run: python scripts/benchmark_snapshot.py
+      - name: Restore real GitHub records and execute read-only SQL analytics
+        env:
+          DATABASE_URL: sqlite:///local.sqlite3
+        run: |
+          python scripts/restore_public_snapshot.py
+          python scripts/sql_insights.py
