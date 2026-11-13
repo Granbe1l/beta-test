@@ -7,11 +7,11 @@ Updated 13 November 2026.
 - **Tracked:** retain the original 75 selected, public GitHub repositories
   and their source records. An incomplete source is not evidence that a
   repository is inactive, broken, or unsuitable.
-- **Verified analysis:** the Streamlit overview initially selects the
-  exact intersection of repositories with complete *Issues, PR, and CI/CD*
-  scans covering the **previous 28 days**. When no such repository exists,
-  it falls back to 7 days; if neither works, it uses an explicitly
-  exploratory selection, never a fictitious empty/zero series.
+- **Verified analysis:** one global sidebar selector filters **all six
+  pages** to the same cohort with complete Issues, PR and CI/CD history
+  for the prior 28 days. It falls back to seven days if no repository
+  qualifies, then to explicitly warned exploratory data. The original
+  total tracked remains distinct from analyzed source denominators.
 - **Exploratory:** all original 75 remain accessible with the source
   denominators and a visible missing-data caveat.
 - **Candidate pool:** a separate, nonmutating read-only workflow discovers
@@ -27,7 +27,11 @@ GitHub Actions workflow, or with:
 python scripts/audit_candidate_pool.py
 \`\`\`
 
-Result: \`candidate-verified-audit.json\` as a retained workflow artifact.
+Result: \`candidate-verified-audit.json\` and
+\`candidate-replacement-plan.json\` as retained workflow artifacts.
+The second file produces **unapproved nonmutating proposed swaps** only
+when original and candidate repository categories AND size tiers match.
+Neither file automatically modifies the tracked 75-source history.
 Even a verified candidate is **not automatically promoted or substituted**.
 Replacement requires a dated selection manifest, a review of language and
 size/category diversity, and a complete saved audit for both old and new
