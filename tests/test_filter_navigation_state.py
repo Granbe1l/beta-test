@@ -73,3 +73,25 @@ def test_dashboard_never_labels_global_verified_cohort_as_all_tracked():
     assert 'else "All projects in verified cohort"' in source
     assert 'if (mode == all_label' in source
     assert "a 30-day event filter does not certify a 30-day" in source
+
+
+def test_independent_open_backlog_coverage_never_crashes_or_claims_issue_scan():
+    from src.ui.pages import source_coverage_rows
+    row = {
+        "coverage": {"issues": None, "pull_requests": None,
+                     "workflow_runs": None, "open_backlog": None},
+        "status": {"issues": "partial", "pull_requests": "complete",
+                   "workflow_runs": "stale"},
+        "open_backlog_status": "unavailable",
+    }
+    display = {x["Source"]: x for x in source_coverage_rows(row)}
+    assert display["Issues"]["Status"] == "partial"
+    assert display["Pull Requests"]["Status"] == "complete"
+    assert display["Workflow Runs"]["Status"] == "stale"
+    assert display["Open Backlog"]["Status"] == "unavailable"
+    assert display["Open Backlog"]["Last success"] == "Not available"
+    row["open_backlog_status"] = "complete"
+    assert {x["Source"]: x for x in source_coverage_rows(row)}[
+        "Open Backlog"]["Status"] == "complete"
+    assert {x["Source"]: x for x in source_coverage_rows(row)}[
+        "Issues"]["Status"] == "partial"
