@@ -1,7 +1,7 @@
 """Project-manager entry point for an arbitrary PUBLIC GitHub URL.
 
 Explicitly scoped as a live, bounded preview, never as part of the
-75-repository auditable cohort or a certified full-backlog measurement.
+50-repository auditable cohort or a certified full-backlog measurement.
 """
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ def render_public_inspector(reports: list[dict]):
     st.markdown("### Inspect a public GitHub project")
     st.caption(
         "Paste a public repository URL to inspect its latest observable activity. "
-        "This preview is separate from the 75 audited projects."
+        "This preview is separate from the 50 audited projects."
     )
     with st.form("public_repository_inspector_form"):
         entered = st.text_input(
@@ -115,7 +115,7 @@ def render_public_inspector(reports: list[dict]):
         " UTC · cached up to 5 minutes · public GitHub REST API."
     )
     st.warning(
-        "Live exploratory preview: not part of the 75-project Verified cohort. "
+        "Live exploratory preview: not part of the 50-project Verified cohort. "
         "The latest 30 records per source cannot certify a full 28-day window, "
         "a complete issue backlog, missed deadlines or project quality."
     )
