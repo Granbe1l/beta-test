@@ -81,3 +81,19 @@ snapshot, not a live SQL query.
 - A real 3–5 participant test described in
   [the review protocol](REVIEWER_USABILITY_CHECK.md) remains to be
   conducted; automated screenshots do not prove human understanding.
+
+
+### Distinguishing historical open work from recent activity
+
+A complete 28-day **updated-event scan** is not a complete repository
+backlog. We use a separate oldest-first `state=open` GitHub Issues
+source and explicitly report whether the pages were exhausted. It
+improves discoverability of old untouched open Issues while retaining
+a precise distinction between verified and partial inventories.
+
+To keep comparisons defensible, every SQL observation now stores its
+`collection_basis`. Switching from an incomplete updated-record sample
+to an independently verified full open inventory must **not** be
+mistaken for a sudden growth in the volume of project work. The
+comparison logic only pairs observations using the same collection
+method and matched repository cohort.
