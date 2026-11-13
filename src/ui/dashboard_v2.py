@@ -575,7 +575,8 @@ def overview(reports, selection):
     activity = sample_activity(chosen, days=7)
     scope = "Selected project" if len(chosen) == 1 else "Curated public sample"
     _kpis([
-        ("Projects tracked", _number(info["repositories"]), scope, "▣"),
+        ("Projects in analysis", _number(info["repositories"]),
+         "Verified cohort or explicitly exploratory selection · tracked total shown in sidebar", "▣"),
         ("Open tasks retrieved", _number(info["open_issues"]), "Observed GitHub issues · not the full backlog", "◷"),
         ("Open code changes", _number(info["open_changes"]), "Observed PRs including drafts", "⇄"),
         ("Projects pushed · 7d", _number(activity["pushed_recently"]),
