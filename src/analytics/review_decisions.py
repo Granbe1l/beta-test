@@ -105,7 +105,7 @@ def review_decision(finding: dict) -> dict:
             "1. Check the measured scope: " +
             finding.get("metric_context", finding.get("evidence", "")) +
             ". " + finding.get("evidence_scope", "Observed source records") + ".",
-            "2. Inspect real evidence: " + check,
+            "2. Inspect GitHub evidence: " + label + ". " + check,
             "3. Record a bounded decision: " + next_step,
         ],
         "first_record_url": source,
@@ -132,7 +132,8 @@ def review_csv(findings: list[dict]) -> bytes:
     fieldnames = [
         "Repository", "Review priority", "Finding", "Measured value",
         "Observed denominator", "Verification scope", "Reason to inspect",
-        "First original record", "Review step 1", "Review step 2",
+        "GitHub link (record or listing)", "Record-level example available",
+        "Review step 1", "Review step 2",
         "Review step 3", "What cannot be concluded",
     ]
     writer = csv.DictWriter(output, fieldnames=fieldnames)
@@ -144,6 +145,7 @@ def review_csv(findings: list[dict]) -> bytes:
             item.get("metric_value"), item.get("metric_context"),
             item.get("evidence_scope"), plan["trigger"],
             plan.get("first_record_url") or item.get("url"),
+            "yes" if plan.get("example_available") else "no",
             *plan["steps"], plan["not_proven"],
         ]
         writer.writerow(dict(zip(fieldnames, map(_safe_csv_cell, values))))
