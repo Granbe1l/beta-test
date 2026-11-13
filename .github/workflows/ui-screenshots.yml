@@ -46,6 +46,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: project-delivery-populated-ui-screenshots
-          path: docs/screenshots/*.png
+          path: |
+            docs/screenshots/*.png
+            docs/screenshots/recruiter-browser-audit.json
           if-no-files-found: warn
           retention-days: 14
