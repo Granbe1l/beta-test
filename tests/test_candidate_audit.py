@@ -101,3 +101,35 @@ def test_search_and_probes_do_not_mutate_75_repositories(cfg, monkeypatch):
     assert data["verified_candidates"] == 1
     assert data["known_repository_count"] == 1
     assert "not an approved" in data["notice"]
+
+
+def test_daily_rotation_checks_different_real_candidates_without_promotion(cfg, monkeypatch):
+    """All four groups can be audited without deleting the fixed cohort."""
+    pool = []
+    for i in range(10):
+        raw = candidate(900 + i)
+        raw["created_at"] = (NOW - timedelta(days=100)).isoformat()
+        pool.append(raw)
+    def discover(client, known, settings, **kwargs):
+        return list(pool), []
+    seen = []
+    def checked(client, raw, settings, **kwargs):
+        seen.append(raw["id"])
+        return {
+            "github_id": raw["id"], "full_name": raw["full_name"],
+            "verdict": "not_verified", "sources": {},
+        }
+    monkeypatch.setattr("scripts.audit_candidate_pool.discover_candidates", discover)
+    monkeypatch.setattr("scripts.audit_candidate_pool.probe_candidate", checked)
+    client = SimpleNamespace(request_count=0, max_requests=220)
+    results = [
+        audit_candidates(client, cfg, {101}, now=NOW + timedelta(days=day),
+                         max_candidates=10, max_probes=3)
+        for day in range(4)
+    ]
+    assert [r["probed"] for r in results].count(0) == 0
+    assert {r["rotation_cycle"] for r in results} == {0, 1, 2, 3}
+    assert set(seen) == {r["id"] for r in pool}
+    assert all(r["verified_candidates"] == 0 for r in results)
+    assert all(r["known_repository_count"] == 1 for r in results)
+    assert all("not an approved" in r["notice"] for r in results)

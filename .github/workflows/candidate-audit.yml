@@ -1,6 +1,10 @@
 name: Audit verified replacement candidates
 on:
   workflow_dispatch:
+  # UTC daily; GitHub may delay cron delivery. Four daily audits rotate
+  # across the fixed 32-candidate discovery pool without touching main data.
+  schedule:
+    - cron: '53 3 * * *'
   push:
     branches: [main]
     paths:
