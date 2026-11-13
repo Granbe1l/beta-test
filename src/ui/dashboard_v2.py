@@ -811,8 +811,41 @@ def overview(reports, selection, all_reports=None):
 
 def project_details(reports):
     _heading("REPOSITORY EXPLORER", "Explore a project",
-             "Select a repository, see recent observations, and inspect the actual GitHub records.", reports)
-    r = select_repo(reports, "v2_details_repo")
+             "Find a tracked repository or inspect a public GitHub project by URL.", reports)
+    explorer_mode = st.radio(
+        "Repository explorer mode",
+        ["Tracked dataset", "Inspect public GitHub URL"],
+        key="v2_repo_explorer_mode",
+        horizontal=True,
+    )
+    if explorer_mode == "Inspect public GitHub URL":
+        from src.ui.repo_lookup import render_public_inspector
+        render_public_inspector(reports)
+        return
+    search = st.text_input(
+        "Search tracked repository",
+        placeholder="Owner, repository name, language or category",
+        key="v2_tracked_search",
+    ).strip().casefold()
+    matching = [
+        r for r in reports
+        if not search or search in " ".join([
+            str(r["repository"].get("full_name") or ""),
+            str(r["repository"].get("language") or ""),
+            str(r["repository"].get("category") or ""),
+        ]).casefold()
+    ]
+    if not matching:
+        st.info(
+            "No repository matches in the selected evidence scope. "
+            "Try another name or choose 'All tracked · exploratory' in the sidebar."
+        )
+        return
+    st.caption(
+        f"Showing {len(matching)} of {len(reports)} repositories in the current evidence scope. "
+        "Search only filters the view; it never changes verified counts."
+    )
+    r = select_repo(matching, "v2_details_repo")
     if not r:
         empty_state("No repository selected")
         return
