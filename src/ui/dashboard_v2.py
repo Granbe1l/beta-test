@@ -424,9 +424,12 @@ def _findings_view(findings):
                 plan = f.get("review_plan") or {}
                 if plan.get("trigger"):
                     st.caption(f'Why inspect: {plan["trigger"]}')
-                if f.get("url"):
-                    st.link_button("Inspect evidence on GitHub", f["url"],
+                from src.analytics.review_decisions import evidence_action
+                action = evidence_action(f)
+                if action["url"]:
+                    st.link_button(action["button"], action["url"],
                                    use_container_width=True)
+                st.caption(action["disclosure"])
                 with st.expander("Evidence and limitations"):
                     st.caption(f.get("evidence_scope", "Observed GitHub records"))
                     plan = f.get("review_plan") or {}
