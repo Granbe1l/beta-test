@@ -122,3 +122,38 @@ def test_backlog_checkpoint_roundtrips_through_real_snapshot(db, cfg, tmp_path):
     assert restored[0]["coverage"]["open_backlog"]["source"] == "open_backlog"
     old, _, _ = read_snapshot(snap, now=NOW + timedelta(hours=20))
     assert old[0]["open_backlog_status"] == "stale"
+
+
+def test_full_open_inventory_does_not_certify_updated_event_history(db, cfg):
+    from src.analytics.metrics import calculate_issues
+    raw = issue_payload(9, updated="2020-01-01T00:00:00Z")
+    from src.collectors.normalize import issue
+    rows = [issue(raw, 101)]
+    with_verified_backlog = calculate_issues(
+        rows, NOW, observation_days=28, complete=False,
+        coverage_start=None, backlog_complete=True)
+    assert with_verified_backlog["full_open_backlog_verified"] is True
+    assert with_verified_backlog["observed_open"] == 1
+    assert with_verified_backlog["aged_percent"] == 100.0
+    assert with_verified_backlog["trend_valid"] is False
+    assert with_verified_backlog["weekly_opened"] is None
+    assert with_verified_backlog["weekly_closed"] is None
+
+
+def test_source_complete_recent_window_never_claims_full_backlog():
+    from src.analytics.metrics import calculate_issues
+    result = calculate_issues(
+        [], NOW, observation_days=28, complete=True,
+        coverage_start=NOW - timedelta(days=32))
+    assert result["full_open_backlog_verified"] is False
+    assert result["trend_valid"] is True
+
+
+def test_backlog_sync_is_explicitly_opt_in_and_uses_spare_budget(db, cfg):
+    from src.collectors.sync import synchronize
+    from .test_scale75 import SourceClient
+    repo = db.get(Repository, 101)
+    # Legacy collectors and tests do not silently perform the optional
+    # independent backlog scan; the scheduled pipeline explicitly opts in.
+    result = synchronize(db, SourceClient(), cfg, run_at=NOW)
+    assert not any(x["source"] == "open_backlog" for x in result)
