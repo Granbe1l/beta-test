@@ -1,0 +1,44 @@
+name: Audit completed six-hour GitHub schedules
+on:
+  # The ingestion job cannot audit itself while its schedule run is in progress.
+  # This independent, read-only observer starts only AFTER a refresh ends.
+  workflow_run:
+    workflows: [Refresh curated public GitHub snapshot]
+    types: [completed]
+  # Runs once on installation to produce the honest baseline, not new cron data.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/schedule-audit.yml'
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+jobs:
+  schedule-proof:
+    # Ignore completed push/manual refreshes. Those never count as cron history.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.event == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install audit-only dependency
+        run: python -m pip install 'requests>=2.31,<3'
+      - name: Audit actual completed scheduled runs on main
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python scripts/schedule_reliability.py
+      - name: Preserve actual dated schedule proof (not simulated)
+        uses: actions/upload-artifact@v4
+        with:
+          name: actual-github-schedule-reliability
+          path: schedule-reliability.json
+          if-no-files-found: error
+          retention-days: 30

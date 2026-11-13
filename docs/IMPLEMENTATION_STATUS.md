@@ -199,3 +199,48 @@ also not independently established.
 
 The main application is CV-usable without reporting 100% source
 coverage, guaranteed six-hour runtime, or invented HRD testing.
+
+
+## P1.3 follow-up: avoid auditing an unfinished schedule
+
+The GitHub Actions workflow `public-snapshot.yml` previously queried its
+own `schedule` history **before** the current refresh had completed. Its
+most recent `schedule` run could therefore still be `in_progress`, which
+cannot honestly count as a successful refresh. Testing or rescheduling
+manually does not correct that evidence problem.
+
+The independent read-only workflow
+[`schedule-audit.yml`](../.github/workflows/schedule-audit.yml) now runs
+on `workflow_run: completed` for the actual ingestion workflow. It filters
+the trigger to **real schedule events** and writes a dated
+`schedule-reliability.json` GitHub Actions artifact. The standalone
+one-time baseline (`push`/manual audit) is an inspection, **not a fabricated
+scheduled cycle**. The auditor still requires three successive successful
+real `schedule` runs, plausible 3–9 hour intervals, and a recent last run
+before reporting `verified_recent_cycles`.
+
+**What this fixes:** false-negative self-auditing of an unfinished run;
+machine-readable evidence linked to an actual completed GitHub event.
+
+**What this does not fix:** GitHub's best-effort cron scheduling itself.
+GitHub states a scheduled workflow can be delayed or dropped under high
+load, including at the top of the hour. The current cron is already off
+the hour (`27 */6 * * *` UTC). Shifting the minute has no proven ability
+to repair missing events, and the audit must not be relaxed to make gaps
+pass.
+
+**If six-hour operational freshness is business-critical:** introduce
+an independent managed scheduler (for example a GCP Cloud Scheduler job)
+that sends an authenticated `workflow_dispatch` to this existing ingestion
+workflow using a least-privilege credential held as a secret in the
+scheduler, with retry/backoff and duplicate-run protection. Owner
+authorization/configuration is required. Record separate
+`scheduled_native` and `external_dispatch` trigger methods, compare
+actual publish times to the six-hour freshness SLO, and only describe
+reliability once sufficient **real** external scheduled runs have
+succeeded. External dispatches must NEVER be relabeled as GitHub
+`schedule` events.
+
+For CV use prior to such operational evidence, say *"configured six-hour
+GitHub Actions refresh with verified collection and source-level audits"*,
+not *"guaranteed automatic refresh every six hours"*.
