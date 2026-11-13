@@ -48,7 +48,7 @@ jobs:
       - name: Expand to up to 75 vetted repos and sync within API budget
         shell: bash
         run: |
-          if python scripts/run_sync.py --expand --initial-batch 20 --max-requests 850; then
+          if python scripts/run_sync.py --expand --initial-batch 20 --max-requests 850 --audit-open-backlog; then
             echo "GitHub ingestion returned complete checkpoints for visited repositories."
           else
             echo "::warning::Some GitHub sources incomplete or budget-limited; historical records and checkpoint status preserved."
