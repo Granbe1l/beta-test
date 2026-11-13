@@ -111,7 +111,7 @@ def main():
                 handle.write(
                     f"Most recent scheduled run age: "
                     f"**{output['latest_scheduled_run_age_hours']} h** · "
-                    f"recent: **{output['latest_schedule_is_recent']}**.\\n\\n"
+                    f"recent: **{output['latest_schedule_is_recent']}**.\n\n"
                 )
             if output.get("observed_intervals_hours"):
                 handle.write("Observed run intervals (hours): " +
