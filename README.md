@@ -2,7 +2,7 @@
 
 An evidence-first, read-only analytics dashboard that helps nontechnical reviewers understand observable issue, pull request, and GitHub Actions activity across an **audited, non-representative sample** of public GitHub repositories. Built with Python, Streamlit, Pandas, Plotly and SQLAlchemy; **SQLite** is the default collector database, with **PostgreSQL optional**. The public demo reads a compressed snapshot without needing a live SQL server. No React, FastAPI, chatbot, generative AI, or paid AI APIs.
 
-> **Current status (14 November 2026):** The audited 75-repository public snapshot exists, GitHub Actions collection has completed successfully, and desktop/mobile browser screenshot tests have passed. GitHub Actions collection is configured to run every four hours, but individual runs can be delayed or fail; never mistake a stored snapshot for real-time data. Hosted Streamlit Cloud deployment and managed PostgreSQL are separate, optional steps and are **not** claimed verified here. All figures are obtained from public GitHub records.
+> **Curated-cohort change (14 November 2026):** An independent 28-day Issues/PR/CI audit found 56 jointly Verified repositories in the previous 75-project sample. Exactly 50 audited identities are pinned in [the reviewed manifest](data/curated_50_manifest.json) for the next published cutover, with 25 original source reports archived. This dated selection is not a promise that 50/50 remain fresh indefinitely. GitHub Actions refresh and desktop/mobile UI screenshot tests exist. GitHub Actions collection is configured to run every four hours, but individual runs can be delayed or fail; never mistake a stored snapshot for real-time data. Hosted Streamlit Cloud deployment and managed PostgreSQL are separate, optional steps and are **not** claimed verified here. All figures are obtained from public GitHub records.
 
 ## Start here — 60-second reviewer tour
 
@@ -13,7 +13,7 @@ tracker, SLA monitor or employee-productivity ranking.
 
 | What the reviewer sees | What they can check |
 | --- | --- |
-| **75 curated public GitHub repositories** | Six interactive views for source-specific Issues, PRs and Actions runs |
+| **50 curated public GitHub repositories** | Six interactive views for source-specific Issues, PRs and Actions runs |
 | **Verified vs exploratory scopes** | A 28-day verified cohort only includes repositories whose three source scans cover that period; incomplete sources remain discoverable |
 | **Evidence-based findings** | A concrete count/denominator, next review step, and **direct original GitHub record** where retrieved; otherwise an explicitly labelled source listing |
 | **Reproducible engineering** | Read-only SQL snapshot integrity checks, browser screenshots, and measured reduction from 376 to 6 database SELECT queries for 75 repos (not a claimed browser speedup) |
@@ -166,10 +166,10 @@ scripts/audit.py               Counts and verifiable status
 2. Search is constrained by `MAX_CANDIDATES`, `SEARCH_PAGES_PER_QUERY`, and a per-language quota, **not** a GitHub-wide crawl. Deduplicate by stable GitHub repository ID.
 3. Validate repository metadata: public, nonfork, nonarchived, >=50 stars, last push <=30 days, issues enabled, language recognized.
 4. Probe a **bounded** slice of GitHub `/issues?state=all` and `/pulls?state=all` for independent issues and any PRs. A negative bounded probe is an **uncertain rejection**, not proof there has never been an issue. A follow-up collector determines the actual extractable sample.
-5. Diversify across broad language categories and star-size tiers (`50–499`, `500–4,999`, `5,000+`) by round-robin. Fill leftover slots with eligible candidates if diversity constraints cannot fill the cap. Select **at most 75**.
+5. Diversify across broad language categories and star-size tiers (`50–499`, `500–4,999`, `5,000+`) by round-robin. Fill leftover slots with eligible candidates if diversity constraints cannot fill the cap. The historical discovery selected at most 75; the current fixed portfolio selection is **50 audited repositories**.
 6. Record GitHub search queries, timestamps, candidates, selection reasons, and URLs in `SelectionRun` and `Candidate`. The selected set persists to preserve longitudinal comparability; routine sync refreshes last-push metadata for visited repositories. Quieter/archived repositories are flagged, not silently relabeled as finished.
 
-**Sampling limitation:** Search result ordering, API result caps, bounded activity probes, and platform/language choices create selection bias. Even 75 selected repositories **cannot** represent all of GitHub.
+**Sampling limitation:** Search result ordering, API result caps, bounded activity probes, and platform/language choices create selection bias. Even 50 selected repositories **cannot** represent all of GitHub.
 
 ## Data extraction and checkpoints
 
@@ -248,7 +248,7 @@ python scripts/run_sync.py --reconcile
 
 ## GitHub Actions synchronization
 
-The active public-snapshot workflow `.github/workflows/public-snapshot.yml` runs at `27 */6 * * *` (UTC) and also supports manual `workflow_dispatch`. It restores the last saved GitHub snapshot, collects bounded public records, publishes an audit artifact, then commits the updated `.json.gz` snapshot to `main`. The snapshot writer fetches current `main` and reapplies only the new generated binary file; it does not try to rebase conflicting binaries. Code pushes no longer trigger additional data writers. A separate `.github/workflows/sync.yml` is an opt-in PostgreSQL mode and must not be described as a working managed-database deployment without configuration.
+The active public-snapshot workflow `.github/workflows/public-snapshot.yml` runs at `17 1,5,9,13,17,21 * * *` (UTC) and also supports manual `workflow_dispatch`. It restores the last saved GitHub snapshot, collects bounded public records, publishes an audit artifact, then commits the updated `.json.gz` snapshot to `main`. The snapshot writer fetches current `main` and reapplies only the new generated binary file; it does not try to rebase conflicting binaries. Code pushes no longer trigger additional data writers. A separate `.github/workflows/sync.yml` is an opt-in PostgreSQL mode and must not be described as a working managed-database deployment without configuration.
 
 Scheduled Actions do **not** guarantee execution at the exact minute, and GitHub may disable scheduled workflows in inactive public repositories. The collector uses read-only GitHub REST API calls. The public snapshot workflow has `contents: write` only to commit its validated snapshot to `main`, and `actions: read` to audit real scheduled runs. The database writer uses a concurrency group and lock.
 
@@ -310,9 +310,9 @@ The repository contains `data/github_public_snapshot.json.gz`, a **read-only rea
 For production data and historical incremental synchronization, provision managed PostgreSQL, set a secure `DATABASE_URL`, initialize the schema, then run the separate checkpointed collector. The **snapshot workflow re-collects a bounded observation window**, whereas the PostgreSQL collector implements incremental upserts. The PostgreSQL workflow is manual/opt-in until a database is configured, avoiding misleading failed scheduled runs. Snapshots contain no fixture records or credentials.
 
 
-## Scaling selected GitHub repositories to 75
+## Curated Verified-at-selection portfolio: 50 public GitHub repositories
 
-- **Target: up to 75 curated public repositories** with verified metadata and eligibility, not a representative sample of all GitHub. The existing ten and their evidence records are preserved.
+- **Target: exactly 50 reviewed, 28-day jointly Verified-at-selection public repositories** with verified metadata and eligibility, not a representative sample of all GitHub. The existing ten and their evidence records are preserved.
 - Each scheduled GitHub Actions run restores the previous public snapshot into an ephemeral SQLite collector, retaining upsert IDs and per-source checkpoints.
 - Candidate discovery is bounded and audited; expanding selection is allowed only after GitHub Search and standalone-issue/PR eligibility checks.
 - The initial source collection is staged (up to **20 previously unseen repositories per run**). After seeding, the collector attempts incremental updates across the full selection each four-hour run, respecting an **850-request cap** and limited endpoint pagination.
@@ -325,13 +325,13 @@ Operational commands for the snapshot workflow: `python scripts/restore_public_s
 
 - **Historical comparison:** uses only two dates with actual validated
   observations and exactly the same repositories at both dates. It cannot
-  infer a full 75-repository trend from partial or one-day snapshots.
+  infer a full 50-repository trend from partial or one-day snapshots.
 - **CI/CD:** a single selectable 30/90-day window is applied to cards, daily
   bars, donut and evidence table. The success-share denominator excludes
   completed runs with unknown outcomes; the charts use that same denominator.
 - **Coverage:** `complete` means a bounded endpoint scan finished, not that
   a repository's entire GitHub lifetime history was captured. The dashboard
-  reports how many of the 75 bounded scans are complete for each source.
+  reports how many of the 50 bounded scans are complete for each source.
 - **Findings:** intentionally varied finding types, with numeric evidence,
   interpretation, next checks, and original GitHub source links. No inferred
   causes, project health scores, or productivity rankings.
@@ -508,7 +508,7 @@ python scripts/cv_evidence.py
 
 See [CV wording and evidence boundaries](docs/CV_EVIDENCE.md). The dated
 receipt is also executed on every Quality checks run, avoiding hard-coded
-estimates or the false claim that all 75 sources are verified.
+estimates or the false claim that all 50 sources are verified.
 
 ## P0 data-integrity improvement: independently audited open-Issue backlog
 
