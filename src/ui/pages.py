@@ -182,6 +182,14 @@ def paginate(rows, key, page_size=PER_PAGE):
     return page_slice(rows, page, page_size), page, pages
 
 
+def _display_table_date(value):
+    """Format actual timestamps; pandas NaT is truthy but has no strftime."""
+    if value is None or pd.isna(value):
+        return "—"
+    stamp = utc(value)
+    return stamp.strftime("%d %b %Y") if stamp is not None and not pd.isna(stamp) else "—"
+
+
 def table_rows(rows, fields, key):
     """Compact evidence table; URL column is a real GitHub link."""
     view, _, _ = paginate(rows, key)
@@ -194,7 +202,7 @@ def table_rows(rows, fields, key):
     frame = frame[fields]
     for col in ("created_at", "updated_at", "closed_at", "merged_at"):
         if col in frame:
-            frame[col] = frame[col].map(lambda d: utc(d).strftime("%d %b %Y") if d else "—")
+            frame[col] = frame[col].map(_display_table_date)
     column_names = {"number": "#", "title": "Title", "state": "State", "draft": "Draft",
                     "created_at": "Created", "updated_at": "Updated", "closed_at": "Closed",
                     "merged_at": "Merged", "url": "Evidence ↗", "workflow_name": "Workflow",
