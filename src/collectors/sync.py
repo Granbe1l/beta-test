@@ -388,6 +388,47 @@ def record_observations(session: Session, repo_id: int, now=None):
     return True
 
 
+
+def backlog_priority_order(session: Session, repositories: list[Repository],
+                           settings: Settings, now: datetime) -> list[Repository]:
+    """Use remaining budget for audited 28d cohorts first; rotate fairly.
+
+    This does not promote new repositories or modify source selection.
+    Full-backlog inventory is separate from recent-event verification.
+    """
+    now = utc(now)
+    cutoff = now - timedelta(days=28)
+    fresh_cutoff = now - timedelta(hours=settings.stale_hours)
+
+    def qualifies(repo):
+        for source in SOURCES:
+            cp = session.get(SyncCheckpoint, (repo.id, source))
+            if (cp is None or cp.status != "complete" or
+                    cp.last_success_at is None or cp.coverage_start is None or
+                    utc(cp.last_success_at) < fresh_cutoff or
+                    utc(cp.coverage_start) > cutoff):
+                return False
+        return True
+
+    eligible = []
+    remainder = []
+    for repo in repositories:
+        cp = session.get(SyncCheckpoint, (repo.id, "open_backlog"))
+        if (cp and cp.status == "complete" and cp.last_success_at and
+                utc(cp.last_success_at) >= fresh_cutoff):
+            continue
+        (eligible if qualifies(repo) else remainder).append(repo)
+
+    slot = int(now.timestamp() // (6 * 3600))
+    def rotate(rows):
+        rows = sorted(rows, key=lambda r: r.full_name)
+        if not rows:
+            return rows
+        offset = (slot * 7) % len(rows)
+        return rows[offset:] + rows[:offset]
+    return rotate(eligible) + rotate(remainder)
+
+
 def synchronize(session: Session, client: GitHubClient, settings: Settings, reconcile=False,
                 initial_batch_size: int | None = None, run_at=None,
                 audit_open_backlog=False, max_backlog_repos=8) -> list[dict]:
@@ -456,36 +497,29 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
             record_observations(session, repo.id)
         visited.append(repo)
 
-    if audit_open_backlog and visited:
-        # Reallocate only remaining budget AFTER normal Issue/PR/CI scans.
-        # This cannot starve the primary 28-day activity collector.
+    if audit_open_backlog and repos:
+        # Only AFTER normal Issue/PR/CI scans, use remaining API budget.
+        # Prioritize current 28-day verified cohorts even if they were not
+        # visited in this collection batch. This avoids auditing only the
+        # same rotating partial sources while ignoring verified cohorts.
         from src.collectors.backlog import sync_open_backlog
-        ordered = sorted(
-            visited,
-            key=lambda r: (
-                1 if (cp := session.get(SyncCheckpoint, (r.id, "open_backlog")))
-                     and cp.status == "complete"
-                     and cp.last_success_at
-                     and utc(cp.last_success_at) >=
-                         (run_at or utcnow()) - timedelta(hours=settings.stale_hours)
-                else 0,
-                # Stable rotated priority inherited from the caller's repo order.
-                visited.index(r),
-            ),
-        )
-        for repo in ordered[:max_backlog_repos]:
+        now = run_at or utcnow()
+        all_selected = list(session.scalars(
+            select(Repository).where(Repository.selected.is_(True))
+        ))
+        ordered = backlog_priority_order(session, all_selected, settings, now)
+        processed = 0
+        for repo in ordered:
+            if processed >= max_backlog_repos:
+                break
             budget = getattr(client, "max_requests", None)
             if (budget is not None and
                     budget - getattr(client, "request_count", 0) <
                     settings.max_pages + 3):
                 break
-            cp = session.get(SyncCheckpoint, (repo.id, "open_backlog"))
-            if (cp and cp.status == "complete" and cp.last_success_at and
-                    utc(cp.last_success_at) >=
-                        (run_at or utcnow()) - timedelta(hours=settings.stale_hours)):
-                continue
             result.append(sync_open_backlog(
-                session, client, repo, settings, now=run_at or utcnow()))
+                session, client, repo, settings, now=now))
+            processed += 1
     if audit_open_backlog:
         # Measure AFTER inventory reconciliation; older observation samples
         # use a distinct basis and must not be compared to full inventories.
