@@ -2,7 +2,7 @@
 from datetime import timedelta
 
 from src.collectors.sync import (
-    SOURCES, synchronize, verified_refresh_priority_order,
+    SOURCES, synchronize, utc, verified_refresh_priority_order,
 )
 from src.database.models import Repository, SyncCheckpoint
 
@@ -78,9 +78,9 @@ def test_stale_three_source_still_attempts_real_refetch_not_fabricated_success(d
     )
     assert visits[0][0] == at_risk.id
     assert len(result) == len(visits)
-    assert db.get(SyncCheckpoint, (at_risk.id, "issues")).last_success_at == (
+    assert utc(db.get(SyncCheckpoint, (at_risk.id, "issues")).last_success_at) == (
         NOW - timedelta(hours=13)
     )
-    assert db.get(SyncCheckpoint, (short.id, "issues")).coverage_start > (
+    assert utc(db.get(SyncCheckpoint, (short.id, "issues")).coverage_start) > (
         NOW - timedelta(days=28)
     )
