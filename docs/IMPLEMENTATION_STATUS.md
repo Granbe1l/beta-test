@@ -143,3 +143,34 @@ observations. Cross-period charts must not interpret a jump from
 `sampled_updated_events` to `verified_open_inventory` as newly created
 work. No score increase is claimed until the new collector and source
 audit pass on actual scheduled data.
+
+## P0 completion evidence — 13 November 2026
+
+- **P0.1 Verified-first:** all six Streamlit pages default to matching
+  28-day Issue/PR/CI source coverage. Latest published **matching cohort
+  35 of the 75** curated public repositories. The remaining tracked
+  repositories are retained as opt-in exploratory evidence; they were not
+  deleted or silently counted as inactive.
+- **Replacement candidates:** the independent [second live candidate audit
+  43357638162](https://github.com/Granbe1l/beta-test/actions/runs/43357638162)
+  found 32 and tested 8 candidates with GitHub REST API, verifying
+  **3**. Two category/size matched substitution proposals were
+  generated, but **no swaps were applied**. Candidate checks now rotate
+  daily with their own budget. A matching language or star tier alone is
+  insufficient to remove a materially different original project.
+- **P0.2 full-open Issue inventory:** the first real refresh
+  [43347576175](https://github.com/Granbe1l/beta-test/actions/runs/43347576175)
+  verified **7 complete** full-open inventories, recorded one
+  oversized partial inventory and left 67 unvisited. Created-date
+  Search shards are bounded by a separate request limit and never certify
+  a truncated response.
+- **P0.3 integrity:** an additional CI gate compares restored real
+  SQLite SQL counts, original compressed-snapshot records and Python
+  Streamlit metrics, including per-repository IDs, source completeness,
+  old open Issues, 28-day PR/CI totals and verified backlog flags.
+  Mismatches must fail CI rather than become impressive portfolio numbers.
+
+**Remaining evidence:** 75/75 matching three-source history has not been
+verified. Project selection is curated, not a statistically random sample.
+Real-user HRD comprehension and the public hosted Streamlit URL are
+also not independently established.
