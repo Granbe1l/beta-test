@@ -25,4 +25,5 @@ def test_exploratory_is_opt_in_without_erasing_repository_data():
              "streamlit_app.py").read_text(encoding="utf-8")
     assert "Unverified sources are retained" in entry
     assert "Exploratory source scope:" in entry
-    assert "not full project totals" in entry
+    assert '"not full "' in entry
+    assert "project totals or confirmed backlog changes" in entry
