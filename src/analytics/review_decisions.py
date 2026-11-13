@@ -115,6 +115,36 @@ def review_decision(finding: dict) -> dict:
     }
 
 
+def evidence_action(finding: dict) -> dict:
+    """Choose the actionable source link without overstating its specificity.
+
+    Original GitHub records are preferred when the retrieved snapshot actually
+    contains an eligible example. Otherwise the repository source listing is
+    an honest discovery starting point, not a record-level verification.
+    """
+    plan = finding.get("review_plan") or review_decision(finding)
+    url = plan.get("first_record_url") or finding.get("url")
+    if not url:
+        return {
+            "url": None, "button": None,
+            "disclosure": "No source URL is available for this finding.",
+            "record_level": False,
+        }
+    record_level = bool(plan.get("example_available"))
+    return {
+        "url": url,
+        "button": ("Open example GitHub record" if record_level
+                   else "Open GitHub source listing"),
+        "disclosure": (
+            "Example from retrieved data; inspect the record before drawing a conclusion."
+            if record_level else
+            "No matching individual record example in the snapshot; "
+            "this listing is only a starting point."
+        ),
+        "record_level": record_level,
+    }
+
+
 def _safe_csv_cell(value) -> str:
     """Keep untrusted GitHub names and titles from becoming CSV formulas."""
     text = str(value if value is not None else "")
