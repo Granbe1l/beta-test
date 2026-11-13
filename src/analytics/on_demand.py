@@ -27,9 +27,13 @@ def parse_public_repo(value: str) -> str:
     if not raw or len(raw) > 300:
         raise PublicLookupError("Enter a public GitHub repository link or owner/repo.")
     if "://" in raw:
-        parsed = urlsplit(raw)
-        if (parsed.scheme != "https" or parsed.hostname != "github.com"
-                or parsed.port is not None or parsed.username is not None
+        try:
+            parsed = urlsplit(raw)
+            hostname, port = parsed.hostname, parsed.port
+        except ValueError:
+            raise PublicLookupError("Invalid GitHub repository URL.") from None
+        if (parsed.scheme != "https" or hostname != "github.com"
+                or port is not None or parsed.username is not None
                 or parsed.password is not None or parsed.query or parsed.fragment):
             raise PublicLookupError("Only https://github.com/owner/repo links are supported.")
         path = parsed.path.strip("/")
