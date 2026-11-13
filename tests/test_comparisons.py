@@ -79,3 +79,44 @@ def test_no_known_ci_results_is_not_100_or_zero_percent():
     assert result["success_percent"] is None
     assert result["known"] == 0
     assert result["total"] == 1
+
+
+
+def test_open_issue_collection_method_change_blocks_false_matched_growth():
+    latest = NOW
+    report = {"repository": {"full_name": "org/A"}, "observations": [
+        {"measured_at": latest - timedelta(days=1),
+         "open_issues_observed": 12, "open_prs_observed": 5,
+         "collection_basis": "sampled_updated_events"},
+        {"measured_at": latest,
+         "open_issues_observed": 140, "open_prs_observed": 5,
+         "collection_basis": "verified_open_inventory"},
+    ]}
+    assert comparable_observation_pair([report]) is None
+
+
+def test_matched_cohort_allows_same_basis_on_both_days():
+    report = {"repository": {"full_name": "org/A"}, "observations": [
+        {"measured_at": NOW-timedelta(days=1),
+         "open_issues_observed": 140, "open_prs_observed": 5,
+         "collection_basis": "verified_open_inventory"},
+        {"measured_at": NOW,
+         "open_issues_observed": 132, "open_prs_observed": 4,
+         "collection_basis": "verified_open_inventory"},
+    ]}
+    pair = comparable_observation_pair([report])
+    assert pair["matched_count"] == 1
+    assert pair["current_issues"] == 132
+    assert pair["previous_issues"] == 140
+    assert "same collection method" in pair["definition"]
+
+
+def test_legacy_missing_basis_is_not_matched_to_explicit_new_basis():
+    report = {"repository": {"full_name": "org/A"}, "observations": [
+        {"measured_at": NOW-timedelta(days=1),
+         "open_issues_observed": 12, "open_prs_observed": 5},
+        {"measured_at": NOW,
+         "open_issues_observed": 132, "open_prs_observed": 4,
+         "collection_basis": "sampled_updated_events"},
+    ]}
+    assert comparable_observation_pair([report]) is None

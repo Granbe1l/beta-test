@@ -33,16 +33,22 @@ def load_reports(session: Session, now: datetime | None = None, observation_days
         ic = cps.get("issues")
         pc = cps.get("pull_requests")
         cc = cps.get("workflow_runs")
-        i = calculate_issues(issues, now, observation_days, statuses["issues"] == "complete", ic.coverage_start if ic else None)
+        backlog_cp = cps.get("open_backlog")
+        backlog_status = available_source(backlog_cp, now, stale_hours)
+        i = calculate_issues(issues, now, observation_days, statuses["issues"] == "complete",
+                             ic.coverage_start if ic else None,
+                             backlog_complete=backlog_status == "complete")
         p = calculate_prs(prs, now, observation_days, statuses["pull_requests"] == "complete", pc.coverage_start if pc else None)
         c = calculate_ci(ci, now, observation_days, statuses["workflow_runs"] == "complete", cc.coverage_start if cc else None)
         change = closure_change(issues, now, statuses["issues"] == "complete", ic.coverage_start if ic else None)
         reports.append({"repository": source_row(repo), "issues": i, "prs": p, "ci": c,
                         "closure": change, "issue_rows": issues, "pr_rows": prs, "ci_rows": ci, "observations": observations,
+                        "open_backlog_status": backlog_status,
                         "status": statuses, "coverage_ok": all(v == "complete" for v in statuses.values()),
                         "last_success": (min(utc(cps[s].last_success_at) for s in statuses)
                                          if all(cps.get(s) and cps[s].last_success_at for s in statuses) else None),
-                        "coverage": {s: source_row(cp) if (cp := cps.get(s)) else None for s in statuses}})
+                        "coverage": {**{s: source_row(cp) if (cp := cps.get(s)) else None for s in statuses},
+                                     "open_backlog": source_row(backlog_cp) if backlog_cp else None}})
     return reports
 
 

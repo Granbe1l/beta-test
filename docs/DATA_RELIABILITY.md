@@ -116,3 +116,44 @@ successes are explicitly excluded, and missing history returns an
 insufficient-evidence status rather than a positive reliability claim.
 A green data pipeline and a fully verified 28-day dataset are separate
 states.
+
+
+## P0 integrity: current open backlog is a separate source
+
+GitHub's REST `/repos/{owner}/{repo}/issues?since=...` uses the *last
+updated* timestamp. It cannot establish the **entire current open backlog**
+because an Issue created years ago may still be open without a recent
+update.
+
+The collector therefore has an independent `open_backlog` source. It
+scans `state=open`, `sort=created`, `direction=asc` **without**
+a `since` filter, excludes PR entries, and stores all retrieved genuine
+Issue IDs. It only sets `open_backlog.status=complete` when the GitHub
+pagination is exhausted. A capped query is saved as a **partial observed
+inventory**, never represented as 100% coverage. An absent/stale scan is
+not a zero-open-Issues claim.
+
+All regular Issue/PR/CI event collection runs first. The backlog
+collector uses **leftover GitHub API budget** and checks at most eight
+visited repositories per refresh, rotating with the main collector's
+repository order. It must not claim complete open inventory for
+repositories where pages are still capped.
+
+When a fully exhausted open-Issue scan does not return a historically
+stored open item, the local record is marked
+`not_confirmed_open` with **no invented closed_at timestamp**. A future
+recent-update scan can supply the actual authoritative state and closing
+timestamp. The original source URL/ID is never removed.
+
+Snapshot history now stores `collection_basis`: legacy observed,
+updated-event sample, or verified open-inventory. Only observations using
+the same basis may be compared as net open-work change. A new complete
+backlog scan may increase the displayed *observed* count because data
+collection improved; such a change is **not** evidence of new work or a
+missed deadline.
+
+The validated 2026-11-13 08:27 WIB refresh showed verified full 28-day
+windows of **40/75 Issues, 50/75 PRs and 35/75 CI sources**. These
+numbers do not establish full backlog coverage. Later open-inventory
+completeness must be measured from real audits; it cannot be inferred
+from new code or test fixtures.

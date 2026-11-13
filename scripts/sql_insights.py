@@ -53,6 +53,9 @@ SELECT r.full_name AS repository,
        COALESCE(c.ci_rows, 0) AS retrieved_ci_rows,
        COALESCE(c.successful_28d, 0) AS observed_successful_checks_28d,
        COALESCE(c.failed_28d, 0) AS observed_failed_checks_28d,
+       CASE WHEN ob.status = 'complete'
+             AND ob.last_success_at >= :fresh_cutoff
+            THEN 1 ELSE 0 END AS open_inventory_verified,
        CASE WHEN ic.status = 'complete'
              AND ic.coverage_start <= :window_start
              AND ic.last_success_at >= :fresh_cutoff
@@ -72,6 +75,7 @@ LEFT JOIN ci_stats c ON c.repo_id = r.id
 LEFT JOIN sync_checkpoints ic ON ic.repo_id = r.id AND ic.source = 'issues'
 LEFT JOIN sync_checkpoints pc ON pc.repo_id = r.id AND pc.source = 'pull_requests'
 LEFT JOIN sync_checkpoints cc ON cc.repo_id = r.id AND cc.source = 'workflow_runs'
+LEFT JOIN sync_checkpoints ob ON ob.repo_id = r.id AND ob.source = 'open_backlog'
 WHERE r.selected = TRUE
 ORDER BY observed_aged_open_issues DESC, r.full_name
 """).bindparams(
@@ -109,10 +113,12 @@ def main():
                 key: sum(row[key] for row in rows)
                 for key in ("issues_verified_28d", "prs_verified_28d", "ci_verified_28d")
             },
+            "verified_current_open_inventories": sum(row["open_inventory_verified"] for row in rows),
             "top_observed_aged_issue_repositories": rows[:5],
             "limitation": (
-                "Observed record counts are not full backlog or client delivery status. "
-                "Check each source's verified_28d flag before interpreting 28-day values."
+                "Open counts describe retrieved Issues unless open_inventory_verified=1. "
+                "The independent current-open inventory is not the same as a 28-day event history. "
+                "Neither source establishes client delivery deadlines or quality."
             ),
         }
         print("SQL DELIVERY AUDIT:", json.dumps(result, sort_keys=True))

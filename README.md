@@ -437,3 +437,37 @@ but real participant outcomes have **not yet** been collected. Data-source
 coverage improvements must be compared using actual before/after audit
 artifacts after a completed refresh; code tests alone do not establish
 coverage gains.
+
+
+## P0 data-integrity improvement: independently audited open-Issue backlog
+
+A GitHub Issues scan with `since` only covers last-updated records;
+even 28 days of complete API pagination cannot prove a full backlog.
+The collector therefore supports an **independent oldest-first open
+Issues inventory**:
+
+```bash
+python scripts/run_sync.py --audit-open-backlog --max-requests 850
+python scripts/audit.py
+```
+
+The configured public refresh uses this option **after** normal
+Issue/PR/CI collection and only with spare REST request budget. Results
+have their own `open_backlog` status, never confused with verified
+7/28-day activity trends. Partial pagination stays partial. Open items
+missing from a completely exhausted scan are marked
+`not_confirmed_open` instead of receiving a fabricated close date.
+
+Open-work history includes `collection_basis`, making comparisons
+between previous updated-event samples and newly completed open-Issue
+inventories invalid rather than displaying a fake surge. The workflow
+also emits per-repository diagnostics through
+`scripts/coverage_triage.py`, distinguishing page limits, stale
+checkpoints and short windows.
+
+**Latest validated refresh (13 November 2026, 08:27 WIB):** 75 curated
+projects; 11,652 Issue records, 26,450 PR records, 87,122 CI runs;
+verified 28-day sources: Issues 40/75, PR 50/75, CI 35/75.
+[Audit and published snapshot](https://github.com/Granbe1l/beta-test/actions/runs/43342299579).
+Do not claim that the newly added open backlog source is fully covered
+before its own real refresh audit confirms it.

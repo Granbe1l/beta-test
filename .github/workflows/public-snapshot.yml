@@ -48,7 +48,7 @@ jobs:
       - name: Expand to up to 75 vetted repos and sync within API budget
         shell: bash
         run: |
-          if python scripts/run_sync.py --expand --initial-batch 20 --max-requests 850; then
+          if python scripts/run_sync.py --expand --initial-batch 20 --max-requests 850 --audit-open-backlog; then
             echo "GitHub ingestion returned complete checkpoints for visited repositories."
           else
             echo "::warning::Some GitHub sources incomplete or budget-limited; historical records and checkpoint status preserved."
@@ -63,6 +63,8 @@ jobs:
           PY
       - name: Summarize actual coverage progress
         run: python scripts/report_coverage_delta.py snapshot-audit-before.json snapshot-audit.json
+      - name: Diagnose remaining source coverage gaps
+        run: python scripts/coverage_triage.py snapshot-audit.json
       - name: Audit reliability of actual six-hour scheduled runs
         continue-on-error: true
         run: python scripts/schedule_reliability.py

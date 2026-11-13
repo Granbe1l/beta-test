@@ -58,9 +58,16 @@ def read_snapshot(path:Path=SNAPSHOT_PATH,observation_days=90,stale_hours=12,now
         status={s:available_source(SimpleNamespace(**cp[s]),now,stale_hours) if cp.get(s) else "unavailable"
                 for s in ("issues","pull_requests","workflow_runs")}
         r["status"]=status
+        # A full open-backlog inventory is a separate source, not a
+        # substitute for 28-day updated-event coverage.
+        r["open_backlog_status"] = (
+            available_source(SimpleNamespace(**cp["open_backlog"]), now, stale_hours)
+            if cp.get("open_backlog") else "unavailable"
+        )
         r["coverage_ok"]=all(x=="complete" for x in status.values())
         r["issues"]=calculate_issues(r.get("issue_rows",[]),now,observation_days,
-                                     status["issues"]=="complete",(cp.get("issues") or {}).get("coverage_start"))
+                                     status["issues"]=="complete",(cp.get("issues") or {}).get("coverage_start"),
+                                     backlog_complete=r["open_backlog_status"]=="complete")
         r["prs"]=calculate_prs(r.get("pr_rows",[]),now,observation_days,
                                status["pull_requests"]=="complete",(cp.get("pull_requests") or {}).get("coverage_start"))
         r["ci"]=calculate_ci(r.get("ci_rows",[]),now,observation_days,

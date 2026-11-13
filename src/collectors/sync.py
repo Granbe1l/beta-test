@@ -374,16 +374,23 @@ def record_observations(session: Session, repo_id: int, now=None):
         return False
     issues = list(session.scalars(select(Issue).where(Issue.repo_id == repo_id, Issue.state == "open")))
     prs = list(session.scalars(select(PullRequest).where(PullRequest.repo_id == repo_id, PullRequest.state == "open")))
+    inventory = cps.get("open_backlog")
+    full_backlog = bool(inventory and inventory.status == "complete" and
+                        inventory.last_success_at and
+                        utc(inventory.last_success_at) >= now - timedelta(hours=12))
+    basis = "verified_open_inventory" if full_backlog else "sampled_updated_events"
     session.add(Observation(repo_id=repo_id, measured_at=now,
                             open_issues_observed=len(issues),
                             aged_issues_observed=sum((now - utc(i.created_at)).days >= 30 for i in issues),
-                            open_prs_observed=len(prs)))
+                            open_prs_observed=len(prs),
+                            collection_basis=basis))
     session.commit()
     return True
 
 
 def synchronize(session: Session, client: GitHubClient, settings: Settings, reconcile=False,
-                initial_batch_size: int | None = None, run_at=None) -> list[dict]:
+                initial_batch_size: int | None = None, run_at=None,
+                audit_open_backlog=False, max_backlog_repos=8) -> list[dict]:
     result = []
     repos = list(session.scalars(select(Repository).where(Repository.selected.is_(True)).order_by(Repository.full_name)))
     if initial_batch_size is not None and initial_batch_size > 0:
@@ -429,6 +436,7 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
                 if healthy:
                     ordered.append(healthy.pop(0))
             repos = ordered
+    visited = []
     for repo in repos:
         # Stop before exhausting the allocated API quota; never mark unvisited
         # repositories as failed or advance their last-success timestamps.
@@ -444,5 +452,43 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
         for source in source_order:
             result.append(sync_one(session, client, repo, source, settings,
                                    reconcile=reconcile, now=run_at or utcnow()))
-        record_observations(session, repo.id)
+        if not audit_open_backlog:
+            record_observations(session, repo.id)
+        visited.append(repo)
+
+    if audit_open_backlog and visited:
+        # Reallocate only remaining budget AFTER normal Issue/PR/CI scans.
+        # This cannot starve the primary 28-day activity collector.
+        from src.collectors.backlog import sync_open_backlog
+        ordered = sorted(
+            visited,
+            key=lambda r: (
+                1 if (cp := session.get(SyncCheckpoint, (r.id, "open_backlog")))
+                     and cp.status == "complete"
+                     and cp.last_success_at
+                     and utc(cp.last_success_at) >=
+                         (run_at or utcnow()) - timedelta(hours=settings.stale_hours)
+                else 0,
+                # Stable rotated priority inherited from the caller's repo order.
+                visited.index(r),
+            ),
+        )
+        for repo in ordered[:max_backlog_repos]:
+            budget = getattr(client, "max_requests", None)
+            if (budget is not None and
+                    budget - getattr(client, "request_count", 0) <
+                    settings.max_pages + 3):
+                break
+            cp = session.get(SyncCheckpoint, (repo.id, "open_backlog"))
+            if (cp and cp.status == "complete" and cp.last_success_at and
+                    utc(cp.last_success_at) >=
+                        (run_at or utcnow()) - timedelta(hours=settings.stale_hours)):
+                continue
+            result.append(sync_open_backlog(
+                session, client, repo, settings, now=run_at or utcnow()))
+    if audit_open_backlog:
+        # Measure AFTER inventory reconciliation; older observation samples
+        # use a distinct basis and must not be compared to full inventories.
+        for repo in visited:
+            record_observations(session, repo.id, now=run_at or utcnow())
     return result

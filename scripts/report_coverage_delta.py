@@ -45,6 +45,21 @@ def delta_report(before: dict, after: dict) -> str:
             f"| {label} | {cell('complete')} | {cell('partial')} | "
             f"{cell('stale')} | {cell('unavailable')} | {cell('verified_28d')} |"
         )
+    if "open_backlog" in new:
+        current = new["open_backlog"]
+        previous = old.get("open_backlog") or {}
+        complete = int(current.get("complete", 0))
+        prior = int(previous.get("complete", 0))
+        total = int(current.get("total_repositories", 0))
+        lines += [
+            "",
+            "### Independent current-open-Issue inventory",
+            "",
+            f"Fully exhausted open-Issue lists: **{complete}/{total}** "
+            f"({complete-prior:+d} since the previous audit). "
+            "An incomplete list is a sampled backlog, not zero issues. "
+            "This is **not** a 28-day source-event verification.",
+        ]
     counts = after.get("counts") or {}
     previous = before.get("counts") or {}
     lines += ["", "### Persisted records", ""]
