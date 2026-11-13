@@ -498,8 +498,9 @@ before its own real refresh audit confirms it.
 
 ## P0 verified-first portfolio and safe candidate verification
 
-The Streamlit overview now **defaults to repositories with verified 28-day
-Issues, PR and CI/CD history simultaneously**. A 7-day verified filter
+All **six Streamlit pages** now default to repositories with verified
+28-day Issues, PR and CI/CD history simultaneously, controlled through a
+single sidebar evidence-scope selector. A 7-day verified filter
 and the original 75-project exploratory view remain accessible. Missing
 records are not silently excluded from storage, and 28-day coverage means
 historical records checked, **not waiting 28 calendar days**.
@@ -518,7 +519,9 @@ The current validated 2026-11-13 09:10 WIB snapshot has:
 The nonmutating [Candidate audit workflow](.github/workflows/candidate-audit.yml)
 discovers real public repositories and checks 28-day Issue, PR and
 CI coverage without changing the fixed original cohort. It publishes
-a file with actual verification evidence. An unverified or low-information
+two read-only artifacts: actual verification evidence and a diversity-
+matched, unapproved candidate-replacement proposal. No replacement is
+automatically performed. An unverified or low-information
 candidate is not promoted merely to improve a percentage.
 
 Large open-Issue inventories can fall back to strictly bounded
