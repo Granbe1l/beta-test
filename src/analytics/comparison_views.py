@@ -126,3 +126,37 @@ def metric_disclosure(rows: list[dict], metric: str, days: int) -> str:
         "are excluded, not assumed to be zero activity. "
         "Differences do not rank project quality or developer productivity."
     )
+
+
+def current_history_evidence(report: dict) -> dict:
+    """Present today's collected source state even when a two-date history is absent.
+
+    A verified *full inventory* is distinct from an incomplete recent-updated
+    Issue scan; no numeric zero is inferred from a missing source.
+    """
+    full = report.get("open_backlog_status") == "complete"
+    observed_rows = report.get("issue_rows") or []
+    observed_open = sum(row.get("state") == "open" for row in observed_rows)
+    checkpoint = (report.get("coverage") or {}).get(
+        "open_backlog" if full else "issues") or {}
+    measured_at = utc(checkpoint.get("last_success_at"))
+    if full:
+        verified_total = (report.get("issues") or {}).get("aged_denominator")
+        return {
+            "label": "Open Issues · verified full inventory",
+            "count": verified_total if verified_total is not None else observed_open,
+            "scope": "All open-Issue pages exhausted in the most recent complete inventory scan.",
+            "verified": True,
+            "measured_at": measured_at,
+        }
+    return {
+        "label": "Open Issues · retrieved sample",
+        "count": observed_open if observed_rows else None,
+        "scope": (
+            f"Only {len(observed_rows):,} retrieved Issue records are available. "
+            "Some old untouched open Issues can be missing; this is not the "
+            "project's verified backlog and cannot support a change trend."
+        ),
+        "verified": False,
+        "measured_at": measured_at,
+    }
