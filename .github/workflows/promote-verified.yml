@@ -1,0 +1,94 @@
+name: Promote strictly verified GitHub candidate replacements
+
+on:
+  workflow_dispatch:
+  # A single supervised bootstrap on merge of this workflow.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/promote-verified.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+# Serialise the active 75-repository snapshot writer with normal ingestion.
+concurrency:
+  group: public-snapshot-main
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: sqlite:///local.sqlite3
+      GITHUB_TOKEN: ${{ github.token }}
+      MAX_PAGES_PER_SOURCE: '6'
+      PER_PAGE: '100'
+      STALE_HOURS: '12'
+      PROMOTION_MAX_SWAPS: '6'
+      PROMOTION_API_BUDGET: '350'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install project dependencies
+        run: pip install -r requirements.txt
+      - name: Read independent 28-day candidate proof from completed audit
+        uses: actions/download-artifact@v4
+        with:
+          name: verified-candidate-audit
+          run-id: 43479392730
+          github-token: ${{ github.token }}
+          path: candidate-evidence
+      - name: Restore latest verified active GitHub sample
+        run: python scripts/restore_public_snapshot.py
+      - name: Recollect 29-day Issues, PR and CI sources before any replacement
+        run: python scripts/promote_verified_candidates.py candidate-evidence/candidate-verified-audit.json
+      - name: Build active 75-repository snapshot from verified SQL evidence
+        run: python scripts/build_public_snapshot.py
+      - name: Audit published-cohort metrics against real collected source rows
+        run: |
+          python scripts/audit.py > promoted-source-audit.json
+          python - <<'PY'
+          import json
+          with open("data/verified_cohort_change_receipt.json", encoding="utf-8") as fh:
+              receipt = json.load(fh)
+          with open("promoted-source-audit.json", encoding="utf-8") as fh:
+              audit = json.load(fh)
+          if len(audit["repositories"]) != 75:
+              raise SystemExit("Active sample changed size")
+          if not receipt["replacements"] or receipt["verified_after"] < receipt["verified_before"] + len(receipt["replacements"]):
+              raise SystemExit("No provable verified replacement increase")
+          print("VERIFIED PROMOTION:", len(receipt["replacements"]),
+                "swaps;", receipt["verified_before"], "->",
+                receipt["verified_after"], "strictly verified 28-day repos")
+          PY
+      - name: Preserve candidate and active-cohort source evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-cohort-promotion-proof
+          path: |
+            data/verified_cohort_change_receipt.json
+            promoted-source-audit.json
+            candidate-evidence/candidate-verified-audit.json
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Publish source snapshot, archived original records and receipt atomically
+        run: |
+          set -euo pipefail
+          git config user.name "Candy Ristyan"
+          git config user.email "103526238+Granbe1l@users.noreply.github.com"
+          git add data/github_public_snapshot.json.gz \
+                  data/archived_repository_reports.json.gz \
+                  data/verified_cohort_change_receipt.json
+          git diff --cached --quiet && { echo 'No valid replacements committed'; exit 1; }
+          git commit -m "data: replace verified cohort safely; archive original sources [skip ci]"
+          # Never forcibly overwrite a newer, independently generated snapshot.
+          git push origin HEAD:main
