@@ -65,17 +65,18 @@ def _section(title, note=""):
 
 
 def _heading(kicker, title, note, reports):
-    status = status_for(reports)
-    statuses = {
-        "complete": "Sources verified", "partial": "Coverage in progress",
-        "stale": "Coverage in progress", "failed": "Collection needs review",
-        "unavailable": "Sources unavailable",
-    }
-    good = "ok" if status == "complete" else ""
+    from src.ui.observed import verified_joint_cohort
+    # A "complete" recent bounded scan is NOT proof of 28-day coverage.
+    # Make the exact eligible denominator visible on every detail screen.
+    n = len(reports)
+    verified_28 = len(verified_joint_cohort(reports, days=28))
+    complete = n > 0 and verified_28 == n
+    status_text = (f"28d verified {verified_28}/{n} in view"
+                   if n else "No source data")
     st.markdown(
         f'<div class="d-heading"><div><div class="d-overline">{esc(kicker)}</div>'
         f'<h1>{esc(title)}</h1><p>{esc(note)}</p></div>'
-        f'<span class="d-status {good}">{esc(statuses.get(status, status.title()))}</span>'
+        f'<span class="d-status {"ok" if complete else ""}">{esc(status_text)}</span>'
         '</div>', unsafe_allow_html=True)
 
 
@@ -612,6 +613,20 @@ def overview(reports, selection):
     ])
     from src.ui.observed import evidence_readiness
     readiness = evidence_readiness(chosen)
+    entire = evidence_readiness(reports)
+    initial_findings = _findings(chosen)
+    next_subject = (
+        initial_findings[0]["type"].replace("-", " ")
+        if initial_findings else "source coverage before drawing conclusions"
+    )
+    st.markdown(
+        f'**Decision brief:** {entire["joint_verified_28d"]}/{entire["tracked"]} '
+        'tracked repositories have 28-day verified Issue, PR and CI sources; '
+        f'this view shows {len(chosen)} repositories. '
+        f'First inspect **{esc(next_subject)}**, open the original GitHub evidence, '
+        'then check source completeness. No client-deadline or quality verdict '
+        'is inferred from these records.'
+    )
     with st.expander("Evidence coverage · verified vs exploratory"):
         st.caption(
             "Evidence-ready cohorts within this selection: "
@@ -629,7 +644,7 @@ def overview(reports, selection):
 
     # Keep the first chart visual-first. Follow it with a small executive
     # readout instead of a dense technical paragraph.
-    finding_cards = _findings(chosen)
+    finding_cards = initial_findings
     brief = executive_brief(chosen, findings=finding_cards)
     with st.container(border=True):
         st.caption("Quick reading · public development signals, not client deadlines")

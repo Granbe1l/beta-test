@@ -367,6 +367,85 @@ try:
         assert nav_bytes != overview_bytes, "Mobile drawer and overview captures must differ"
         capture_scrolling_main(mobile, OUT / "mobile-dashboard-full.png")
         print("Captured mobile navigation and overview", flush=True)
+
+        def open_mobile_drawer():
+            if drawer_open():
+                return
+            controls = (
+                '[data-testid="stSidebarCollapsedControl"] button',
+                '[data-testid="collapsedControl"] button',
+                'button[aria-label="Open sidebar"]',
+                'button[aria-label="Expand sidebar"]',
+            )
+            for selector in controls:
+                toggle = mobile.locator(selector)
+                if toggle.count() and toggle.first.is_visible():
+                    try:
+                        toggle.first.click(timeout=6000, force=True)
+                        mobile.wait_for_timeout(600)
+                        if drawer_open():
+                            return
+                    except Exception:
+                        pass
+            mobile.mouse.click(32, 32)
+            mobile.wait_for_timeout(700)
+            assert drawer_open(), "Mobile sidebar did not reopen after page change"
+
+        def close_mobile_drawer():
+            if not drawer_open():
+                return
+            toggle = mobile.locator('[data-testid="stSidebarCollapseButton"]')
+            if toggle.count() and toggle.first.is_visible():
+                toggle.first.click(timeout=7000)
+            else:
+                mobile.mouse.click(365, 250)
+            mobile.wait_for_timeout(700)
+            assert not drawer_open(), "Mobile sidebar obscured the selected page"
+
+        tested_mobile = ["Dashboard"]
+        for name, filename in (
+            ("Explore repositories", "mobile-repositories"),
+            ("Open issues", "mobile-issues"),
+            ("Changes & reviews", "mobile-pull-requests"),
+            ("Build activity", "mobile-ci-cd"),
+            ("Key findings", "mobile-findings"),
+        ):
+            open_mobile_drawer()
+            sidebar.get_by_role("button", name=name).click(timeout=12000)
+            mobile.wait_for_timeout(1600)
+            close_mobile_drawer()
+            # Validate the actual rendered page, not only successful navigation.
+            mobile.locator(".d-heading").first.wait_for(timeout=30000)
+            assert_no_streamlit_exception(mobile, "Mobile " + name)
+            dimensions = mobile.evaluate("""() => ({
+              viewport: window.innerWidth,
+              document: document.documentElement.scrollWidth
+            })""")
+            assert dimensions["document"] <= dimensions["viewport"] + 8, (
+                f"Mobile {name}: horizontal overflow: {dimensions}")
+            tested_mobile.append(name)
+            mobile.screenshot(
+                path=str(OUT / f"{filename}.png"), full_page=False)
+            capture_scrolling_main(
+                mobile, OUT / f"{filename}-full.png")
+            if name == "Explore repositories":
+                for tab, screenshot in (
+                    ("Activity history", "mobile-repositories-history"),
+                    ("Compare projects", "mobile-repositories-comparison"),
+                    ("Source details", "mobile-repositories-source-details"),
+                ):
+                    mobile.get_by_role("tab", name=tab).click(timeout=12000)
+                    mobile.wait_for_timeout(800)
+                    assert_no_streamlit_exception(mobile, "Mobile Explorer / " + tab)
+                    mobile.screenshot(path=str(OUT / f"{screenshot}.png"),
+                                      full_page=False)
+            print("Verified responsive mobile page: " + name, flush=True)
+
+        assert len(tested_mobile) == 6
+        browser_audit["mobile_pages_tested"] = tested_mobile
+        browser_audit["mobile_page_count"] = len(tested_mobile)
+        (OUT / "recruiter-browser-audit.json").write_text(
+            json.dumps(browser_audit, indent=2, sort_keys=True), encoding="utf-8")
         browser.close()
 finally:
     server.terminate()
