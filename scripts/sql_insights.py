@@ -6,7 +6,12 @@ the public Streamlit snapshot renderer. It never estimates missing history.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 import json
+import sys
+
+# Allow `python scripts/sql_insights.py` from the repository root.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sqlalchemy import DateTime, bindparam, text
 from sqlalchemy.orm import Session
