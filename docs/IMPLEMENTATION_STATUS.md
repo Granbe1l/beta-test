@@ -1,6 +1,6 @@
 # Project Delivery Monitor — current implementation and remaining evidence
 
-Updated: **13 November 2026**. Repository: `Granbe1l/beta-test`. The
+Updated: **14 November 2026**. Repository: `Granbe1l/beta-test`. The
 repository has **75 curated public GitHub projects**. Changes must pass PR
 quality checks before merging to `main`.
 
@@ -20,13 +20,15 @@ quality checks before merging to `main`.
 | Per-repository source coverage diagnosis | Implemented; distinguishes page caps, stale scans and short fallback windows in workflow audit |
 | Nontechnical three-part executive readout | Implemented: activity, source-linked recommended inspection, confidence |
 | SQL CTE analysis and source verification flags | Implemented; real snapshot SQL audit passed on main [43338398122](https://github.com/Granbe1l/beta-test/actions/runs/43338398122) |
-| Six-hour scheduled refresh | Workflow configured for `27 */6 * * *` UTC; run timings can be delayed |
+| Four-hour scheduled refresh (beta PR) | Workflow configured for `17 1,5,9,13,17,21 * * *` UTC; scheduling remains best-effort |
 | Measured schedule-reliability check | Implemented: only actual cron events count, with three successful successive runs needed to verify reliability |
 | Automated tests, snapshot benchmark and screenshot capture | Implemented; see [GitHub Actions](https://github.com/Granbe1l/beta-test/actions) for the latest passing test count |
 | Public hosted Streamlit URL | **Not verified** |
 | Real nontechnical participant usability testing | **Not conducted**. Test procedure exists in `docs/REVIEWER_USABILITY_CHECK.md` |
 
-## Latest audited source coverage
+## Historical audited source coverage
+
+**Historical numbers below are from 13 November at 02:10 UTC, not the current 75-repo verified intersection.** For current beta refresh cadence and proof gates, see [refresh stability](REFRESH_STABILITY.md) and the latest `data/verified_cohort_change_receipt.json`.
 
 The latest published audited snapshot evaluated in this review was generated
 **2026-11-13 02:10 UTC** (**2026-11-13 09:10 WIB**):
@@ -55,7 +57,7 @@ can be absent from recent-update API sampling.
    scheduled run and retain full source audit artifacts.
    Very busy repositories may remain capped.
 2. **Scheduling:** accumulate at least three successful `schedule` events
-   near the intended six-hour cadence. Green push/PR runs are not evidence
+   near the intended four-hour cadence. Green push/PR runs are not evidence
    of actual scheduled delivery.
 3. **Human comprehension:** conduct the five-minute anonymous user tasks.
    Automated screenshots and textual checks cannot substitute for people.
@@ -70,7 +72,7 @@ GitHub REST API → bounded, source-aware collector → SQLAlchemy/SQLite
 checkpoint persistence and upserts → audited compressed GitHub snapshot →
 Streamlit/Plotly visual evidence. Additional handwritten SQL CTE queries
 summarize observed Issues/PR/CI while avoiding join multiplication. GitHub
-Actions attempts refresh every six hours, but the dashboard reads a stored
+Actions attempts refresh every four hours, but the dashboard reads a stored
 snapshot and does not request fresh records on every page visit.
 
 The app describes **observable open-source engineering activity**. It is
@@ -198,7 +200,7 @@ also not independently established.
   satisfies the gate.
 
 The main application is CV-usable without reporting 100% source
-coverage, guaranteed six-hour runtime, or invented HRD testing.
+coverage, guaranteed four-hour runtime, or invented HRD testing.
 
 
 ## P1.3 follow-up: avoid auditing an unfinished schedule
@@ -216,7 +218,7 @@ the trigger to **real schedule events** and writes a dated
 `schedule-reliability.json` GitHub Actions artifact. The standalone
 one-time baseline (`push`/manual audit) is an inspection, **not a fabricated
 scheduled cycle**. The auditor still requires three successive successful
-real `schedule` runs, plausible 3–9 hour intervals, and a recent last run
+real `schedule` runs, plausible 3–6.5 hour intervals, and a recent last run
 before reporting `verified_recent_cycles`.
 
 **What this fixes:** false-negative self-auditing of an unfinished run;
@@ -225,22 +227,22 @@ machine-readable evidence linked to an actual completed GitHub event.
 **What this does not fix:** GitHub's best-effort cron scheduling itself.
 GitHub states a scheduled workflow can be delayed or dropped under high
 load, including at the top of the hour. The current cron is already off
-the hour (`27 */6 * * *` UTC). Shifting the minute has no proven ability
+the hour (`17 1,5,9,13,17,21 * * *` UTC). Shifting the minute has no proven ability
 to repair missing events, and the audit must not be relaxed to make gaps
 pass.
 
-**If six-hour operational freshness is business-critical:** introduce
+**If four-hour operational freshness is business-critical:** introduce
 an independent managed scheduler (for example a GCP Cloud Scheduler job)
 that sends an authenticated `workflow_dispatch` to this existing ingestion
 workflow using a least-privilege credential held as a secret in the
 scheduler, with retry/backoff and duplicate-run protection. Owner
 authorization/configuration is required. Record separate
 `scheduled_native` and `external_dispatch` trigger methods, compare
-actual publish times to the six-hour freshness SLO, and only describe
+actual publish times to the four-hour freshness SLO, and only describe
 reliability once sufficient **real** external scheduled runs have
 succeeded. External dispatches must NEVER be relabeled as GitHub
 `schedule` events.
 
-For CV use prior to such operational evidence, say *"configured six-hour
+For CV use prior to such operational evidence, say *"configured four-hour
 GitHub Actions refresh with verified collection and source-level audits"*,
-not *"guaranteed automatic refresh every six hours"*.
+not *"guaranteed automatic refresh every four hours"*.

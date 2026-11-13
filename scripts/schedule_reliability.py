@@ -19,7 +19,7 @@ def parsed(value):
 
 
 def schedule_health(runs: list[dict], required: int = 3, *,
-                    now=None, max_schedule_age_hours=9) -> dict:
+                    now=None, max_schedule_age_hours=6.5) -> dict:
     """Require recent, successful, evenly spaced *actual cron* events.
 
     Even three historically perfect runs cannot establish that a schedule
@@ -69,7 +69,7 @@ def schedule_health(runs: list[dict], required: int = 3, *,
         for i in range(required - 1)
     ]
     result["observed_intervals_hours"] = [round(v, 2) for v in spacing]
-    if not all(3 <= hours <= 9 for hours in spacing):
+    if not all(3 <= hours <= 6.5 for hours in spacing):
         result["status"] = "needs_review"
     elif not result["latest_schedule_is_recent"]:
         result["status"] = "stale_schedule"
@@ -101,7 +101,7 @@ def main():
     summary = os.getenv("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as handle:
-            handle.write("\n### Six-hour schedule reliability (actual events)\n\n")
+            handle.write("\n### Four-hour schedule reliability (actual events)\n\n")
             handle.write(
                 f"Status: **{output['status']}** · "
                 f"{output['successful_scheduled_runs']}/{output['required']} "

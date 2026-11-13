@@ -1,12 +1,12 @@
 name: Audit verified replacement candidates
 on:
   workflow_dispatch:
-  # Stagger three hours away from the main 00/06/12/18 UTC snapshot
-  # refresh. GITHUB_TOKEN has a shared per-repo hourly API quota;
+  # Stagger candidate scans 12h apart, midway between the 01/05/09/13/17/21 UTC
+  # main refreshes, leaving API headroom. GITHUB_TOKEN has a shared per-repo hourly API quota;
   # overlapping two near-850-call jobs risks throttling both.
   # Scheduled delivery can be delayed, so actual run outcomes are audited.
   schedule:
-    - cron: '53 3,9,15,21 * * *'
+    - cron: '23 3,15 * * *'
   # Deliberately no push trigger: avoid an unplanned second candidate audit
   # during main refresh or a rapid burst of code-only commits.
 permissions:

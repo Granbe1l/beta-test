@@ -1,6 +1,6 @@
 """Conditional safety net for delayed or dropped GitHub Actions cron events.
 
-The primary six-hour scheduled collection remains unchanged. This hourly
+The primary four-hour scheduled collection is complemented by this watchdog. This hourly
 watchdog checks the *actual committed snapshot generated_at*, not the date a
 workflow started, and can dispatch one extra collector run when data age
 passes an independently documented threshold. It never fabricates a
@@ -106,7 +106,7 @@ def main():
                     f"threshold: **{MAX_AGE_HOURS} hours**.\n\n")
             f.write(f"Action: **{decision['action']}** · {decision['reason']}.\n\n")
             f.write("Any backup workflow_dispatch counts as a rescue attempt, "
-                    "**never** as proof of on-time six-hour cron execution.\n")
+                    "**never** as proof of on-time four-hour cron execution.\n")
 
 
 if __name__ == "__main__":

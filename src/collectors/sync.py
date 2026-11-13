@@ -506,7 +506,7 @@ def backlog_priority_order(session: Session, repositories: list[Repository],
             continue
         (eligible if qualifies(repo) else remainder).append(repo)
 
-    slot = int(now.timestamp() // (6 * 3600))
+    slot = int(now.timestamp() // (4 * 3600))
     def rotate(rows):
         rows = sorted(rows, key=lambda r: r.full_name)
         if not rows:
@@ -515,6 +515,56 @@ def backlog_priority_order(session: Session, repositories: list[Repository],
         return rows[offset:] + rows[:offset]
     return rotate(eligible) + rotate(remainder)
 
+
+
+def verification_maintenance_priority(session: Session, repo: Repository,
+                                      settings: Settings, now: datetime):
+    """Risk score from ACTUAL 28-day source checkpoints, not inferred activity.
+
+    0 = previously verified across all three sources, expiring within four
+        hours (or already stale); refresh it before exploratory work.
+    1 = two of three sources have complete 28d coverage; close the gap next.
+    2 = all three verified and still comfortably fresh.
+    3 = other exploratory/short/partial sources, retained for later scans.
+
+    Stale timestamps never count as currently Verified in the dashboard.
+    """
+    now = utc(now)
+    threshold = now - timedelta(days=28)
+    checkpoints = [session.get(SyncCheckpoint, (repo.id, source))
+                   for source in SOURCES]
+    complete = [cp for cp in checkpoints if (
+        cp is not None and cp.status == "complete"
+        and cp.coverage_start is not None and cp.last_success_at is not None
+        and utc(cp.coverage_start) <= threshold
+    )]
+    if len(complete) == len(SOURCES):
+        oldest_success = min(utc(cp.last_success_at) for cp in complete)
+        at_risk = oldest_success <= now - timedelta(
+            hours=max(0, settings.stale_hours - 4))
+        return (0 if at_risk else 2, oldest_success)
+    if len(complete) >= 2:
+        return (1, now)
+    return (3, now)
+
+
+def verification_maintenance_order(session: Session,
+                                   repositories: list[Repository],
+                                   settings: Settings, now: datetime):
+    """Refresh expiring 28d cohorts before spending quota on broad repairs.
+
+    Rotate ties every four hours so incomplete sources still get chances.
+    Every repository remains selected, including exploratory ones.
+    """
+    if not repositories:
+        return []
+    now = utc(now)
+    rotated = sorted(repositories, key=lambda r: r.full_name)
+    offset = (int(now.timestamp() // (4 * 3600)) * 17) % len(rotated)
+    rotated = rotated[offset:] + rotated[:offset]
+    ranks = {repo.id: verification_maintenance_priority(
+        session, repo, settings, now) for repo in rotated}
+    return sorted(rotated, key=lambda r: ranks[r.id])
 
 def coverage_repair_targets(session: Session, repositories: list[Repository],
                             now: datetime, *, max_repos=4) -> dict[int, set[str]]:
@@ -548,7 +598,7 @@ def coverage_repair_targets(session: Session, repositories: list[Repository],
     # spare scan budget. Eligibility is a cost forecast, NOT source proof.
     candidates.sort(key=lambda item: (-len(item[1]), item[2], item[0].full_name))
     if candidates:
-        slot = int(utc(now).timestamp() // (6 * 3600))
+        slot = int(utc(now).timestamp() // (4 * 3600))
         offset = (slot * 3) % len(candidates)
         candidates = candidates[offset:] + candidates[:offset]
     return {repo.id: sources for repo, sources, _ in candidates[:max_repos]}
@@ -570,49 +620,25 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
         if first_time:
             repos = first_time[:initial_batch_size]
         elif repos:
-            slot = int((run_at or utcnow()).timestamp() // (6 * 3600))
-            offset = (slot * 17) % len(repos)
-            rotated = repos[offset:] + repos[:offset]
-            now = run_at or utcnow()
-            overdue, incomplete, healthy = [], [], []
-            for r in rotated:
-                cps = [session.get(SyncCheckpoint, (r.id, source))
-                       for source in SOURCES]
-                # Refresh formerly-complete stale sources promptly; then
-                # resume partials, while keeping healthy projects in rotation.
-                has_overdue = any(
-                    cp and cp.status == "complete" and
-                    (cp.last_success_at is None or
-                     utc(cp.last_success_at) < now - timedelta(hours=settings.stale_hours))
-                    for cp in cps)
-                has_incomplete = any(cp is None or cp.status != "complete"
-                                     for cp in cps)
-                if has_overdue:
-                    overdue.append(r)
-                elif has_incomplete:
-                    incomplete.append(r)
-                else:
-                    healthy.append(r)
-            ordered = []
-            while overdue or incomplete or healthy:
-                if overdue:
-                    ordered.append(overdue.pop(0))
-                for _ in range(2):
-                    if incomplete:
-                        ordered.append(incomplete.pop(0))
-                if healthy:
-                    ordered.append(healthy.pop(0))
-            repos = ordered
+            repos = verification_maintenance_order(
+                session, repos, settings, run_at or utcnow())
     repair_targets = (
         coverage_repair_targets(session, repos, run_at or utcnow(),
                                 max_repos=max_repair_repos)
         if repair_coverage else {}
     )
     if repair_targets:
-        # Act on the bounded repair set before the GitHub API request budget
-        # is exhausted, then continue the existing fair rotation.
-        repos = ([r for r in repos if r.id in repair_targets]
-                 + [r for r in repos if r.id not in repair_targets])
+        # Optional historical repairs must never jump ahead of previously
+        # verified cohorts about to lose their 12h freshness. Other repairs
+        # still run before comfortable/low-risk sources.
+        now = run_at or utcnow()
+        critical = [r for r in repos if
+                    verification_maintenance_priority(session, r, settings, now)[0] == 0]
+        critical_ids = {r.id for r in critical}
+        repairs = [r for r in repos if
+                   r.id in repair_targets and r.id not in critical_ids]
+        handled = critical_ids | {r.id for r in repairs}
+        repos = critical + repairs + [r for r in repos if r.id not in handled]
         print("Targeted 28d Issue/PR repair attempts:", {
             r.full_name: sorted(repair_targets[r.id])
             for r in repos if r.id in repair_targets
@@ -628,7 +654,7 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
         refresh_repo_metadata(session, client, repo, now=run_at or utcnow())
         # Rotate source order per six-hour slot; a high-volume Actions
         # scan should not always be last and starved by Issues/PRs.
-        slot = int((run_at or utcnow()).timestamp() // (6 * 3600))
+        slot = int((run_at or utcnow()).timestamp() // (4 * 3600))
         source_order = SOURCES[slot % len(SOURCES):] + SOURCES[:slot % len(SOURCES)]
         for source in source_order:
             result.append(sync_one(
