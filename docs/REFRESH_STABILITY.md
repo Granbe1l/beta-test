@@ -12,12 +12,12 @@ proof that 50/75 is stable or that GitHub Actions always fires on time.
   refreshed to become Verified again, but must **not** be displayed as current
   while stale. Never relabel a partial scan as complete.
 - Production snapshot cron: `17 1,5,9,13,17,21 * * *` (UTC), **every 4 hours**.
-  Candidate source-audit cron: `23 4,10,16,22 * * *` (UTC), every 6 hours.
+  Candidate source-audit cron: `23 3,15 * * *` (UTC), every 12 hours.
   The schedules are staggered to reduce API competition, but GitHub may still
   delay, skip, or overlap queued jobs. No time-of-day promise is made.
 - GitHub's repository `GITHUB_TOKEN` typically has 1,000 REST requests/hour.
   Keep the bounded **850 API attempts** per primary run; candidate scans
-  have a separate cap. Measure actual requests, 403/429 responses, run duration,
+  have a separate 850-attempt cap and run less often to avoid per-hour competition. Measure actual requests, 403/429 responses, run duration,
   and source completeness rather than assuming all 75 can be refreshed.
 - Collector first renews three-source, full-28d repository checkpoints that
   will expire within four hours or are already stale; next it attempts
