@@ -1,16 +1,14 @@
 name: Audit verified replacement candidates
 on:
   workflow_dispatch:
-  # Rotate through eligible projects every six hours; GitHub may delay cron.
-  # Audits are read-only, and incomplete candidates are never promoted.
+  # Stagger three hours away from the main 00/06/12/18 UTC snapshot
+  # refresh. GITHUB_TOKEN has a shared per-repo hourly API quota;
+  # overlapping two near-850-call jobs risks throttling both.
+  # Scheduled delivery can be delayed, so actual run outcomes are audited.
   schedule:
-    - cron: '53 0,6,12,18 * * *'
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/candidate-audit.yml'
-      - 'scripts/audit_candidate_pool.py'
-      - 'scripts/replacement_plan.py'
+    - cron: '53 3,9,15,21 * * *'
+  # Deliberately no push trigger: avoid an unplanned second candidate audit
+  # during main refresh or a rapid burst of code-only commits.
 permissions:
   contents: read
 concurrency:
