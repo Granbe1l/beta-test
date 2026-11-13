@@ -346,14 +346,33 @@ def project_details(reports):
         source_coverage(r)
 
 
+def source_coverage_rows(r):
+    """Keep distinct Issue-event coverage and independent open-backlog status.
+
+    The three event-source statuses live in report["status"], whereas the
+    independent full open-Issue inventory has its own status field. Neither
+    should be inferred from the other, including when checkpoints are absent.
+    """
+    rows = []
+    for source, checkpoint in (r.get("coverage") or {}).items():
+        cp = checkpoint or {}
+        status = (r.get("open_backlog_status", "unavailable")
+                  if source == "open_backlog"
+                  else (r.get("status") or {}).get(source, "unavailable"))
+        rows.append({
+            "Source": source.replace("_", " ").title(),
+            "Status": status,
+            "Last success": at_time(cp.get("last_success_at")),
+            "Pages fetched": cp.get("pages_fetched"),
+            "Records in last sync": cp.get("records_fetched"),
+            "Coverage begins": at_time(cp.get("coverage_start")),
+        })
+    return rows
+
+
 def source_coverage(r):
     section("Source completeness", "Missing and stale collection is not equivalent to zero activity.")
-    rows = []
-    for source, checkpoint in r["coverage"].items():
-        cp = checkpoint or {}
-        rows.append({"Source": source.replace("_", " ").title(), "Status": r["status"][source],
-                     "Last success": at_time(cp.get("last_success_at")), "Pages fetched": cp.get("pages_fetched"),
-                     "Records in last sync": cp.get("records_fetched"), "Coverage begins": at_time(cp.get("coverage_start"))})
+    rows = source_coverage_rows(r)
     st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
     with st.expander("Exact checkpoint metadata"):
         st.json({k: {field: str(v) if isinstance(v, datetime) else v for field,v in (data or {}).items()
