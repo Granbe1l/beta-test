@@ -1,5 +1,6 @@
 """Capture actual Streamlit browser renders; no synthetic data is inserted."""
 from pathlib import Path
+import json
 from io import BytesIO
 import os
 from PIL import Image
@@ -8,6 +9,33 @@ import sys
 import time
 import requests
 from playwright.sync_api import sync_playwright
+
+def reviewer_browser_metrics(page, device: str) -> dict:
+    """Observe a genuine rendered viewport; do not simulate human comprehension."""
+    result = page.evaluate("""() => ({
+      viewport_px: window.innerWidth,
+      document_px: document.documentElement.scrollWidth,
+      rendered_kpi_cards: document.querySelectorAll('.d-kpi').length,
+      rendered_plotly_charts: document.querySelectorAll('[data-testid="stPlotlyChart"]').length,
+      has_public_source_notice: document.body.innerText.includes('PUBLIC GITHUB SNAPSHOT'),
+      has_evidence_scope: document.body.innerText.includes('ANALYSIS COHORT:'),
+      has_reviewer_question: document.body.innerText.includes('What should we inspect?')
+    })""")
+    result["device"] = device
+    assert result["document_px"] <= result["viewport_px"] + 8, (
+        f"{device}: horizontal page overflow: {result}")
+    assert result["rendered_kpi_cards"] == 4, (
+        f"{device}: four evidence cards must be rendered: {result}")
+    assert result["rendered_plotly_charts"] >= 1, (
+        f"{device}: dashboard must render genuine charts: {result}")
+    assert result["has_public_source_notice"] and result["has_evidence_scope"], (
+        f"{device}: source timestamp/scope must be visible: {result}")
+    assert result["has_reviewer_question"], (
+        f"{device}: decision prompt is not visible: {result}")
+    print("Non-human browser viewport audit:", json.dumps(result, sort_keys=True),
+          flush=True)
+    return result
+
 
 def capture_scrolling_main(page, path: Path, limit=17):
     """Capture the *scrollable Streamlit main*, not browser full_page=True.
@@ -109,6 +137,7 @@ try:
         desktop.get_by_text("What should we inspect?", exact=True).wait_for(timeout=30000)
         desktop.get_by_text("How complete is the evidence?", exact=True).wait_for(timeout=30000)
         time.sleep(2)
+        browser_audit = {"desktop": reviewer_browser_metrics(desktop, "desktop")}
         desktop.screenshot(path=str(OUT / "desktop-overview.png"), full_page=True)
         desktop.get_by_text("Reading guide · 1 minute", exact=True).first.click(
             timeout=10000)
@@ -242,6 +271,9 @@ try:
         mobile.locator(".d-hero").first.wait_for(timeout=45000)
         mobile.get_by_text("How complete is the evidence?", exact=True).wait_for(timeout=30000)
         time.sleep(2)
+        browser_audit["mobile"] = reviewer_browser_metrics(mobile, "mobile")
+        (OUT / "recruiter-browser-audit.json").write_text(
+            json.dumps(browser_audit, indent=2, sort_keys=True), encoding="utf-8")
         # Validate the actual mobile drawer. Previously navigation.png was
         # captured while closed and looked identical to the overview.
         sidebar = mobile.locator('[data-testid="stSidebar"]')
