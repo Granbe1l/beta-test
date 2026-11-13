@@ -809,38 +809,80 @@ def project_details(reports):
     a, side_by_side, b, c = st.tabs(["Activity history", "Compare two projects",
                                       "Compare projects", "Source details"])
     with a:
-        observations = sorted(
-            (v for v in r.get("observations") or []
-             if v.get("collection_basis") == "verified_open_inventory"),
-            key=lambda x: utc(x["measured_at"]))
-        if len(observations) < 2:
+        from src.analytics.comparison_views import current_history_evidence
+        current = current_history_evidence(r)
+        st.markdown("**Current collected snapshot**")
+        if current["count"] is None:
+            st.info("No collected open-Issue records are available in this source. "
+                    "The collector has not verified an empty backlog.")
+        else:
+            st.metric(current["label"], f'{current["count"]:,}')
+        st.caption(current["scope"])
+        st.caption(
+            "Last qualifying inventory/source check: "
+            + at_time(current["measured_at"])
+            + ". This is not a project SLA or overdue-work measurement."
+        )
+        pair = comparable_observation_pair([r])
+        if pair is not None:
+            st.markdown("**Verified historical comparison · same repository**")
             st.caption(
-                "A historical open-backlog trend requires at least two "
-                "independently verified full open inventories. Older sampled "
-                "observations cannot prove a change in total outstanding work."
+                f'{pair["previous_date"]} → {pair["current_date"]} · '
+                "two independent verified full-open Issue inventories"
             )
-        if len(observations) >= 2:
-            df = pd.DataFrame([
-                {"Observation": utc(v["measured_at"]).isoformat()[:16],
-                 "Open issues": v["open_issues_observed"],
-                 "Open changes": v["open_prs_observed"]}
-                for v in observations])
-            fig = px.line(df, x="Observation", y=["Open issues", "Open changes"],
-                          markers=True, color_discrete_sequence=[PURPLE, GREEN])
-            _chart(fig, legend=True)
-        elif observations:
-            st.caption("One real snapshot is available; a time trend requires at least two.")
+            before, after = pair["previous_issues"], pair["current_issues"]
+            st.metric("Change in verified open Issues", f'{after - before:+,}',
+                      help=f"Verified open Issues: {before:,} then {after:,}. "
+                           "Different observation dates; no deadlines inferred.")
+            fig = go.Figure(go.Scatter(
+                x=[pair["previous_date"], pair["current_date"]],
+                y=[before, after], mode="lines+markers+text",
+                line=dict(color=PURPLE, width=3),
+                marker=dict(color=PURPLE, size=10),
+                text=[str(before), str(after)], textposition="top center"
+            ))
+            fig.update_layout(yaxis_title="Verified open Issues")
+            _chart(fig, height=235)
+            st.caption("Only open Issues are compared: open PRs have a different "
+                       "inventory verification method and are not a backlog trend.")
+        else:
+            st.info(
+                "A verified open-backlog change needs complete inventories on "
+                "two different UTC dates for this exact repository. The system "
+                "does not join incomplete update samples or invent a trend."
+            )
             bands = observed_age_bands(r["issue_rows"])
             if sum(bands.values()):
-                _chart_title("Open task age in this snapshot", "Observed issue records—not a delay score.")
+                _chart_title("Open Issue ages in the current retrieved records",
+                             "Single snapshot · observed sample, not historical change")
                 fig = go.Figure(go.Bar(
-                    x=list(bands), y=list(bands.values()), marker_color=BAR,
-                    text=list(bands.values()), textposition="outside"))
-                _chart(fig, height=240)
+                    x=list(bands), y=list(bands.values()),
+                    marker_color=BAR, text=list(bands.values()),
+                    textposition="outside"))
+                fig.update_layout(yaxis_title="Observed open Issues")
+                _chart(fig, height=250)
+                st.caption("These Issue ages are descriptive, not a deadline "
+                           "or missed-milestone indicator.")
             else:
-                st.info("There are no collected open issue records to chart yet.")
-        else:
-            st.info("No comparable verified open-inventory history is available yet.")
+                st.caption("No open Issues were retrieved for this snapshot; "
+                           "this does not establish the complete backlog is zero.")
+        observed_entries = sorted(
+            (v for v in r.get("observations") or []
+             if v.get("collection_basis") == "verified_open_inventory"),
+            key=lambda v: utc(v["measured_at"]), reverse=True,
+        )
+        with st.expander("Recorded full-inventory observations and provenance"):
+            if observed_entries:
+                st.dataframe(pd.DataFrame([
+                    {
+                        "Observed at (UTC)": utc(v["measured_at"]).isoformat()[:19],
+                        "Verified open Issues": v["open_issues_observed"],
+                        "Basis": v["collection_basis"],
+                    } for v in observed_entries
+                ]), hide_index=True, use_container_width=True)
+            else:
+                st.caption("No independently verified full-open inventory "
+                           "observation has been recorded for this repository.")
     with side_by_side:
         compare_two_repositories(reports)
     with b:

@@ -19,6 +19,16 @@ jobs:
       - run: python -m pytest -q
       - name: Benchmark real curated snapshot (no fabricated data)
         run: python scripts/benchmark_snapshot.py
+      - name: Audit real repository comparison readiness
+        run: python scripts/audit_comparison_readiness.py
+      - name: Preserve verified vs exploratory comparison audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: predeploy-comparison-audit
+          path: predeploy-comparison-audit.json
+          if-no-files-found: warn
+          retention-days: 14
       - name: Restore real GitHub records and execute read-only SQL analytics
         env:
           DATABASE_URL: sqlite:///local.sqlite3
