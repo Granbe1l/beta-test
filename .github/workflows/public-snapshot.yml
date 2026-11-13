@@ -7,7 +7,7 @@ on:
     paths:
       - '.github/workflows/public-snapshot.yml'
   schedule:
-    - cron: '27 */6 * * *'
+    - cron: '17 1,5,9,13,17,21 * * *'
   workflow_dispatch:
 permissions:
   contents: write
@@ -46,7 +46,7 @@ jobs:
         run: python scripts/restore_public_snapshot.py
       - name: Capture baseline coverage before collection
         run: python scripts/audit.py > snapshot-audit-before.json
-      - name: Expand to up to 75 vetted repos and sync within API budget
+      - name: Maintain expiring Verified sources then repair within API budget
         shell: bash
         run: |
           if python scripts/run_sync.py --expand --initial-batch 20 --max-requests 850 --audit-open-backlog --repair-coverage; then
