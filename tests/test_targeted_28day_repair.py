@@ -123,4 +123,4 @@ def test_failed_optional_repair_preserves_last_valid_short_checkpoint(db, cfg):
     assert result["status"] == "failed"
     assert saved.status == "complete"
     assert saved.last_success_at == old
-    assert "RuntimeError" in saved.last_error
+    assert "Synthetic API error for isolated test" in saved.last_error
