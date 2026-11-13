@@ -26,6 +26,18 @@ def decode(value):
         return {k:(utc(v) if k in DATE_FIELDS and isinstance(v,str) else decode(v)) for k,v in value.items()}
     return value
 
+def _decode_json_object(obj: dict) -> dict:
+    """Parse date fields while decoding each JSON object exactly once.
+
+    Previously json.loads created the entire (100k+ record) payload, then
+    decode() recursively rebuilt every dict/list, temporarily holding two
+    huge object graphs. json object_hook preserves the exact same UTC date
+    normalization without that second full-payload allocation.
+    """
+    return {key: utc(value) if key in DATE_FIELDS and isinstance(value, str)
+            else value for key, value in obj.items()}
+
+
 def export_snapshot(path: Path, reports: list[dict], selection: dict | None, generated_at=None):
     generated = utc(generated_at or datetime.now(timezone.utc))
     payload = {"schema_version":1,"generated_at":generated,
@@ -45,10 +57,9 @@ def export_snapshot(path: Path, reports: list[dict], selection: dict | None, gen
 def read_snapshot(path:Path=SNAPSHOT_PATH,observation_days=90,stale_hours=12,now=None):
     now=utc(now or datetime.now(timezone.utc))
     with gzip.open(path,"rb") as f:
-        payload=json.loads(f.read())
+        payload=json.loads(f.read(), object_hook=_decode_json_object)
     if payload.get("schema_version")!=1 or not isinstance(payload.get("reports"),list):
         raise ValueError("Invalid public GitHub snapshot")
-    payload=decode(payload)
     generated=utc(payload["generated_at"])
     if generated-now>timedelta(minutes=10):
         raise ValueError("Snapshot time is in the future")
