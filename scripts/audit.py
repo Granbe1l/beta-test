@@ -48,6 +48,16 @@ def main():
                               "name":r["repository"]["full_name"],
                               "status":r["status"],
                               "open_backlog_status":r.get("open_backlog_status", "unavailable"),
+                              "source_details":{
+                                  source: {
+                                      field: (r.get("coverage") or {}).get(source, {}).get(field)
+                                      for field in ("status", "coverage_start",
+                                                    "last_success_at", "pages_fetched",
+                                                    "records_fetched", "last_error")
+                                  } if (r.get("coverage") or {}).get(source) else {}
+                                  for source in ("issues", "pull_requests",
+                                                 "workflow_runs", "open_backlog")
+                              },
                               "last_success_at":{
                                   source:((r.get("coverage") or {}).get(source) or {}).get("last_success_at")
                                   for source in ("issues","pull_requests","workflow_runs")},
