@@ -66,6 +66,7 @@ def test_sql_ctes_keep_source_denominators_and_coverage_explicit(db):
     assert row["issues_verified_28d"] == 1
     assert row["prs_verified_28d"] == 0
     assert row["ci_verified_28d"] == 0
+    assert row["open_inventory_verified"] == 0
 
 
 def test_sql_audit_empty_selected_cohort_returns_empty(db):
@@ -74,3 +75,20 @@ def test_sql_audit_empty_selected_cohort_returns_empty(db):
     repo.selected = False
     db.commit()
     assert sql_delivery_signals(db, now=NOW) == []
+
+
+def test_sql_open_inventory_flag_requires_distinct_fresh_complete_checkpoint(db):
+    first = sql_delivery_signals(db, now=NOW)[0]
+    assert first["open_inventory_verified"] == 0
+    db.add(SyncCheckpoint(
+        repo_id=101, source="open_backlog", status="complete",
+        last_success_at=NOW - timedelta(hours=1),
+        coverage_start=NOW - timedelta(hours=1)))
+    db.commit()
+    verified = sql_delivery_signals(db, now=NOW)[0]
+    assert verified["open_inventory_verified"] == 1
+    assert verified["issues_verified_28d"] == 0
+    cp = db.get(SyncCheckpoint, (101, "open_backlog"))
+    cp.status = "partial"
+    db.commit()
+    assert sql_delivery_signals(db, now=NOW)[0]["open_inventory_verified"] == 0
