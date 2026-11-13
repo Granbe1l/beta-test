@@ -66,6 +66,8 @@ jobs:
         run: python scripts/report_coverage_delta.py snapshot-audit-before.json snapshot-audit.json
       - name: Diagnose remaining source coverage gaps
         run: python scripts/coverage_triage.py snapshot-audit.json
+      - name: Audit strict source-specific 28-day readiness and staleness
+        run: python scripts/audit_coverage_readiness.py snapshot-audit.json
       - name: Preserve evidence and coverage audit
         uses: actions/upload-artifact@v4
         with:
@@ -74,6 +76,7 @@ jobs:
             data/github_public_snapshot.json.gz
             snapshot-audit.json
             snapshot-audit-before.json
+            coverage-readiness.json
           if-no-files-found: error
           retention-days: 14
       - name: Validate fresh collection progress before publishing
