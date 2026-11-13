@@ -40,13 +40,13 @@ def test_production_timestamp_comes_from_actual_snapshot(tmp_path):
     payload = {
         "schema_version": 1,
         "generated_at": datetime(2026, 11, 13, 4, 15, tzinfo=timezone.utc).isoformat(),
-        "reports": [{}] * 75,
+        "reports": [{}] * 50,
     }
     with gzip.open(path, "wt", encoding="utf-8") as f:
         json.dump(payload, f)
     assert expected_snapshot_stamp(path) == "13 Nov 2026 · 04:15 UTC"
-    payload["reports"] = [{}] * 74
+    payload["reports"] = [{}] * 49
     with gzip.open(path, "wt", encoding="utf-8") as f:
         json.dump(payload, f)
-    with pytest.raises(ValueError, match="75"):
+    with pytest.raises(ValueError, match="50"):
         expected_snapshot_stamp(path)
