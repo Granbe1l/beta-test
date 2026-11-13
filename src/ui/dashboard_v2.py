@@ -595,7 +595,9 @@ def _matched_snapshot_chart(chosen):
                        "Older API events may be undercounted; these bars are not a historical growth trend.")
 
 
-def overview(reports, selection):
+def overview(reports, selection, all_reports=None):
+    """Show the true 75-repository denominator even in filtered view."""
+
     from src.ui.observed import summary
     st.markdown(
         '<div class="d-hero d-hero-overview"><div><span class="d-eyebrow">PUBLIC GITHUB · ACTIVITY MONITOR</span>'
@@ -627,16 +629,18 @@ def overview(reports, selection):
     ])
     from src.ui.observed import evidence_readiness
     readiness = evidence_readiness(chosen)
-    entire = evidence_readiness(reports)
+    from src.ui.reviewer_cohort import decision_brief_cohort
+    global_cohort = all_reports if all_reports is not None else reports
+    cohort = decision_brief_cohort(global_cohort, chosen)
     initial_findings = _findings(chosen)
     next_subject = (
         initial_findings[0]["type"].replace("-", " ")
         if initial_findings else "source coverage before drawing conclusions"
     )
     st.markdown(
-        f'**Decision brief:** {entire["joint_verified_28d"]}/{entire["tracked"]} '
-        'tracked repositories have 28-day verified Issue, PR and CI sources; '
-        f'this view shows {len(chosen)} repositories. '
+        f'**Decision brief:** {cohort["verified_28d"]}/{cohort["tracked"]} '
+        'total tracked repositories have 28-day verified Issue, PR and CI sources. '
+        f'This current filtered view contains {cohort["in_view"]} repositories. '
         f'First inspect **{esc(next_subject)}**, open the original GitHub evidence, '
         'then check source completeness. No client-deadline or quality verdict '
         'is inferred from these records.'
