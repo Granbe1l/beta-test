@@ -10,7 +10,8 @@ def snapshot(name, data):
             "observations": [
                 {"measured_at": NOW - timedelta(days=days, hours=hour),
                  "open_issues_observed": issues,
-                 "open_prs_observed": prs}
+                 "open_prs_observed": prs,
+                 "collection_basis": "verified_open_inventory"}
                 for days, hour, issues, prs in data]}
 
 
