@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from src.analytics.metrics import utc
+from src.analytics.review_decisions import review_decision
 
 
 def _has_verified_history(report: dict, source: str, days: int, now=None) -> bool:
@@ -176,6 +177,9 @@ def findings_for_repo(report: dict) -> list[dict]:
                 else "Observed retrieved open Issues · not a complete backlog"
             )
         item["examples"] = evidence_examples(report, item["type"])
+        # A structured, checkable decision: measured signal -> original
+        # record -> inspection -> bounded conclusion. Never a defect verdict.
+        item["review_plan"] = review_decision(item)
     return out
 
 
