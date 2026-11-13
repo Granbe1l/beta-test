@@ -149,4 +149,7 @@ class Observation(Base):
     open_issues_observed: Mapped[int] = mapped_column(Integer)
     aged_issues_observed: Mapped[int] = mapped_column(Integer)
     open_prs_observed: Mapped[int] = mapped_column(Integer)
+    # Prevent comparison of partial recent-update samples to complete
+    # independent open-Issue inventories.
+    collection_basis: Mapped[str] = mapped_column(String(40), default="legacy_observed")
     __table_args__ = (Index("ix_observations_repo_time", "repo_id", "measured_at"),)
