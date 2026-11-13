@@ -18,8 +18,19 @@ def parsed(value):
         timezone.utc)
 
 
-def schedule_health(runs: list[dict], required: int = 3) -> dict:
-    """Check outcomes AND spacing of the last consecutive real cron events."""
+def schedule_health(runs: list[dict], required: int = 3, *,
+                    now=None, max_schedule_age_hours=9) -> dict:
+    """Require recent, successful, evenly spaced *actual cron* events.
+
+    Even three historically perfect runs cannot establish that a schedule
+    still works if the latest cron is older than the freshness budget.
+    """
+    if required < 2:
+        raise ValueError("At least two scheduled runs are required")
+    now = parsed(now) if isinstance(now, str) else (now or datetime.now(timezone.utc))
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    now = now.astimezone(timezone.utc)
     chosen = sorted(
         (r for r in runs if r.get("event") == "schedule"
          and r.get("head_branch") == "main" and r.get("created_at")),
@@ -32,7 +43,20 @@ def schedule_health(runs: list[dict], required: int = 3) -> dict:
             r.get("status") == "completed" and r.get("conclusion") == "success"
             for r in chosen),
         "links": [r.get("html_url") for r in chosen if r.get("html_url")],
+        "evaluated_at_utc": now.isoformat(),
     }
+    if chosen:
+        newest = parsed(chosen[0]["created_at"])
+        age_hours = (now - newest).total_seconds() / 3600
+        result["latest_scheduled_at_utc"] = newest.isoformat()
+        result["latest_scheduled_run_age_hours"] = round(age_hours, 2)
+        result["latest_schedule_is_recent"] = (
+            -0.25 <= age_hours <= max_schedule_age_hours
+        )
+    else:
+        result["latest_scheduled_at_utc"] = None
+        result["latest_scheduled_run_age_hours"] = None
+        result["latest_schedule_is_recent"] = False
     if len(chosen) < required:
         return result
     if not all(r.get("status") == "completed" and
@@ -45,10 +69,12 @@ def schedule_health(runs: list[dict], required: int = 3) -> dict:
         for i in range(required - 1)
     ]
     result["observed_intervals_hours"] = [round(v, 2) for v in spacing]
-    result["status"] = (
-        "verified_recent_cycles" if all(3 <= hours <= 9 for hours in spacing)
-        else "needs_review"
-    )
+    if not all(3 <= hours <= 9 for hours in spacing):
+        result["status"] = "needs_review"
+    elif not result["latest_schedule_is_recent"]:
+        result["status"] = "stale_schedule"
+    else:
+        result["status"] = "verified_recent_cycles"
     return result
 
 
@@ -66,6 +92,11 @@ def main():
                                "per_page": 20})
     res.raise_for_status()
     output = schedule_health(res.json().get("workflow_runs") or [])
+    # A dated, machine-readable proof from only actual 'schedule' events.
+    # This does not modify GitHub data or create synthetic green runs.
+    from pathlib import Path
+    Path("schedule-reliability.json").write_text(
+        json.dumps(output, indent=2, sort_keys=True), encoding="utf-8")
     print("SCHEDULE RELIABILITY:", json.dumps(output, sort_keys=True))
     summary = os.getenv("GITHUB_STEP_SUMMARY")
     if summary:
@@ -76,6 +107,12 @@ def main():
                 f"{output['successful_scheduled_runs']}/{output['required']} "
                 "recent scheduled runs successful.\n\n"
             )
+            if output.get("latest_scheduled_run_age_hours") is not None:
+                handle.write(
+                    f"Most recent scheduled run age: "
+                    f"**{output['latest_scheduled_run_age_hours']} h** · "
+                    f"recent: **{output['latest_schedule_is_recent']}**.\\n\\n"
+                )
             if output.get("observed_intervals_hours"):
                 handle.write("Observed run intervals (hours): " +
                              ", ".join(map(str, output["observed_intervals_hours"])) +
