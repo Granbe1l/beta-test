@@ -30,7 +30,7 @@ def _draw_plot(fig, height=310):
     )
     fig.update_xaxes(showgrid=False, linecolor="#E8E5EE")
     fig.update_yaxes(gridcolor="#F0ECF7", zeroline=False)
-    st.plotly_chart(fig, use_container_width=True, config={"displaylogo":False})
+    st.plotly_chart(fig, use_container_width=True, config={"displaylogo":False, "displayModeBar":False})
 
 
 def trend_panel(reports):
