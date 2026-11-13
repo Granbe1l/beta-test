@@ -108,10 +108,21 @@ try:
         # Actual rendered reviewer summary must remain visible on desktop.
         desktop.get_by_text("What should we inspect?", exact=True).wait_for(timeout=30000)
         desktop.get_by_text("How complete is the evidence?", exact=True).wait_for(timeout=30000)
-        assert desktop.get_by_role("link", name="Open an original GitHub record").count() >= 1, (
-            "An actual evidence-backed reviewer action is missing")
         time.sleep(2)
         desktop.screenshot(path=str(OUT / "desktop-overview.png"), full_page=True)
+        # A valid dashboard can have no qualifying findings. In that case
+        # require the explicit empty-state explanation instead of a fake
+        # source link. When a finding exists, check its *rendered text* rather
+        # than assuming Streamlit's styled link has a fixed accessibility role.
+        empty_review = desktop.get_by_text(
+            "No source-backed finding passes the review thresholds.", exact=False)
+        if empty_review.count():
+            print("Reviewer evidence empty state is explicitly disclosed", flush=True)
+        else:
+            desktop.get_by_text(
+                "Open an original GitHub record", exact=True).first.wait_for(
+                    timeout=30000)
+            print("Verified original GitHub evidence action in reviewer summary", flush=True)
         print("Captured desktop overview", flush=True)
         # Capture the real 28-day line chart, not only the hero or KPIs.
         # Scroll to the actual chart canvas, not just its title (which may
