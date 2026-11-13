@@ -50,6 +50,8 @@ jobs:
         run: python scripts/benchmark_snapshot.py
       - name: Capture rendered desktop and mobile screenshot
         run: python scripts/capture_ui.py
+      - name: Verify screenshot-to-gallery conversion with real browser evidence
+        run: python scripts/prepare_gallery.py
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -58,6 +60,16 @@ jobs:
           path: |
             docs/screenshots/*.png
             docs/screenshots/recruiter-browser-audit.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload compact verified gallery previews
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: project-delivery-gallery-preview-candidates
+          path: |
+            docs/gallery/*.jpg
+            docs/gallery/manifest.json
           if-no-files-found: warn
           retention-days: 14
 
