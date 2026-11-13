@@ -4,7 +4,7 @@ Updated 14 November 2026.
 
 ## Main dataset and candidate sources
 
-- **Tracked:** retain the original 75 selected, public GitHub repositories
+- **Tracked:** retain the 50 reviewed Verified-at-selection public GitHub repositories
   and their source records. An incomplete source is not evidence that a
   repository is inactive, broken, or unsuitable.
 - **Verified analysis:** one global sidebar selector filters **all six
@@ -12,7 +12,7 @@ Updated 14 November 2026.
   for the prior 28 days. It falls back to seven days if no repository
   qualifies, then to explicitly warned exploratory data. The original
   total tracked remains distinct from analyzed source denominators.
-- **Exploratory:** all original 75 remain accessible with the source
+- **Exploratory:** all selected 50 remain accessible with the source
   denominators and a visible missing-data caveat.
 - **Candidate pool:** a separate, nonmutating read-only workflow discovers
   public repositories using the same GitHub activity, source eligibility,
@@ -31,11 +31,11 @@ Result: \`candidate-verified-audit.json\` and
 \`candidate-replacement-plan.json\` as retained workflow artifacts.
 The second file produces **unapproved nonmutating proposed swaps** only
 when original and candidate repository categories AND size tiers match.
-Neither file automatically modifies the tracked 75-source history.
+Neither file automatically modifies the 50-project current selection (25 source reports archived separately).
 Even a verified candidate is **not automatically promoted or substituted**.
 Replacement requires a dated selection manifest, a review of language and
 size/category diversity, and a complete saved audit for both old and new
-cohorts. Existing repository records are never deleted to inflate 75/75.
+cohorts. Existing repository records are never deleted to inflate 50/50.
 
 Important selection caveat: favoring sources that can fit REST pagination
 limits can bias the verified cohort toward quieter or smaller projects.
@@ -127,7 +127,7 @@ timestamp is invented**.
   verification flags, source counts, sample diversity and the UTC time.
 - New repositories enter a selection **only** through a separate
   audited, explicitly documented promotion; no rewrite of historical
-  evidence or unverified 75/75 completeness.
+  evidence or unverified 50/50 completeness.
 
 These gates avoid gaming a CV metric. The project is usable today using
 a verified subset and its honest denominator, with follow-up work for

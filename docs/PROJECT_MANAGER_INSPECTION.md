@@ -25,7 +25,7 @@ persistent database storage.
 
 This mode intentionally:
 
-- does not add to, remove from, or change the existing 75-repository cohort;
+- does not add to, remove from, or change the existing 50-repository cohort;
 - does not claim a complete Issue backlog or complete 7/28-day API window;
 - does not display invented zeros for unavailable sources or rate limits;
 - does not infer project deadlines, SLAs, productivity or delivery outcomes;

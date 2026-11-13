@@ -1,7 +1,7 @@
 # Project Delivery Monitor — current implementation and remaining evidence
 
 Updated: **14 November 2026**. Repository: `Granbe1l/beta-test`. The
-repository has **75 curated public GitHub projects**. Changes must pass PR
+repository's planned/current cutover has **50 selected public GitHub projects**. Changes must pass PR
 quality checks before merging to `main`.
 
 ## Implemented
@@ -9,7 +9,7 @@ quality checks before merging to `main`.
 | Capability | State and verification |
 | --- | --- |
 | Six visual Streamlit screens, purple/white theme, real-data Plotly charts | Implemented; browser desktop/mobile screenshots succeeded in main run [43338398246](https://github.com/Granbe1l/beta-test/actions/runs/43338398246) |
-| 75 retained public GitHub repositories | Verified in snapshot audit [43342299579](https://github.com/Granbe1l/beta-test/actions/runs/43342299579) |
+| 50 approved Verified-at-selection repositories | Drawn from the actual 56/75 source proof in [refresh 43495494116](https://github.com/Granbe1l/beta-test/actions/runs/43495494116); archive 25 historical reports during cutover |
 | Issues / PR / GitHub Actions collector, SQLAlchemy and SQLite | Implemented; records are real but **per-source coverage is partial** |
 | Efficient 28-day bootstrap and 7/1-day capped fallback | Implemented on main; latest observed coverage improved modestly |
 | Current-UTC-day CI verification | Implemented and regression-tested; previous current-day checkpoint cannot certify newly elapsed hours |

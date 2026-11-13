@@ -22,7 +22,7 @@ jobs:
     env:
       DATABASE_URL: sqlite:///local.sqlite3
       GITHUB_TOKEN: ${{ github.token }}
-      MAX_REPOS: '75'
+      MAX_REPOS: '50'
       MAX_CANDIDATES: '320'
       SEARCH_PAGES_PER_QUERY: '1'
       MAX_PAGES_PER_SOURCE: '6'
@@ -42,8 +42,41 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: pip install -r requirements.txt
+      - name: Curate audited 50-project membership; losslessly archive 25 prior reports
+        run: python scripts/curate_verified_50.py
       - name: Restore last validated public snapshot
         run: python scripts/restore_public_snapshot.py
+      - name: Publish a one-time archived 50-project cutover before expensive refresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f data/curated_50_transition_receipt.json ]; then
+            echo 'Already curated on main; normal refresh only'
+            exit 0
+          fi
+          cp data/github_public_snapshot.json.gz /tmp/curated_50_cutover.json.gz
+          cp data/archived_75_to_50_reports.json.gz /tmp/curated_50_removed_archive.json.gz
+          cp data/curated_50_transition_receipt.json /tmp/curated_50_receipt.json
+          git config user.name 'Candy Ristyan'
+          git config user.email '103526238+Granbe1l@users.noreply.github.com'
+          git fetch origin main
+          git reset --hard origin/main
+          # Only commit a cutover that has not already been published.
+          if [ -f data/curated_50_transition_receipt.json ]; then
+            echo 'Another audited cutover was already published'
+          else
+            cp /tmp/curated_50_cutover.json.gz data/github_public_snapshot.json.gz
+            cp /tmp/curated_50_removed_archive.json.gz data/archived_75_to_50_reports.json.gz
+            cp /tmp/curated_50_receipt.json data/curated_50_transition_receipt.json
+            git add data/github_public_snapshot.json.gz \
+                    data/archived_75_to_50_reports.json.gz \
+                    data/curated_50_transition_receipt.json
+            git commit -m 'data: curate 50 Verified projects, archive all 25 excluded reports [skip ci]'
+            git push origin HEAD:main
+          fi
+          # Main now contains the reviewed cutover; the checked-out files are
+          # restored to it before collecting and replaying the refreshed binary.
+
       - name: Capture baseline coverage before collection
         run: python scripts/audit.py > snapshot-audit-before.json
       - name: Maintain expiring Verified sources then repair within API budget
@@ -71,12 +104,13 @@ jobs:
       - name: Preserve evidence and coverage audit
         uses: actions/upload-artifact@v4
         with:
-          name: github-75-repo-source-audit
+          name: github-50-repo-source-audit
           path: |
             data/github_public_snapshot.json.gz
             snapshot-audit.json
             snapshot-audit-before.json
             coverage-readiness.json
+            data/curated_50_transition_receipt.json
           if-no-files-found: error
           retention-days: 14
       - name: Validate fresh collection progress before publishing

@@ -596,7 +596,7 @@ def _matched_snapshot_chart(chosen):
 
 
 def overview(reports, selection, all_reports=None):
-    """Show the true 75-repository denominator even in filtered view."""
+    """Show the true tracked-cohort denominator even in filtered view."""
 
     from src.ui.observed import summary
     st.markdown(
@@ -788,7 +788,7 @@ def overview(reports, selection, all_reports=None):
                              "Original repository", display_text="Open ↗")})
     else:
         st.info("No new issue or PR events are present in the retrieved 7-day window.")
-    with st.expander("About the 75-project sample · languages and categories"):
+    with st.expander("About the curated sample · languages and categories"):
         left, right = st.columns([1, 1])
         from src.ui.charts import category_counts
         with left:

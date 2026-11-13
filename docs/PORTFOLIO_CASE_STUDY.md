@@ -2,13 +2,13 @@
 
 ## Problem and audience
 
-How can an HR reviewer or IT consultant see whether publicly visible software work is moving, and understand the reliability of the supporting data? This project monitors 75 curated public GitHub repositories. It is a portfolio demonstration, not a delivery-performance or project-quality ranking.
+How can an HR reviewer or IT consultant see whether publicly visible software work is moving, and understand the reliability of the supporting data? This project monitors 50 vetted public GitHub repositories. It is a portfolio demonstration, not a delivery-performance or project-quality ranking.
 
 ## Workflow
 
 GitHub REST API → incremental, bounded API extraction → persistent SQLite checkpoints → audited compressed public snapshot → Streamlit dashboard.
 
-- GitHub Actions attempts collection every six hours. A refresh in the Streamlit UI reads the stored snapshot; it does not call the API.
+- GitHub Actions attempts collection every four hours. A refresh in the Streamlit UI reads the stored snapshot; it does not call the API.
 - Existing projects stay in the cohort, including projects with no recently observed activity. The sample is not secretly rotated to make graphs rise.
 - Newly unvisited and incomplete sources are prioritized within a bounded API budget.
 - Adaptive scans try an initial window and, if capped, narrower 28-, 7- and 1-day windows. A completed short-window scan is NOT a complete repository history.
@@ -35,11 +35,11 @@ Python, SQLAlchemy/SQLite, Streamlit and Plotly. Automated tests verify API pagi
 
 ## Limitations
 
-GitHub API pagination and recent-update ordering can omit older activity. Some repositories have more complete coverage than others. A GitHub Actions run can succeed without all 75×3 source scans being complete. Screenshots and application tests do not prove scheduled refresh reliability. No private project deadlines, SLAs, code quality or developer performance can be derived from public issues and pull requests.
+GitHub API pagination and recent-update ordering can omit older activity. Some repositories have more complete coverage than others. A GitHub Actions run can succeed without all 50×3 source scans being complete. Screenshots and application tests do not prove scheduled refresh reliability. No private project deadlines, SLAs, code quality or developer performance can be derived from public issues and pull requests.
 
 ## How to explain this project at interview
 
-I created a dashboard using public GitHub API records to monitor observable tasks, code changes and automated checks across 75 repositories. The major challenge was ensuring charts stayed honest when API collection was incomplete. I built per-source checkpoints, clear coverage states, a verified/exploratory trend switch, and links from every review finding to source records.
+I created a dashboard using public GitHub API records to monitor observable tasks, code changes and automated checks across 50 repositories. The major challenge was ensuring charts stayed honest when API collection was incomplete. I built per-source checkpoints, clear coverage states, a verified/exploratory trend switch, and links from every review finding to source records.
 
 ## Next operational evidence gate
 
@@ -131,7 +131,7 @@ snapshot, without fabricating an HR-user test or inventing end-user latency.
 
 | Stage | Observable improvement | Acceptance evidence |
 | --- | --- | --- |
-| P2.1 Performance | Batch SQL SELECTs per source; retain the latest 30 per-repository observations; decode compressed snapshot date fields in one JSON pass | 376 previous per-repository SELECTs vs **6** on 75 real repositories; CI checked stored Issue/PR/CI row parity ([PR #15](https://github.com/Granbe1l/beta-test/pull/15)) |
+| P2.1 Performance | Batch SQL SELECTs per source; retain the latest 30 per-repository observations; decode compressed snapshot date fields in one JSON pass | 376 previous per-repository SELECTs vs **6** on the prior 75-repository cohort; CI checked stored Issue/PR/CI row parity ([PR #15](https://github.com/Granbe1l/beta-test/pull/15)) |
 | P2.2 Filters and navigation | Keep repository choice across pages, reset pagination when matching rows change, prevent missing open-backlog status and pandas NaT table errors | Streamlit AppTest + real desktop/mobile capture with exception detection ([PR #16](https://github.com/Granbe1l/beta-test/pull/16)) |
 | P2.3 Visual clarity | Condense the mobile opening, move supporting coverage detail into an expandable explanation, avoid Plotly modebar overlay | Actual responsive browser screenshots and retained disclosure tests ([PR #17](https://github.com/Granbe1l/beta-test/pull/17)) |
 | P2.4 Decision traceability | Main action opens an original stored record whenever present; source-listing fallback is labelled rather than passing as record-level evidence | Real-snapshot reviewer action audit and browser tests ([PR #18](https://github.com/Granbe1l/beta-test/pull/18)) |

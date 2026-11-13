@@ -40,7 +40,7 @@ class Settings:
         return cls(
             database_url=os.getenv("DATABASE_URL") or f"sqlite:///{ROOT / 'local.sqlite3'}",
             github_token=os.getenv("GITHUB_TOKEN") or None,
-            max_repos=_int("MAX_REPOS", 75),
+            max_repos=_int("MAX_REPOS", 50),
             max_candidates=_int("MAX_CANDIDATES", 320),
             max_pages=_int("MAX_PAGES_PER_SOURCE", 6),
             search_pages=_int("SEARCH_PAGES_PER_QUERY", 2),

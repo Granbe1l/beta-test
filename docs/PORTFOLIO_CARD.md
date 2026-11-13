@@ -12,7 +12,7 @@ several sources can have different coverage windows.
 
 ## What I built
 
-A six-page, visual-first dashboard that organizes **75 curated public GitHub
+A six-page, visual-first dashboard that organizes **50 curated public GitHub
 repositories** and turns collected public activity into **source-linked
 inspection questions**, not opaque project-health or productivity scores.
 
@@ -27,9 +27,9 @@ inspection questions**, not opaque project-health or productivity scores.
 
 ## Result / demonstrated engineering
 
-- **75 repositories** were curated; they are not a representative random
+- **50 repositories** were selected from a verified subset of the former 75; they are not a representative random
   sample of all GitHub projects.
-- For this 75-repo dataset, the SQL dashboard loader reduced its
+- For the historical original 75-repo dataset, the SQL loader reduced its
   measured SELECT count from **376 to 6** after batching sources and
   retaining the 30 most recent per-project observations. This is **query
   count**, not a claimed 98% improvement in browser speed.

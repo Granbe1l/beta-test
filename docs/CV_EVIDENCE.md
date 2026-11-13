@@ -17,7 +17,7 @@ The overview includes two additional Activity filter options:
 - `Verified all three sources · 28 days`: the stricter, **same-cohort**
   comparison over 28 days.
 
-These subsets can differ in size and are **never represented as all 75**.
+These subsets can differ in size and are **never represented as all 50**.
 The data-readiness caption also displays the exact joint denominators
 computed live from the loaded real snapshot. Selecting all projects keeps
 the exploratory sample and existing source-specific verified trends.
@@ -38,7 +38,7 @@ without refreshing their snapshot timestamp.**
 **Project Delivery Monitor | Python, SQL, Streamlit, GitHub REST API, GitHub Actions**
 
 - Developed an analytics dashboard for observable engineering activity
-  across **75 curated public GitHub repositories**, integrating issues,
+  across **50 curated public GitHub repositories**, integrating issues,
   pull requests and CI/CD workflow runs.
 - Built a bounded incremental collection pipeline with source-level
   completeness checks, reproducible SQL aggregates and evidence-linked
@@ -52,8 +52,8 @@ For a one-line CV, use the first two bullets or combine them.
 records update as GitHub Actions publishes new snapshots. Generate the
 current evidence receipt with `python scripts/cv_evidence.py`, record its
 UTC snapshot timestamp, and report the result as **observed source records**,
-not the complete lifetime activity of all 75 repositories. If space permits,
-a defensible engineering proof is that the real restored 75-repository
+not the complete lifetime activity of all 50 repositories. If space permits,
+a defensible engineering proof is that the historical real restored 75-repository
 SQL query loader was tested at **6 SELECTs versus the previous 376 SELECTs**
 ([P2.1 CI evidence](https://github.com/Granbe1l/beta-test/pull/15)).
 Do not present that as a browser load-time improvement.
@@ -61,7 +61,7 @@ Do not present that as a browser load-time improvement.
 ## Optional technical-impact bullet for data / IT roles
 
 - Optimized SQL-based snapshot loading from **376 to 6 SELECT queries**
-  across the real 75-repository dataset; validated source-row parity
+  across the historical 75-repository dataset; validated source-row parity
   with SQLite and the compressed GitHub snapshot in CI.
 
 This was a measured SQL **query-count reduction**, not a claimed
@@ -72,7 +72,7 @@ distinguishes incomplete exploratory histories.
 ## Bahasa Indonesia
 
 - Mengembangkan dashboard analisis aktivitas pengembangan perangkat
-  lunak dari **75 repository GitHub publik terkurasi**, memanfaatkan
+  lunak dari **50 repository GitHub publik terkurasi**, memanfaatkan
   Python, SQL, Streamlit, GitHub REST API, dan GitHub Actions.
 - Mengimplementasikan pengumpulan data inkremental, pengecekan
   kelengkapan sumber, analisis Issue/PR/CI, serta tautan bukti langsung.
@@ -81,7 +81,7 @@ distinguishes incomplete exploratory histories.
 
 ## What not to claim
 
-Do **not** say 75 projects have complete 28-day sources, continuous
+Do **not** say 50 projects have complete 28-day sources, continuous
 24/7 uptime, live real-time data, employee productivity ranking,
 confirmed missed deadlines, customer SLAs, or comprehensive GitHub
 history. The fixed cohort is not a random statistical sample and is

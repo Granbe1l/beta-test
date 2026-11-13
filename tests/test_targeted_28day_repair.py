@@ -96,12 +96,12 @@ def test_repair_selector_prefers_two_short_solvable_sources_and_skips_high_caps(
     assert coverage_repair_targets(db,rows,NOW,max_repos=0)=={}
 
 
-def test_workflow_uses_bounded_repair_without_removing_75_original_repos():
+def test_workflow_uses_bounded_repair_with_fixed_50_repo_cohort():
     from pathlib import Path
     workflow=(Path(__file__).resolve().parents[1]/
               ".github/workflows/public-snapshot.yml").read_text()
     assert "--repair-coverage" in workflow
-    assert "MAX_REPOS: '75'" in workflow
+    assert "MAX_REPOS: '50'" in workflow
     assert "--max-requests 850" in workflow
     assert "MAX_PAGES_PER_SOURCE: '6'" in workflow
 

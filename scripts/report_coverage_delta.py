@@ -1,6 +1,6 @@
 """Summarize actual GitHub snapshot coverage changes in GitHub Actions.
 
-Never represent a successful workflow as 75/75 complete sources. Write a
+Never represent a successful workflow as fully Verified complete sources. Write a
 non-sensitive Markdown report showing counts AND verified 28-day coverage.
 """
 from __future__ import annotations
@@ -70,7 +70,7 @@ def delta_report(before: dict, after: dict) -> str:
     if all(int(new[src].get("verified_28d", 0)) == 0 for src, _ in SOURCES):
         lines += ["", "> No source is yet verified for a full 28-day window. "
                   "The dashboard must label multiweek charts exploratory."]
-    lines += ["", "Historical sample: up to 75 selected public repositories. "
+    lines += ["", "Current curated sample: 50 selected public repositories. "
                   "An unvisited or stale source is **not** proof of inactivity.",
               ""]
     return "\n".join(lines)

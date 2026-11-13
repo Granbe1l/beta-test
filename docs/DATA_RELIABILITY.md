@@ -2,7 +2,7 @@
 
 ## P0 objective
 
-Keep exactly 75 curated repositories, collect real public GitHub records,
+Keep exactly 50 curated repositories, collect real public GitHub records,
 show source coverage by date window, and never report a no-work refresh as
 successful. A bounded scan is not full GitHub lifetime history.
 
@@ -28,7 +28,7 @@ or additional data have been copied into the project.
 
 ## Bounded collection
 
-- Keep the 75 curated repository identities fixed for comparable cohorts.
+- Keep the 50 reviewed repository identities fixed for comparable cohorts.
 - Prioritize never-scanned and incomplete repositories; save source-specific
   checkpoints in the compressed public snapshot between runs.
 - Retrieve Issues/PRs using GitHub REST with a bounded page cap and honest
@@ -52,9 +52,9 @@ queries the GitHub API, audits AFTER coverage, uploads audit artifacts,
 then checks consistency BEFORE publishing to main.
 
 The gate requires:
-- 75 unique, curated repository identities;
+- 50 unique, curated repository identities;
 - nondecreasing persisted record counts;
-- consistent per-source coverage denominators, all summing to 75;
+- consistent per-source coverage denominators, all summing to 50;
 - 28-day verified source counts no greater than complete bounded scans;
 - at least one newly successful source checkpoint OR new persisted record.
 
@@ -96,7 +96,7 @@ partials in the fair rotation, and rotates Issues/PR/CI ordering across
 six-hour slots. Existing SQLite/PostgreSQL installations receive an
 additive JSON checkpoint-column migration.
 
-Real 75-repository load/analysis benchmarks appear in GitHub Actions
+Historical 75-repository load/analysis benchmarks appear in GitHub Actions
 summaries, and screenshot browser checks are triggered after successfully
 published source refreshes. These checks do not prove exact six-hour
 punctuality, 100% lifetime data completeness, or public app uptime.
@@ -107,7 +107,7 @@ The initial bounded Issues/PR scan starts at the **exact 28-day analysis
 window** rather than fetching a near-duplicate 30-day window first.
 An explicit long history reconciliation still attempts the configured
 backfill, with 28-, 7- and 1-day fallbacks when capped. This reduces
-wasted REST pages but cannot guarantee 75/75 source completion.
+wasted REST pages but cannot guarantee 50/50 source completion.
 
 Scheduled reliability is assessed by `scripts/schedule_reliability.py`.
 It examines the most recent **three actual `schedule` events** on main

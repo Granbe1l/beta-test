@@ -23,7 +23,7 @@ from src.analytics.findings import portfolio_findings
 
 def benchmark():
     start = perf_counter()
-    reports, _, meta = read_snapshot(SNAPSHOT_PATH)
+    reports, selection, meta = read_snapshot(SNAPSHOT_PATH)
     load_seconds = perf_counter() - start
     start = perf_counter()
     totals = summary(reports)
@@ -31,8 +31,14 @@ def benchmark():
     daily = daily_event_series(reports, days=28)
     findings = portfolio_findings([r for r in reports if r["coverage_ok"]])
     analytics_seconds = perf_counter() - start
-    if len(reports) != 75 or len(daily) != 28:
-        raise ValueError("Benchmark requires 75 actual repositories and 28 daily rows")
+    # The pre-transition 75-repo snapshot is accepted only during this PR.
+    # Once a curated_50 selection is published, 50 is mandatory.
+    from src.config.settings import Settings
+    expected = Settings.from_env().max_repos
+    legacy = (len(reports) == 75 and expected == 50 and
+              (selection or {}).get("parameters", {}).get("purpose") != "curated_verified_50")
+    if (len(reports) != expected and not legacy) or len(daily) != 28:
+        raise ValueError(f"Benchmark expects {expected} curated repositories and 28 daily rows")
     # Linux GitHub Actions resource maxrss uses KiB. The metric is process
     # maximum RSS, not a measurement of total Streamlit browser memory.
     rss_mb = round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 1)
