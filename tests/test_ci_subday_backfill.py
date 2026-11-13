@@ -42,7 +42,11 @@ def test_capped_days_become_verified_only_after_all_real_hour_windows(db, cfg):
     assert effective_since == since
     assert set(d for d in status.verified_days if len(d) == 10) == {
         "2026-11-11", "2026-11-12", "2026-11-13"}
-    assert all("T" in value for value, _ in cli.calls[-4:])
+    # The final oldest partial UTC date may also have a date-wide probe;
+    # at least one genuine hourly range must exist for every saturated day.
+    assert all(any("T" in query and query.startswith(day)
+                   for query, _ in cli.calls)
+               for day in ("2026-11-11", "2026-11-12", "2026-11-13"))
     assert cli.request_count == attempts
     assert rows == []  # no test data invented from an empty API response
 
