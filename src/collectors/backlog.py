@@ -83,7 +83,7 @@ def sync_open_backlog(session, client, repo, settings, now=None):
             cp.last_error = None
         else:
             cp.last_error = (
-                "Open-issue backlog pagination/search sharding incomplete; "
+                "Open-issue backlog exceeded bounded pagination or Search sharding incomplete; "
                 "observed rows do not establish total open backlog"
             )
         cp.status = "complete" if result.complete else "partial"
