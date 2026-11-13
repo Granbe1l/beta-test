@@ -2,17 +2,13 @@ name: Promote strictly verified GitHub candidate replacements
 
 on:
   workflow_dispatch:
-  # A single supervised bootstrap on merge of this workflow.
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/promote-verified.yml'
+  # Manual-only; never promote candidates automatically after a code merge.
 
 permissions:
   contents: write
   actions: read
 
-# Serialise the active 75-repository snapshot writer with normal ingestion.
+# Serialise the active 50-repository snapshot writer with normal ingestion.
 concurrency:
   group: public-snapshot-main
   cancel-in-progress: false
@@ -27,6 +23,7 @@ jobs:
       MAX_PAGES_PER_SOURCE: '6'
       PER_PAGE: '100'
       STALE_HOURS: '12'
+      MAX_REPOS: '50'
       PROMOTION_MAX_SWAPS: '6'
       PROMOTION_API_BUDGET: '350'
     steps:
@@ -50,7 +47,7 @@ jobs:
         run: python scripts/restore_public_snapshot.py
       - name: Recollect 29-day Issues, PR and CI sources before any replacement
         run: python scripts/promote_verified_candidates.py candidate-evidence/candidate-verified-audit.json
-      - name: Build active 75-repository snapshot from verified SQL evidence
+      - name: Build active 50-repository snapshot from verified SQL evidence
         run: python scripts/build_public_snapshot.py
       - name: Audit published-cohort metrics against real collected source rows
         run: |
@@ -61,7 +58,7 @@ jobs:
               receipt = json.load(fh)
           with open("promoted-source-audit.json", encoding="utf-8") as fh:
               audit = json.load(fh)
-          if len(audit["repositories"]) != 75:
+          if len(audit["repositories"]) != 50:
               raise SystemExit("Active sample changed size")
           if not receipt["replacements"] or receipt["verified_after"] < receipt["verified_before"] + len(receipt["replacements"]):
               raise SystemExit("No provable verified replacement increase")
