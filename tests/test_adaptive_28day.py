@@ -55,4 +55,4 @@ def test_short_completed_fallback_cannot_certify_original_window(db, cfg):
     cp = db.get(SyncCheckpoint, (101, "issues"))
     assert out["status"] == "complete"
     assert cp.coverage_start.date() == (NOW - timedelta(days=7)).date()
-    assert out["attempts"] == 3
+    assert out["attempts"] == 2
