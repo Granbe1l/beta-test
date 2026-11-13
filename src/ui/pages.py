@@ -157,7 +157,7 @@ def _reset_page_on_results_change(state, rows, key):
                     or record.get("number") or record.get("created_at")
                     or index)
         digest.update(str(identity).encode("utf-8"))
-        digest.update(b"\\0")
+        digest.update(bytes((0,)))
     state_key = "_row_set_" + key
     signature = digest.hexdigest()
     if state.get(state_key) != signature:
