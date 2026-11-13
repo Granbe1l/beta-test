@@ -4,7 +4,7 @@ Never equate tracked repository count with fully verified period coverage.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import json
 import sys
@@ -39,8 +39,7 @@ def cv_receipt(reports: list[dict], *, generated_at, now=None) -> dict:
         },
         "independently_verified_full_open_backlogs":
             coverage["full_open_backlog"],
-        "fresh_under_12h": now - generated_at <= __import__(
-            "datetime").timedelta(hours=12),
+        "fresh_under_12h": timedelta(0) <= now - generated_at <= timedelta(hours=12),
         "scope": (
             "Stored records are observations in a fixed public GitHub "
             "sample, not complete project histories or client delivery "
