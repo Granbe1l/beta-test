@@ -23,7 +23,9 @@ def test_public_link_parser_accepts_repo_roots(raw, expected):
     "https://evil.github.com/org/repo", "https://github.com.evil.test/org/repo",
     "http://github.com/org/repo", "file:///etc/passwd",
     "https://github.com@evil.example/org/repo",
-    "https://github.com:8443/org/repo", "https://github.com/org/../repo",
+    "https://github.com:8443/org/repo",
+    "https://github.com:badport/org/repo",
+    "https://github.com:99999/org/repo", "https://github.com/org/../repo",
     "https://github.com/org/repo?token=x", "https://github.com/org/repo#issue",
     "https://127.0.0.1/org/repo", "https://github.com/org/%2e%2e",
 ])
