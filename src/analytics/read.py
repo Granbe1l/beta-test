@@ -35,7 +35,9 @@ def load_reports(session: Session, now: datetime | None = None, observation_days
         cc = cps.get("workflow_runs")
         backlog_cp = cps.get("open_backlog")
         backlog_status = available_source(backlog_cp, now, stale_hours)
-        i = calculate_issues(issues, now, observation_days, statuses["issues"] == "complete", ic.coverage_start if ic else None)
+        i = calculate_issues(issues, now, observation_days, statuses["issues"] == "complete",
+                             ic.coverage_start if ic else None,
+                             backlog_complete=backlog_status == "complete")
         p = calculate_prs(prs, now, observation_days, statuses["pull_requests"] == "complete", pc.coverage_start if pc else None)
         c = calculate_ci(ci, now, observation_days, statuses["workflow_runs"] == "complete", cc.coverage_start if cc else None)
         change = closure_change(issues, now, statuses["issues"] == "complete", ic.coverage_start if ic else None)
