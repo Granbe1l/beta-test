@@ -50,3 +50,25 @@ Release-readiness checks:
 | Not tested yet | — | — | — | — | — |
 
 Do not mark this document "passed" before real participant evidence exists.
+
+## One-minute guide implemented (automatic check, not human sign-off)
+
+Each of the six Streamlit screens now has a sidebar
+**Reading guide · 1 minute**. It explains repository, Issue, PR,
+CI/CD check, Verified and Exploratory with plain-language wording.
+Navigation controls have short explanatory tooltips, and the selected
+scope explicitly explains that a fully scanned **period** does not
+establish a full lifetime backlog or software quality. Automated
+browser checks open the guide at desktop width and confirm the
+incomplete-data warning is actually rendered.
+
+**Still required:** 3–5 external nontechnical people completing the
+five tasks above. Use the blank, nonsynthetic
+[reviewer result form](REVIEWER_RESULT_FORM.csv). Each participant
+may remain anonymous and should not enter private GitHub credentials.
+No user scores or participant observations have been invented.
+
+A real participant's first unexplained interpretation is the key
+outcome. If someone calls an Issue "overdue" or a failed CI run
+"a confirmed project failure", count the corresponding comprehension
+task as not independently completed, revise the wording and retest.
