@@ -13,7 +13,7 @@ from src.database.store import make_engine, session_factory
 from src.analytics.read import load_reports, selection_info
 from src.analytics.snapshot import read_snapshot, SNAPSHOT_PATH
 from src.ui.theme_v2 import apply_theme_v2, brand
-from src.ui.observed import coverage_counts
+from src.ui.observed import coverage_counts, verified_joint_cohort
 from src.ui.dashboard_v2 import (
     overview, project_details, issues_backlog, pull_request_review,
     cicd_activity, risks_recommendations, status_for,
@@ -118,6 +118,49 @@ except Exception:
         st.error("No verified GitHub snapshot. Run the snapshot workflow or configure PostgreSQL.")
     st.stop()
 
+# P0 verified-first global scope: all six pages use the SAME cohort.
+# Original tracked source records remain untouched and can be explored
+# by explicitly selecting the labelled exploratory option.
+all_reports = reports
+verified_28 = verified_joint_cohort(all_reports, days=28)
+verified_7 = verified_joint_cohort(all_reports, days=7)
+options = [
+    "Verified · 28 days",
+    "Verified · 7 days",
+    "All tracked · exploratory",
+]
+initial_scope = 0 if verified_28 else 1 if verified_7 else 2
+with st.sidebar:
+    st.caption("ANALYSIS EVIDENCE SCOPE")
+    selected_scope = st.selectbox(
+        "Data for all pages", options, index=initial_scope,
+        key="global_evidence_scope",
+        help=("Verified mode requires full Issue, PR and CI/CD source scans "
+              "for the same selected period. Tracked partial sources remain "
+              "accessible in exploratory mode and are never deleted."),
+    )
+    st.caption(
+        f"Verified all three sources: {len(verified_28)}/{len(all_reports)} "
+        f"for 28 days · {len(verified_7)}/{len(all_reports)} for 7 days."
+    )
+if selected_scope.startswith("Verified · 28"):
+    reports = verified_28
+elif selected_scope.startswith("Verified · 7"):
+    reports = verified_7
+else:
+    reports = all_reports
+st.caption(
+    f"**ANALYSIS COHORT:** {len(reports)} of {len(all_reports)} tracked "
+    f"public projects · {selected_scope}. "
+    "Unverified sources are retained, not treated as missing or zero activity."
+)
+if selected_scope.startswith("All tracked"):
+    st.warning(
+        "Exploratory source scope: some Issues, PR or CI/CD histories "
+        "are incomplete. Treat counts as retrieved samples, not full "
+        "project totals or confirmed backlog changes."
+    )
+
 if data_info["mode"] == "snapshot":
     when = data_info["generated_at"].strftime("%d %b %Y · %H:%M UTC")
     st.caption(
@@ -130,9 +173,11 @@ else:
     st.caption(
         "**PERSISTENT DATA MODE** · PostgreSQL records · collection runs separately")
 
-status = status_for(reports)
-counts = coverage_counts(reports)
-total = len(reports)
+# Sidebar source health describes the entire tracked population,
+# not only the currently filtered verified analysis cohort.
+status = status_for(all_reports)
+counts = coverage_counts(all_reports)
+total = len(all_reports)
 source_status = {
     "complete": "Sources verified",
     "partial": "Partial source scans",
