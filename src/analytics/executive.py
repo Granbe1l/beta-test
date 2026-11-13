@@ -56,6 +56,9 @@ def executive_brief(reports: list[dict], *, findings=None, now=None) -> dict:
             "priority": item.get("review_priority", "Explore context"),
         } if item else None,
         "next_check": item.get("review") if item else None,
+        "why_review": (item.get("review_plan") or {}).get("trigger") if item else None,
+        "review_steps": (item.get("review_plan") or {}).get("steps") if item else None,
+        "not_proven": (item.get("review_plan") or {}).get("not_proven") if item else None,
         "source_url": (example or {}).get("url") if example else (
             item.get("url") if item else None),
         "source_label": (example or {}).get("label", "Inspect GitHub evidence"),
