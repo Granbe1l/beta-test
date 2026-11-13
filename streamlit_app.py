@@ -169,8 +169,9 @@ st.caption(
 if selected_scope.startswith("All tracked"):
     st.warning(
         "Exploratory source scope: some Issues, PR or CI/CD histories "
-        "are incomplete. Treat counts as retrieved samples, not full "
-        "project totals or confirmed backlog changes."
+        "are incomplete. Unverified sources are retained for exploration. "
+        "Treat counts as retrieved samples, not full project totals "
+        "or confirmed backlog changes."
     )
 
 if data_info["mode"] == "snapshot":
