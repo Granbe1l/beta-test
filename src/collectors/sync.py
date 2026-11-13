@@ -62,7 +62,8 @@ def start_window(cp: SyncCheckpoint, settings: Settings, now: datetime, reconcil
     return max(baseline, utc(cp.high_watermark) - timedelta(hours=settings.overlap_hours if cp.source != "workflow_runs" else max(336, settings.overlap_hours)))
 
 
-def fetch_source(client: GitHubClient, repo: Repository, source: str, since: datetime, settings: Settings, now: datetime):
+def fetch_source(client: GitHubClient, repo: Repository, source: str, since: datetime,
+                 settings: Settings, now: datetime, *, precise_created=False):
     path = f"/repos/{repo.full_name}"
     iso = since.strftime("%Y-%m-%dT%H:%M:%SZ")
     if source == "issues":
@@ -71,8 +72,24 @@ def fetch_source(client: GitHubClient, repo: Repository, source: str, since: dat
         result = client.paginate(path + "/pulls", {"state": "all", "sort": "updated", "direction": "desc", "per_page": settings.per_page}, settings.max_pages, cutoff=since)
     else:
         # Workflow run filtering supports created, NOT updated/since. Explicit coverage only.
-        bounds = f"{since.strftime('%Y-%m-%d')}..{now.strftime('%Y-%m-%d')}"
-        result = client.paginate(path + "/actions/runs", {"created": bounds, "per_page": settings.per_page}, settings.max_pages, cutoff=since, sort_key="created_at", wrapper="workflow_runs")
+        # Ordinary queries retain exact UTC day semantics. When a busy day
+        # hits GitHub's page cap, use UTC hour bounds so completed subwindows
+        # can be certified independently. Day coverage is not inferred from
+        # any incomplete or skipped hourly shard.
+        if precise_created:
+            floor_start = utc(since).replace(microsecond=0)
+            ceil_end = utc(now).replace(microsecond=0)
+            if utc(now).microsecond:
+                ceil_end += timedelta(seconds=1)
+            bounds = (f"{floor_start.strftime('%Y-%m-%dT%H:%M:%SZ')}.."
+                      f"{ceil_end.strftime('%Y-%m-%dT%H:%M:%SZ')}")
+        else:
+            bounds = f"{since.strftime('%Y-%m-%d')}..{now.strftime('%Y-%m-%d')}"
+        result = client.paginate(
+            path + "/actions/runs",
+            {"created": bounds, "per_page": settings.per_page},
+            settings.max_pages, cutoff=since, sort_key="created_at",
+            wrapper="workflow_runs")
     normalized = []
     seen = set()
     for raw in result.items:
@@ -109,23 +126,27 @@ def fetch_ci_windowed(client: GitHubClient, repo: Repository,
     if isinstance(prior, list):  # Compatible with possible early checkpoints.
         prior = {d: "1970-01-01T00:00:00+00:00" for d in prior
                  if isinstance(d, str)}
-    # Recent days may change due to reruns. Reuse a certified day for only
-    # 24 hours; older-than-seven-day creation buckets can be reused longer.
+    # Recent completed UTC days or six-hour shards may be reused for 24
+    # hours; earlier histories can be retained longer. The CURRENT UTC day
+    # is ALWAYS fetched again because a saved shard cannot prove new runs
+    # that appeared after that earlier sample was taken.
     cutoff = now.date() - timedelta(days=7)
-    reusable = {}
-    for date, last_verified in prior.items():
-        if not isinstance(date, str) or len(date) != 10:
+    reusable, reusable_shards = {}, {}
+    for key, last_verified in prior.items():
+        if not isinstance(key, str):
+            continue
+        if len(key) == 10:
+            date, is_shard = key, False
+        elif len(key) == 13 and key[10] == "@" and key[11:] in ("00", "06", "12", "18"):
+            date, is_shard = key[:10], True
+        else:
             continue
         try:
             parsed = datetime.fromisoformat(str(last_verified).replace("Z", "+00:00"))
-            # Today's bucket is incomplete until we collect through *now*.
-            # Reusing a checkpoint from six hours ago would otherwise certify
-            # the new six hours of workflow events without querying GitHub.
-            # Closed prior UTC days can be cached subject to freshness rules.
             if date >= now.date().isoformat():
                 continue
             if date < cutoff.isoformat() or utc(parsed) >= now - timedelta(hours=24):
-                reusable[date] = str(last_verified)
+                (reusable_shards if is_shard else reusable)[key] = str(last_verified)
         except (ValueError, TypeError):
             continue
     all_dates = [(since.date() + timedelta(days=i)).isoformat()
@@ -136,7 +157,7 @@ def fetch_ci_windowed(client: GitHubClient, repo: Repository,
     pages_total = 0
     interval_count = 0
 
-    def load(start_day, end_day):
+    def load(start_day, end_day, *, precise_bounds=None):
         nonlocal pages_total, interval_count
         remaining = pages_cap - pages_total
         if remaining <= 0:
@@ -145,16 +166,23 @@ def fetch_ci_windowed(client: GitHubClient, repo: Repository,
         used = getattr(client, "request_count", 0)
         if budget is not None and used + 2 >= budget:
             return None
-        lower = max(since, datetime.combine(start_day, time.min,
-                                            tzinfo=timezone.utc))
-        upper = min(now, datetime.combine(end_day, time.max,
-                                          tzinfo=timezone.utc))
-        # Strict per-repository budget, not an artificially high global
-        # page limit that starves sources belonging to other repositories.
+        if precise_bounds is not None:
+            lower = max(since, precise_bounds[0])
+            upper = min(now, precise_bounds[1])
+        else:
+            lower = max(since, datetime.combine(start_day, time.min,
+                                                tzinfo=timezone.utc))
+            upper = min(now, datetime.combine(end_day, time.max,
+                                              tzinfo=timezone.utc))
+        if lower > upper:
+            raise ValueError("Cannot certify an empty CI created-time range")
+        # Bound one API subinterval; a 6-hour shard does not bypass the
+        # pagination cap or the global GitHub API request budget.
         from dataclasses import replace
         bounded_settings = replace(settings, max_pages=min(settings.max_pages, remaining))
-        rows, pagination = fetch_source(client, repo, "workflow_runs",
-                                        lower, bounded_settings, upper)
+        rows, pagination = fetch_source(
+            client, repo, "workflow_runs", lower, bounded_settings, upper,
+            precise_created=precise_bounds is not None)
         pages_total += pagination.pages
         interval_count += 1
         for row in rows:
@@ -162,6 +190,7 @@ def fetch_ci_windowed(client: GitHubClient, repo: Repository,
         return pagination
 
     end = now.date()
+    partial_shards = dict(reusable_shards)
     while end >= since.date():
         begin = max(since.date(), end - timedelta(days=6))
         days = [(begin + timedelta(days=i)).isoformat()
@@ -170,7 +199,13 @@ def fetch_ci_windowed(client: GitHubClient, repo: Repository,
         if not missing:
             end = begin - timedelta(days=1)
             continue
-        if len(missing) == len(days) and len(days) > 1:
+        # A previously capped day with certified hour shards must resume
+        # from those shards, not waste six pages on the same capped week.
+        has_shard_progress = any(
+            key.startswith(day + "@")
+            for day in missing for key in partial_shards
+        )
+        if len(missing) == len(days) and len(days) > 1 and not has_shard_progress:
             try:
                 weekly = load(begin, end)
             except Exception:
@@ -181,21 +216,50 @@ def fetch_ci_windowed(client: GitHubClient, repo: Repository,
                 verified.update({d: now.isoformat() for d in missing})
                 end = begin - timedelta(days=1)
                 continue
-        # If a week was capped, resume its individual days. On subsequent
-        # runs only incomplete days are queried; already-certified older
-        # days are skipped, saving API requests.
         unfinished = False
         for day in reversed(missing):
-            try:
-                daily = load(datetime.fromisoformat(day).date(),
-                             datetime.fromisoformat(day).date())
-            except Exception:
-                daily = None
-            if daily is None:
-                unfinished = True
-                break
-            if daily.complete:
+            day_value = datetime.fromisoformat(day).date()
+            old_shards = [key for key in partial_shards if key.startswith(day + "@")]
+            if not old_shards:
+                try:
+                    daily = load(day_value, day_value)
+                except Exception:
+                    daily = None
+                if daily is None:
+                    unfinished = True
+                    break
+                if daily.complete:
+                    verified[day] = now.isoformat()
+                    continue
+            # A capped daily endpoint is not complete. Split into four UTC
+            # six-hour intervals and retain each CERTIFIED slice separately.
+            # This never treats a capped weekly/day response as a zero or
+            # claims any time interval that the API did not exhaust.
+            required_shards = []
+            for hour in (0, 6, 12, 18):
+                lower = datetime.combine(day_value, time(hour=hour),
+                                         tzinfo=timezone.utc)
+                upper = lower + timedelta(hours=6) - timedelta(seconds=1)
+                if upper < since or lower > now:
+                    continue
+                key = f"{day}@{hour:02d}"
+                required_shards.append(key)
+                if key in partial_shards:
+                    continue
+                try:
+                    segment = load(day_value, day_value,
+                                   precise_bounds=(lower, upper))
+                except Exception:
+                    segment = None
+                if segment is None:
+                    unfinished = True
+                    break
+                if segment.complete:
+                    partial_shards[key] = now.isoformat()
+            if not unfinished and all(key in partial_shards for key in required_shards):
                 verified[day] = now.isoformat()
+            if unfinished:
+                break
         if unfinished:
             break
         end = begin - timedelta(days=1)
@@ -206,8 +270,9 @@ def fetch_ci_windowed(client: GitHubClient, repo: Repository,
         cap_reached=not complete, cutoff_reached=False)
     # Additional provenance is preserved by sync_one in SyncCheckpoint.
     result.verified_days = {
-        d: stamp for d, stamp in sorted(verified.items())
-        if d >= (now.date() - timedelta(days=120)).isoformat()
+        key: stamp for key, stamp in sorted({**partial_shards, **verified}.items())
+        if key[:10] >= (now.date() - timedelta(days=120)).isoformat()
+        and (len(key) == 10 or key[:10] not in verified)
     }
     return list(records.values()), result, since, interval_count, pages_total
 

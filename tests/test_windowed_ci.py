@@ -201,4 +201,8 @@ def test_unverified_current_day_never_passes_entire_window(db, cfg):
         verified_days=saved)
     assert not result.complete
     assert result.verified_days.get(today) is None
-    assert client.calls == [today + ".." + today]
+    # A saturated day may now attempt independently bounded UTC subwindows,
+    # but no capped slice may certify today or upgrade the whole period.
+    assert client.calls[0] == today + ".." + today
+    assert all(value.startswith(today) for value in client.calls)
+    assert all(".." in value for value in client.calls)
