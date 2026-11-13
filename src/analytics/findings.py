@@ -17,6 +17,70 @@ def _has_verified_history(report: dict, source: str, days: int, now=None) -> boo
 
 
 
+
+def evidence_examples(report: dict, kind: str, *, now=None, limit=3) -> list[dict]:
+    """Trace a review suggestion to real GitHub records, not generic listing pages.
+
+    Examples are inspection starting points, not proof of a defect, lateness,
+    individual performance, or a complete project backlog.
+    """
+    now = utc(now or datetime.now(timezone.utc))
+    repo_url = str(report["repository"]["url"]).rstrip("/")
+    allowed = {
+        "issue-aging": "/issues/",
+        "closure-change": "/issues/",
+        "merge-duration": "/pull/",
+        "ci": "/actions/runs/",
+    }
+    if kind not in allowed or not 1 <= limit <= 10:
+        return []
+    candidates = []
+    source = ("issue_rows" if kind in {"issue-aging", "closure-change"} else
+              "pr_rows" if kind == "merge-duration" else "ci_rows")
+    for row in report.get(source) or []:
+        url = row.get("url")
+        if not isinstance(url, str) or not url.startswith(repo_url + allowed[kind]):
+            continue
+        title = str(row.get("title") or row.get("workflow_name") or "GitHub record")
+        title = " ".join(title.split())[:76]
+        if kind == "issue-aging":
+            created = utc(row.get("created_at"))
+            if row.get("state") != "open" or not created or created > now:
+                continue
+            age = (now - created).days
+            if age < 30:
+                continue
+            reason = f"Observed open for {age} days"
+            priority = (age, created)
+        elif kind == "merge-duration":
+            created, merged = utc(row.get("created_at")), utc(row.get("merged_at"))
+            if not created or not merged or not now - timedelta(days=90) <= merged <= now:
+                continue
+            elapsed = max(0.0, (merged - created).total_seconds() / 86400)
+            reason = f"Observed merge duration: {elapsed:.1f} days"
+            priority = (elapsed, merged)
+        elif kind == "ci":
+            created = utc(row.get("created_at"))
+            if (not created or not now - timedelta(days=90) <= created <= now or
+                    row.get("status") != "completed" or
+                    row.get("conclusion") not in {"failure", "timed_out"}):
+                continue
+            reason = f"Recorded outcome: {row['conclusion']}"
+            priority = (created, created)
+        else:
+            closed = utc(row.get("closed_at"))
+            if not closed or not now - timedelta(days=56) <= closed <= now:
+                continue
+            bucket = "latest" if closed >= now - timedelta(days=28) else "earlier"
+            reason = f"Closed in {bucket} 28-day period"
+            priority = (closed, closed)
+        number = row.get("number")
+        label = f"#{number} · {title}" if number is not None else title
+        candidates.append((priority, {"label": label, "url": url, "reason": reason}))
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    return [item for _, item in candidates[:limit]]
+
+
 def findings_for_repo(report: dict) -> list[dict]:
     i, p, ci, c = report["issues"], report["prs"], report["ci"], report["closure"]
     name = report["repository"]["full_name"]
@@ -28,7 +92,7 @@ def findings_for_repo(report: dict) -> list[dict]:
             out.append({"type": "issue-aging", "headline": f"{value:.0f}% of {i['aged_denominator']} observed open issues are 30+ days old",
                         "evidence": f"{i['aged_open']} of {i['aged_denominator']} observed open issues in {name}.",
                         "interpretation": "Older issues form a substantial share of this observed sample; age alone does not establish delay.",
-                        "review": "Check a sample of older issues for relevance, ownership, and next steps.",
+                        "review": "Start with the oldest retrieved open issues; verify ownership, current relevance and next steps.",
                         "url": url + "/issues?q=is%3Aissue+is%3Aopen", "scope": name,
                         "review_priority": "Review first" if value >= 60 and i["aged_denominator"] >= 10 else "Review next"})
     if p["median_merge_days"] is not None and p["merge_duration_n"] >= 5:
@@ -38,13 +102,12 @@ def findings_for_repo(report: dict) -> list[dict]:
         out.append({"type": "merge-duration", "headline": f"Merged PRs took a median of {duration} (n={p['merge_duration_n']})",
                     "evidence": f"Computed from creation to merge timestamps for {p['merge_duration_n']} merged PRs in the observation window.",
                     "interpretation": "This describes observed completion time, not the cause of slower or faster merges.",
-                    "review": "Inspect a few long-running merges alongside PR complexity and review activity.",
+                    "review": "Inspect the longest observed merged PRs; compare change complexity and review history before drawing conclusions.",
                     "url": p["merged_evidence"][0] if p["merged_evidence"] else url + "/pulls", "scope": name, "review_priority": "Explore context"})
     if (_has_verified_history(report, "issues", days=56)
             and c and c["denominator"] >= 5
             and c["change_percent"] is not None
             and abs(c["change_percent"]) >= 20):
-        direction = "increased" if c["change_percent"] > 0 else "decreased"
         out.append({"type": "closure-change",
                     "headline": (f"Recorded issue closures: {c['recent']} in the latest "
                                  f"28 days, versus {c['previous']} in the preceding 28 days."),
@@ -54,14 +117,14 @@ def findings_for_repo(report: dict) -> list[dict]:
                     "interpretation": ("A change in recorded closures does not prove "
                                        "that a project slowed down, missed a deadline "
                                        "or reduced developer productivity."),
-                    "review": "Inspect the affected issues and contributor activity in both periods before drawing conclusions.",
+                    "review": "Inspect closed issues from both 28-day periods before explaining the observed change.",
                     "url": url + "/issues?q=is%3Aissue+is%3Aclosed", "scope": name,
                     "review_priority": "Review first" if abs(c["change_percent"]) >= 50 and c["denominator"] >= 10 else "Review next"})
     if (ci["known_conclusion_denominator"] or 0) >= 10 and ci["success_percent"] is not None and ci["success_percent"] < 80:
         out.append({"type": "ci", "headline": f"{ci['success_percent']:.0f}% of completed runs with known outcomes succeeded",
                     "evidence": f"{ci['success']} successes out of {ci['known_conclusion_denominator']} completed runs with known conclusions.",
                     "interpretation": "The observed CI completion share is not an overall software-quality score.",
-                    "review": "Look for recurring failure patterns by workflow and event.",
+                    "review": "Open the most recent failed checks; compare workflows, branches and repeated failure causes.",
                     "url": url + "/actions", "scope": name,
                     "review_priority": "Review first" if ci["success_percent"] < 50 and ci["known_conclusion_denominator"] >= 20 else "Review next"})
     # Compact visual evidence uses only this report's already-computed
@@ -106,7 +169,8 @@ def findings_for_repo(report: dict) -> list[dict]:
     }
     for item in out:
         item["evidence_scope"] = source_context.get(item["type"], "Observed GitHub records")
-    return out[:3]
+        item["examples"] = evidence_examples(report, item["type"])
+    return out
 
 
 def portfolio_findings(repo_reports: list[dict], max_findings=3) -> list[dict]:
