@@ -762,21 +762,16 @@ def project_details(reports):
     a, side_by_side, b, c = st.tabs(["Activity history", "Compare two projects",
                                       "Compare projects", "Source details"])
     with a:
-        observations = sorted(r.get("observations") or [],
-                              key=lambda x: utc(x["measured_at"]))
-        # Do not draw a misleading increase when a project switches from
-        # a recent-update sample to a separately verified full open backlog.
-        bases = {v.get("collection_basis") or "legacy_observed"
-                 for v in observations}
-        if len(bases) > 1:
-            latest_basis = (observations[-1].get("collection_basis")
-                            or "legacy_observed")
-            observations = [v for v in observations
-                            if (v.get("collection_basis") or
-                                "legacy_observed") == latest_basis]
-            st.caption("Collection method changed. Previous open-item counts "
-                       "are not directly comparable to the current method; "
-                       "this chart only shows observations using the same basis.")
+        observations = sorted(
+            (v for v in r.get("observations") or []
+             if v.get("collection_basis") == "verified_open_inventory"),
+            key=lambda x: utc(x["measured_at"]))
+        if len(observations) < 2:
+            st.caption(
+                "A historical open-backlog trend requires at least two "
+                "independently verified full open inventories. Older sampled "
+                "observations cannot prove a change in total outstanding work."
+            )
         if len(observations) >= 2:
             df = pd.DataFrame([
                 {"Observation": utc(v["measured_at"]).isoformat()[:16],
@@ -816,12 +811,19 @@ def issues_backlog(reports):
         return
     info = r["issues"]
     observed = summary([r])
+    full_backlog = r.get("open_backlog_status") == "complete"
     _kpis([
-        ("Open tasks retrieved", _number(observed["open_issues"]), "Observed issue records", "◷"),
-        ("30+ days old", _number(observed["aged_issues"]), "Open task age · not lateness", "◴"),
-        ("Share aged 30+ days", _percent(observed["aged_share"]), "Of retrieved open tasks", "%"),
+        ("Open tasks retrieved", _number(observed["open_issues"]),
+         "Retrieved GitHub Issues · not necessarily full backlog", "◷"),
+        ("30+ days old · observed", _number(info["sample_aged_open"]),
+         "Observed sample age · not a missed deadline", "◴"),
+        ("Share aged 30+ days" if full_backlog else "Share aged · sample only",
+         _percent(info["aged_percent"] if full_backlog
+                  else info["sample_aged_percent"]),
+         "Verified full open-Issue inventory" if full_backlog
+         else "Sample of retrieved open Issues; may omit older items", "%"),
     ])
-    if r.get("open_backlog_status") == "complete":
+    if full_backlog:
         st.caption("Full open-Issue inventory scan finished for this repository. "
                    "Open-item counts reflect that scan; source event trends "
                    "still need their own 28-day verification.")
