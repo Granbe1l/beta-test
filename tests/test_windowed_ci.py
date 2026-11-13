@@ -101,7 +101,9 @@ def test_verified_ci_days_resume_after_partial_collector_run(db, cfg):
     done = db.get(SyncCheckpoint, (101, "workflow_runs"))
     assert second["status"] == "complete"
     assert len(done.verified_days) >= 29
-    assert client.request_count - first_attempts < first_attempts
+    # A fresh check of the current UTC day is mandatory even when older
+    # verified day buckets are reused; it may cost one extra request.
+    assert client.request_count - first_attempts <= first_attempts
     assert done.high_watermark is not None
 
 
