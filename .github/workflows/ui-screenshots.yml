@@ -60,3 +60,57 @@ jobs:
             docs/screenshots/recruiter-browser-audit.json
           if-no-files-found: warn
           retention-days: 14
+
+  # Only the trusted, successfully-tested main-branch screenshot artifact
+  # may write permanent preview images. PRs retain read-only permissions.
+  gallery:
+    name: Commit verified screenshot previews to main
+    needs: screenshot
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.screenshot.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Publish gallery only for UI or screenshot-code changes
+        id: gate
+        shell: bash
+        run: |
+          if git diff-tree --no-commit-id --name-only -r HEAD |
+             grep -E '^(src/ui/|streamlit_app\.py$|scripts/(capture_ui|prepare_gallery)\.py$|\.github/workflows/ui-screenshots\.yml$)'; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Only snapshot/data changed. Preserve existing permanent gallery."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/download-artifact@v4
+        if: steps.gate.outputs.publish == 'true'
+        with:
+          name: project-delivery-populated-ui-screenshots
+          path: docs/screenshots
+      - uses: actions/setup-python@v5
+        if: steps.gate.outputs.publish == 'true'
+        with:
+          python-version: '3.12'
+      - name: Convert verified Playwright PNGs to compact permanent previews
+        if: steps.gate.outputs.publish == 'true'
+        run: |
+          python -m pip install Pillow
+          python scripts/prepare_gallery.py
+      - name: Commit only actual preview images and provenance
+        if: steps.gate.outputs.publish == 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/gallery/*.jpg docs/gallery/manifest.json
+          if git diff --cached --quiet; then
+            echo "No gallery changes to commit."
+            exit 0
+          fi
+          git commit -m "docs: publish verified Streamlit screenshot previews [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
