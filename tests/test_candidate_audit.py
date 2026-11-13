@@ -133,3 +133,49 @@ def test_daily_rotation_checks_different_real_candidates_without_promotion(cfg, 
     assert all(r["verified_candidates"] == 0 for r in results)
     assert all(r["known_repository_count"] == 1 for r in results)
     assert all("not an approved" in r["notice"] for r in results)
+
+
+def test_six_hour_rotation_reaches_all_three_candidate_groups(cfg, monkeypatch):
+    monkeypatch.setenv("CANDIDATE_ROTATION_HOURS", "6")
+    pool = []
+    for i in range(12):
+        raw = candidate(1500 + i)
+        raw["created_at"] = (NOW - timedelta(days=100)).isoformat()
+        pool.append(raw)
+    monkeypatch.setattr(
+        "scripts.audit_candidate_pool.discover_candidates",
+        lambda client, known, settings, **kwargs: (list(pool), []),
+    )
+    inspected = []
+    def inspected_candidate(client, raw, settings, **kwargs):
+        inspected.append(raw["id"])
+        return {"github_id": raw["id"], "full_name": raw["full_name"],
+                "verdict": "not_verified", "sources": {}}
+    monkeypatch.setattr(
+        "scripts.audit_candidate_pool.probe_candidate", inspected_candidate,
+    )
+    client = SimpleNamespace(request_count=0, max_requests=1000)
+    audited = [
+        audit_candidates(client, cfg, {111}, now=NOW + timedelta(hours=h),
+                         max_candidates=12, max_probes=4)
+        for h in (0, 6, 12)
+    ]
+    assert len({result["rotation_cycle"] for result in audited}) == 3
+    assert set(inspected) == {raw["id"] for raw in pool}
+    assert all(result["rotation_hours"] == 6 for result in audited)
+
+
+def test_cheap_first_candidate_fails_without_costly_other_scans(cfg, monkeypatch):
+    monkeypatch.setenv("CANDIDATE_CHEAPEST_FIRST", "1")
+    raw = candidate(1999)
+    called = []
+    def no_ci(client, repo, source, cutoff, settings, now, **kwargs):
+        called.append(source)
+        return [], PageResult([], 1, True, False, False), cutoff, 1, 1
+    monkeypatch.setattr("scripts.audit_candidate_pool.fetch_source_adaptive", no_ci)
+    result = probe_candidate(
+        SimpleNamespace(request_count=0, max_requests=220),
+        raw, cfg, now=NOW)
+    assert called == ["workflow_runs"]
+    assert result["verdict"] == "not_verified"
+    assert result["sources"]["workflow_runs"]["records"] == 0
