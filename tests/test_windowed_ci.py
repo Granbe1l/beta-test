@@ -3,7 +3,7 @@ from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 
 from src.collectors.client import PageResult
-from src.collectors.sync import fetch_source_adaptive, sync_one
+from src.collectors.sync import fetch_source_adaptive, fetch_ci_windowed, sync_one
 from src.database.models import Repository, SyncCheckpoint
 from .conftest import NOW, run_payload
 
