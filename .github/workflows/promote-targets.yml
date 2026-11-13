@@ -2,11 +2,12 @@ name: Verify and promote individually screened GitHub projects
 
 on:
   workflow_dispatch:
-  # One supervised run on first merge; later runs must be explicitly requested.
+  # Re-run on reviewed candidate-code updates; otherwise manually dispatch.
   push:
     branches: [main]
     paths:
       - '.github/workflows/promote-targets.yml'
+      - 'scripts/audit_targeted_candidates.py'
 
 permissions:
   contents: write
