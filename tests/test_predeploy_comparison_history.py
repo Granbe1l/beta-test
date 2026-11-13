@@ -85,7 +85,12 @@ def test_preferred_metric_uses_available_verified_measures_for_real_chart():
     assert preferred_metric(rows, 28) == "PRs merged · 28d"
     r2["status"] = {s: "partial" for s in r2["status"]}
     filtered = comparison_rows([r1, r2], days=28, now=NOW)
-    assert preferred_metric(filtered, 28) == "Issue records retrieved · exploratory"
+    # Full-open inventory verification is independent of Issue event-window
+    # scans; do not discard this genuine verified metric.
+    assert preferred_metric(filtered, 28) == "Open issues aged 30+ (%) · full inventory"
+    r2["open_backlog_status"] = "partial"
+    fallback = comparison_rows([r1, r2], days=28, now=NOW)
+    assert preferred_metric(fallback, 28) == "Issue records retrieved · exploratory"
 
 
 def test_one_verified_inventory_is_not_a_fake_historical_trend():
