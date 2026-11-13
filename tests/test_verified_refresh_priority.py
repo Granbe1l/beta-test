@@ -56,6 +56,9 @@ def test_stale_three_source_still_attempts_real_refetch_not_fabricated_success(d
     for source in SOURCES:
         db.add(_cp(at_risk.id, source, 13))
     db.add(_cp(short.id, "issues", 1, days=7, pages=2))
+    # The fixture repository must have been visited already: the existing
+    # initial bootstrap branch deliberately precedes freshness prioritization.
+    db.add(SyncCheckpoint(repo_id=101, source="issues", status="partial"))
     db.commit()
     visits = []
 
