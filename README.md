@@ -371,3 +371,34 @@ A working public app URL has NOT been verified; deployment must be
 checked before claiming a live demo. In an interview, show an observed
 finding, open its direct GitHub evidence, explain the verified 7/28/90-day
 window, and demonstrate the collector's saved progress.
+
+
+## Evidence-first triage and executable SQL audit (November 2026)
+
+The finding cards use measured values and a next inspection action. Expand
+**Evidence and limitations → Original records to inspect** to open a short
+list of relevant source Issues, merged PRs, or failed GitHub Actions runs.
+These are real records within the curated sample, **not confirmed defects**.
+All four finding categories can enter portfolio-wide review prioritization;
+a premature per-repository limit no longer suppresses the last type.
+
+A separate **handwritten SQL query** summarizes real collector tables with
+CTEs, JOINs, CASE conditions, aggregation and source-specific 28-day
+freshness flags. It groups each source *before* joining to prevent
+issue × PR × CI double-counting. This demonstrates SQL analysis without
+misrepresenting the Streamlit public snapshot as a live SQL dashboard.
+
+```bash
+# From repo root, using the checked-in real snapshot:
+python scripts/restore_public_snapshot.py
+python scripts/sql_insights.py
+```
+
+The SQL output lists observed Issue/PR/CI values and per-source coverage
+flags. Counts are observations, not complete GitHub histories, missed
+deadlines, software quality, or employee-performance ratings. The CI
+workflow runs these SQL statements over the real published snapshot.
+
+See [implementation status](docs/IMPLEMENTATION_STATUS.md) for the
+verified coverage gaps and [nontechnical review protocol](docs/REVIEWER_USABILITY_CHECK.md).
+The review protocol is **not** evidence that HRD user testing already passed.

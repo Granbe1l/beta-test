@@ -378,6 +378,17 @@ def _findings_view(findings):
                     st.caption(f.get("evidence_scope", "Observed GitHub records"))
                     st.write(f["evidence"])
                     st.write(f["interpretation"])
+                    examples = f.get("examples") or []
+                    if examples:
+                        st.markdown("**Original records to inspect**")
+                        st.caption("These are examples from retrieved data, not confirmed defects.")
+                        for example in examples:
+                            st.link_button(example["label"], example["url"],
+                                           use_container_width=True)
+                            st.caption(example["reason"])
+                    else:
+                        st.caption("No record-level example is available in this snapshot; "
+                                   "use the source link above and check collection coverage.")
 
 
 def _weekly(rows, days=84):
@@ -901,8 +912,9 @@ def risks_recommendations(reports, selection):
     _section("Priorities for a closer look",
              "Source-linked observations; inspection priority is not a project-quality ranking.")
     _findings_view(found)
-    st.caption("Review first means inspect the underlying records sooner—not that a project "
-               "is delayed, low-quality, or has a confirmed defect.")
+    st.caption("Review first is a transparent inspection priority—not proof of delay. "
+               "Record-level links in each expanded finding allow the reviewer to test the claim. "
+               "It does not mean a project is delayed, low-quality, or has a confirmed defect.")
     with st.expander("Data selection, formulas and limitations"):
         methodology_contents(reports, selection)
 
