@@ -439,6 +439,29 @@ artifacts after a completed refresh; code tests alone do not establish
 coverage gains.
 
 
+## CV-ready verified analysis without waiting 28 days
+
+The prior 28 days of GitHub records can be inspected **now**; collecting
+for 28 new days is not a prerequisite. Some large repositories still
+reach REST pagination or scheduled API-request limits, so a complete
+28-day window is not available for all 75 projects.
+
+The overview includes **strict matching cohort** filters for seven or
+28 days: all selected repositories must have complete source coverage
+for Issues, pull requests **and** CI runs over the same chosen period.
+Other monitored projects remain visible through labelled exploratory
+views; missing data never count as zero activity or late delivery.
+
+To get a dated, reproducible summary from the actual checked-in snapshot:
+
+```bash
+python scripts/cv_evidence.py
+```
+
+See [CV wording and evidence boundaries](docs/CV_EVIDENCE.md). The dated
+receipt is also executed on every Quality checks run, avoiding hard-coded
+estimates or the false claim that all 75 sources are verified.
+
 ## P0 data-integrity improvement: independently audited open-Issue backlog
 
 A GitHub Issues scan with `since` only covers last-updated records;
