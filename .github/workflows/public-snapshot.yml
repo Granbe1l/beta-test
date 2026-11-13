@@ -26,6 +26,7 @@ jobs:
       MAX_CANDIDATES: '320'
       SEARCH_PAGES_PER_QUERY: '1'
       MAX_PAGES_PER_SOURCE: '6'
+      BACKLOG_SEARCH_MAX_CALLS: '12'  # Bound secondary Search requests per repo
       PER_PAGE: '100'
       BACKFILL_DAYS: '120' # Explicit reconciliations; bootstrap retries 28/7/1-day windows
       COMPARISON_DAYS: '90'
