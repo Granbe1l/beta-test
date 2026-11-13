@@ -374,10 +374,16 @@ def record_observations(session: Session, repo_id: int, now=None):
         return False
     issues = list(session.scalars(select(Issue).where(Issue.repo_id == repo_id, Issue.state == "open")))
     prs = list(session.scalars(select(PullRequest).where(PullRequest.repo_id == repo_id, PullRequest.state == "open")))
+    inventory = cps.get("open_backlog")
+    full_backlog = bool(inventory and inventory.status == "complete" and
+                        inventory.last_success_at and
+                        utc(inventory.last_success_at) >= now - timedelta(hours=12))
+    basis = "verified_open_inventory" if full_backlog else "sampled_updated_events"
     session.add(Observation(repo_id=repo_id, measured_at=now,
                             open_issues_observed=len(issues),
                             aged_issues_observed=sum((now - utc(i.created_at)).days >= 30 for i in issues),
-                            open_prs_observed=len(prs)))
+                            open_prs_observed=len(prs),
+                            collection_basis=basis))
     session.commit()
     return True
 
@@ -446,7 +452,8 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
         for source in source_order:
             result.append(sync_one(session, client, repo, source, settings,
                                    reconcile=reconcile, now=run_at or utcnow()))
-        record_observations(session, repo.id)
+        if not audit_open_backlog:
+            record_observations(session, repo.id)
         visited.append(repo)
 
     if audit_open_backlog and visited:
@@ -479,4 +486,9 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
                 continue
             result.append(sync_open_backlog(
                 session, client, repo, settings, now=run_at or utcnow()))
+    if audit_open_backlog:
+        # Measure AFTER inventory reconciliation; older observation samples
+        # use a distinct basis and must not be compared to full inventories.
+        for repo in visited:
+            record_observations(session, repo.id, now=run_at or utcnow())
     return result
