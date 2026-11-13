@@ -122,3 +122,31 @@ testable in automated unit and populated browser captures.
 **This is an inspection queue, not a validated business outcome.** Real
 nontechnical participant testing is still pending; CI and screenshots
 cannot establish what a human HR reviewer understands.
+
+
+## P2: reproducible performance, navigation and evidence UX
+
+The improvements below were validated against the same public GitHub
+snapshot, without fabricating an HR-user test or inventing end-user latency.
+
+| Stage | Observable improvement | Acceptance evidence |
+| --- | --- | --- |
+| P2.1 Performance | Batch SQL SELECTs per source; retain the latest 30 per-repository observations; decode compressed snapshot date fields in one JSON pass | 376 previous per-repository SELECTs vs **6** on 75 real repositories; CI checked stored Issue/PR/CI row parity ([PR #15](https://github.com/Granbe1l/beta-test/pull/15)) |
+| P2.2 Filters and navigation | Keep repository choice across pages, reset pagination when matching rows change, prevent missing open-backlog status and pandas NaT table errors | Streamlit AppTest + real desktop/mobile capture with exception detection ([PR #16](https://github.com/Granbe1l/beta-test/pull/16)) |
+| P2.3 Visual clarity | Condense the mobile opening, move supporting coverage detail into an expandable explanation, avoid Plotly modebar overlay | Actual responsive browser screenshots and retained disclosure tests ([PR #17](https://github.com/Granbe1l/beta-test/pull/17)) |
+| P2.4 Decision traceability | Main action opens an original stored record whenever present; source-listing fallback is labelled rather than passing as record-level evidence | Real-snapshot reviewer action audit and browser tests ([PR #18](https://github.com/Granbe1l/beta-test/pull/18)) |
+| P2.5 Portfolio readiness | Place the nontechnical reviewer journey first; avoid stale fixed source counts and include a readable CV proof | [one-page case study](PORTFOLIO_CARD.md), [CV evidence](CV_EVIDENCE.md), GitHub Quality Checks and [public-demo gate](PUBLIC_DEPLOYMENT.md) |
+
+The scope of "verified" applies to checked source windows, **not**
+software quality, developer productivity, client deadlines or a claim
+that all GitHub history was collected. A page being visible in automated
+browser tests does not establish a publicly hosted Streamlit URL.
+
+**Still open, outside code-review completion:**
+- Three genuinely successful scheduled collection events with acceptable
+  spacing have not been established as consistent six-hour operation.
+- Streamlit Community Cloud deployment requires owner sign-in and real
+  public URL verification; it must not be claimed successful before then.
+- A formal human nontechnical participant study has not been performed.
+  The automated UI/contrast/evidence tests are valid portfolio
+  engineering tests but are not a human-understanding score.

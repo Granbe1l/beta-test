@@ -4,9 +4,33 @@ An evidence-first, read-only analytics dashboard that helps nontechnical reviewe
 
 > **Current status (13 November 2026):** The audited 75-repository public snapshot exists, GitHub Actions collection has completed successfully, and desktop/mobile browser screenshot tests have passed. GitHub Actions collection is scheduled every six hours, but individual runs can be delayed or fail; never mistake a stored snapshot for real-time data. Hosted Streamlit Cloud deployment and managed PostgreSQL are separate, optional steps and are **not** claimed verified here. All figures are obtained from public GitHub records.
 
+## Start here — 60-second reviewer tour
+
+**Business question:** Which public software projects show observable work,
+what is the exact source confidence, and which original GitHub record should
+someone inspect before reaching a conclusion? This is **not** a client-delivery
+tracker, SLA monitor or employee-productivity ranking.
+
+| What the reviewer sees | What they can check |
+| --- | --- |
+| **75 curated public GitHub repositories** | Six interactive views for source-specific Issues, PRs and Actions runs |
+| **Verified vs exploratory scopes** | A 28-day verified cohort only includes repositories whose three source scans cover that period; incomplete sources remain discoverable |
+| **Evidence-based findings** | A concrete count/denominator, next review step, and **direct original GitHub record** where retrieved; otherwise an explicitly labelled source listing |
+| **Reproducible engineering** | Read-only SQL snapshot integrity checks, browser screenshots, and measured reduction from 376 to 6 database SELECT queries for 75 repos (not a claimed browser speedup) |
+
+**Show the work:** [one-page case study](docs/PORTFOLIO_CARD.md) ·
+[full technical evidence](docs/PORTFOLIO_CASE_STUDY.md) ·
+[latest browser capture workflow](https://github.com/Granbe1l/beta-test/actions/workflows/ui-screenshots.yml) ·
+[actual SQL optimization tests](https://github.com/Granbe1l/beta-test/pull/15) ·
+[CV-safe wording](docs/CV_EVIDENCE.md).
+
+**Live demo:** **not yet publicly verified**. Use the
+[deployment and verification guide](docs/PUBLIC_DEPLOYMENT.md).
+Do not claim recruiters can open a hosted app before its public verification passes.
+
 ## What SQL is used for
 
-This project **does use a SQL database for data collection and checkpointing**, but the read-only Streamlit demo primarily analyzes a checked-in JSON snapshot using Python/Pandas. Database access is implemented with SQLAlchemy ORM, not an extensive library of handwritten SQL queries. Read the [actual schema and SQL examples](docs/SQL_DATABASE_USAGE.md) to distinguish the implemented pipeline from illustrative SQL queries.
+This project **uses SQLite in the collector and for source-level checkpoints**, with optional PostgreSQL support. `src/analytics/read.py` retrieves tables through SQLAlchemy in **batched SELECTs** (measured on a restored real snapshot), while `scripts/sql_insights.py` runs **actual read-only SQL** with grouped CTEs and source-coverage safeguards. The default public Streamlit view reads a committed, compressed JSON snapshot and uses Python/Pandas for presentation; it does not run remote SQL on each visitor's request. See [schema and SQL usage](docs/SQL_DATABASE_USAGE.md) and [the measured performance gate](https://github.com/Granbe1l/beta-test/pull/15).
 
 ## Public demo — deployment gate
 
@@ -75,7 +99,7 @@ GitHub REST issues / pulls / actions/runs (read-only)
                   |
  bounded paging + normalized validated records
                   |
- PostgreSQL (local option: SQLite) <--- checkpoints, logs, observations
+ SQLite collector (optional PostgreSQL) <- checkpoints / logs
                   ^
  GitHub Actions public snapshot every 6h
                   |
@@ -100,7 +124,8 @@ src/database/store.py          Sessions, upsert, safe errors
 src/analytics/metrics.py       Deterministic KPIs and denominator rules
 src/analytics/findings.py      Evidence-based interpretation and next review
 src/analytics/read.py          Read persisted records / source health
-src/ui/pages.py                Five dashboard views
+src/ui/dashboard_v2.py         Six visual dashboard pages and source-linked actions
+src/ui/pages.py                Shared tables, pagination and repository picker
 src/ui/theme.py                Accessible colors, responsive CSS
 scripts/init_db.py             Initialize schema
 scripts/run_sync.py            Initial selection / scheduled sync CLI
