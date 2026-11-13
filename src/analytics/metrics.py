@@ -35,7 +35,7 @@ def weekly_series(items, key: str, since, now):
     return [{"week": t, "count": counts[t]} for t in ticks]
 
 
-def calculate_issues(issues: list[dict], now, observation_days: int = 90, complete=True, coverage_start=None) -> dict:
+def calculate_issues(issues: list[dict], now, observation_days: int = 90, complete=True, coverage_start=None, backlog_complete=False) -> dict:
     now = utc(now)
     active = [i for i in issues if i.get("state") == "open"]
     aged = [i for i in active if days(i["created_at"], now) >= 30]
@@ -48,12 +48,17 @@ def calculate_issues(issues: list[dict], now, observation_days: int = 90, comple
     opened = weekly_series(issues, "created_at", since, now) if trend_valid else None
     closed = weekly_series(issues, "closed_at", since, now) if trend_valid else None
     labels = Counter(label for i in issues for label in i.get("labels", []))
-    return {"observed_open": len(active) if complete else None,
+    # A complete recent-updates scan does not certify all open issues.
+    # An independent exhausted open-backlog scan does, but never changes
+    # eligibility for 7/28/90-day source event trends.
+    valid_observed_open = complete or backlog_complete
+    return {"observed_open": len(active) if valid_observed_open else None,
             "observed_open_partial": len(active),
-            "aged_open": len(aged) if complete else None,
-            "aged_percent": ratio(len(aged), len(active)) if complete else None,
-            "aged_denominator": len(active) if complete else None,
-            "age_distribution": age_groups if complete else None,
+            "aged_open": len(aged) if valid_observed_open else None,
+            "aged_percent": ratio(len(aged), len(active)) if valid_observed_open else None,
+            "aged_denominator": len(active) if valid_observed_open else None,
+            "age_distribution": age_groups if valid_observed_open else None,
+            "full_open_backlog_verified": bool(backlog_complete),
             "weekly_opened": opened, "weekly_closed": closed,
             "label_counts": labels.most_common(8) if complete else None,
             "total_observed": len(issues), "trend_valid": trend_valid}
