@@ -25,7 +25,7 @@ def timestamp(value):
     return x.replace(tzinfo=timezone.utc) if x.tzinfo is None else x.astimezone(timezone.utc)
 
 
-def verify_progress(before: dict, after: dict, expected_repositories=75) -> dict:
+def verify_progress(before: dict, after: dict, expected_repositories=50) -> dict:
     rows = after.get("repositories") or []
     if len(rows) != expected_repositories:
         raise ValueError(
@@ -89,7 +89,9 @@ def main():
         raise SystemExit("Usage: verify_collection.py BEFORE.json AFTER.json")
     before = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
     after = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
-    result = verify_progress(before, after)
+    import os
+    expected = int(os.getenv("MAX_REPOS", "50"))
+    result = verify_progress(before, after, expected_repositories=expected)
     print("COLLECTION VALIDATION:", json.dumps(result, sort_keys=True), flush=True)
     summary_path = __import__("os").environ.get("GITHUB_STEP_SUMMARY")
     if summary_path:
