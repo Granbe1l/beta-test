@@ -658,7 +658,7 @@ def overview(reports, selection):
         st.caption(
             "The overview uses 7-day push and event metadata, the line uses "
             "a selectable 7/28-day window, and the check outcome donut uses "
-            "the last 30 days. Different windows are always labelled."
+            "the last 28 days. Different windows are always labelled."
         )
 
     _section("03 / Delivery activity", "What remains open, and how did automatic checks perform?")
@@ -669,8 +669,8 @@ def overview(reports, selection):
         _horizontal_bars(list(bands), list(bands.values()), BAR,
                          height=250, unit="Observed open issues")
     with right, st.container(border=True):
-        _chart_title("Automated check outcomes", "Share of known GitHub Actions results · last 30 days.")
-        _ci_donut(info["ci_rows"], period=30)
+        _chart_title("Automated check outcomes", "Share of known GitHub Actions results · last 28 days.")
+        _ci_donut(info["ci_rows"], period=28)
 
     _section("04 / Matched snapshot change",
              "A trend is shown only for projects with comparable validated observations on two different days.")
@@ -890,6 +890,13 @@ def pull_request_review(reports):
         return
     info = r["prs"]
     observed = summary([r])
+    from src.ui.observed import qualified_reports
+    if not qualified_reports([r], "pull_requests", days=90):
+        st.caption(
+            "The 90-day PR view contains retrieved records and may be "
+            "incomplete. Its counts are observations, not the total "
+            "number of changes across all 90 days."
+        )
     _kpis([
         ("Open changes retrieved", _number(observed["open_changes"]), "Includes draft pull requests", "⇄"),
         ("Draft changes", _number(observed["draft_changes"]), "Of observed open changes", "◈"),
@@ -947,9 +954,16 @@ def cicd_activity(reports):
     if not r:
         empty_state("No repository selected")
         return
-    period = st.selectbox("Observation period", [30, 90],
+    period = st.selectbox("Observation period", [28, 90],
                           format_func=lambda d: f"Last {d} days", key="v3_ci_period")
     info = checks_in_period(r["ci_rows"], days=period)
+    from src.ui.observed import qualified_reports
+    if not qualified_reports([r], "workflow_runs", days=period):
+        st.warning(
+            f"Only a retrieved sample is available for the selected {period}-day "
+            "CI/CD period; the source has not verified this entire interval. "
+            "Outcome percentages describe retrieved known runs only."
+        )
     _kpis([
         (f"Completed checks · {period}d", _number(info["total"]),
          "Retrieved GitHub Actions runs", "▣"),
