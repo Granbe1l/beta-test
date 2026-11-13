@@ -33,10 +33,21 @@ def main():
                 "stale": states["stale"], "failed": states["failed"],
                 "unavailable": states["unavailable"],
                 "verified_28d": ready28, "total_repositories": len(reports)}
+        backlog = Counter(r.get("open_backlog_status", "unavailable") for r in reports)
+        source_status["open_backlog"] = {
+            "complete": backlog["complete"],
+            "partial": backlog["partial"],
+            "stale": backlog["stale"],
+            "failed": backlog["failed"],
+            "unavailable": backlog["unavailable"],
+            "total_repositories": len(reports),
+            "meaning": "independent full open-Issue scan, not verified 28-day event coverage",
+        }
         print(json.dumps({"selection":({k:v for k,v in selection.items() if k!="decisions"} if selection else None),
                           "repositories":[{
                               "name":r["repository"]["full_name"],
                               "status":r["status"],
+                              "open_backlog_status":r.get("open_backlog_status", "unavailable"),
                               "last_success_at":{
                                   source:((r.get("coverage") or {}).get(source) or {}).get("last_success_at")
                                   for source in ("issues","pull_requests","workflow_runs")},
