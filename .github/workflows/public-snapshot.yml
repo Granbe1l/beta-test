@@ -43,7 +43,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Fetch pinned pre-curation snapshot commit for archival recovery
-        run: git fetch --no-tags origin 0b7e80867c76d1dd3ba824a8749742e6757ff431
+        shell: bash
+        run: |
+          git fetch --no-tags origin 0b7e80867c76d1dd3ba824a8749742e6757ff431 || git fetch --no-tags --deepen=30 origin main
+          git cat-file -e '0b7e80867c76d1dd3ba824a8749742e6757ff431:data/github_public_snapshot.json.gz'
       - name: Curate audited 50-project membership; losslessly archive 25 prior reports
         run: python scripts/curate_verified_50.py
       - name: Restore last validated public snapshot
