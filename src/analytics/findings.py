@@ -169,6 +169,12 @@ def findings_for_repo(report: dict) -> list[dict]:
     }
     for item in out:
         item["evidence_scope"] = source_context.get(item["type"], "Observed GitHub records")
+        if item["type"] == "issue-aging":
+            item["evidence_scope"] = (
+                "Verified complete current open-Issue inventory at the last scan"
+                if report.get("open_backlog_status") == "complete"
+                else "Observed retrieved open Issues · not a complete backlog"
+            )
         item["examples"] = evidence_examples(report, item["type"])
     return out
 
