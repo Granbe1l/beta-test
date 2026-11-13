@@ -14,6 +14,7 @@ from src.analytics.read import load_reports, selection_info
 from src.analytics.snapshot import read_snapshot, SNAPSHOT_PATH
 from src.ui.theme_v2 import apply_theme_v2, brand
 from src.ui.observed import coverage_counts, verified_joint_cohort
+from src.ui.reader_guide import TERMS, HOW_TO_READ, NAV_HELP
 from src.ui.dashboard_v2 import (
     overview, project_details, issues_backlog, pull_request_review,
     cicd_activity, risks_recommendations, status_for,
@@ -86,7 +87,7 @@ with st.sidebar:
             label, key="nav_" + label.lower().replace(" ", "_").replace("&", "and"),
             use_container_width=True,
             type="primary" if st.session_state["main_nav"] == label else "secondary",
-            icon=NAV_ICONS[label],
+            icon=NAV_ICONS[label], help=NAV_HELP[label],
         ):
             st.session_state["main_nav"] = label
             st.rerun()
@@ -97,6 +98,13 @@ with st.sidebar:
                  help="Reload saved records only; ingestion runs in GitHub Actions."):
         get_data.clear()
         st.rerun()
+    with st.expander("Reading guide · 1 minute"):
+        st.caption("Public GitHub activity, not private client deadlines.")
+        for title, meaning in TERMS:
+            st.markdown(f"**{title}:** {meaning}")
+        st.divider()
+        for instruction in HOW_TO_READ:
+            st.caption(instruction)
     st.markdown(
         '<div class="side-footer">Candy Ristyan · Public GitHub data</div>',
         unsafe_allow_html=True,
@@ -142,6 +150,11 @@ with st.sidebar:
     st.caption(
         f"Verified all three sources: {len(verified_28)}/{len(all_reports)} "
         f"for 28 days · {len(verified_7)}/{len(all_reports)} for 7 days."
+    )
+    st.caption(
+        "Verified means the chosen period was fully scanned for "
+        "Issues, PR and CI checks. It does not certify the full "
+        "open-Issue backlog or project quality."
     )
 if selected_scope.startswith("Verified · 28"):
     reports = verified_28
