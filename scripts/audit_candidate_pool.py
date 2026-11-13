@@ -127,8 +127,18 @@ def audit_candidates(client, settings, known_ids, *, now=None,
     before = getattr(client, "request_count", 0)
     candidates, search_errors = discover_candidates(
         client, known_ids, settings, now=now, max_candidates=max_candidates)
+    # Rotate candidate probes on successive UTC calendar days instead of
+    # repeatedly spending the same API budget on the first eight projects.
+    # The complete candidate pool is disclosed; no unverified candidate is
+    # promoted. Reordering the returned audit never changes fixed 75 selection.
+    count = len(candidates)
+    max_probes = max(0, int(max_probes))
+    cycles = max(1, (count + max(1, max_probes) - 1) // max(1, max_probes))
+    cycle = (now.date().toordinal() % cycles) if count else 0
+    start_index = min(cycle * max_probes, count)
+    to_probe = candidates[start_index:start_index + max_probes]
     results = []
-    for raw in candidates[:max_probes]:
+    for raw in to_probe:
         if getattr(client, "max_requests", None) is not None and (
             client.max_requests - client.request_count <
             3 * settings.max_pages + 25
@@ -136,6 +146,10 @@ def audit_candidates(client, settings, known_ids, *, now=None,
             break
         results.append(probe_candidate(client, raw, settings, now=now))
     return {
+        "rotation_cycle": cycle,
+        "rotation_cycles": cycles,
+        "rotation_start_index": start_index,
+        "candidate_pool_size": count,
         "generated_at_utc": now.isoformat(),
         "known_repository_count": len(known_ids),
         "discovered_eligible_candidates": len(candidates),
@@ -183,6 +197,7 @@ def main():
             file.write("\n### Independent candidate verification (not promoted)\n\n")
             file.write(
                 f"Discovered: **{result['discovered_eligible_candidates']}**, "
+                f"rotating group **{result['rotation_cycle']+1}/{result['rotation_cycles']}**, "
                 f"probed: **{result['probed']}**, "
                 f"strictly verified: **{result['verified_candidates']}**. "
                 "No existing repository was deleted or replaced.\n\n"
