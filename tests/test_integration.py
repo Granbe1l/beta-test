@@ -40,5 +40,11 @@ def test_offline_pipeline_produces_defensible_findings(db,cfg):
     assert r['issues']['observed_open']==11
     assert r['prs']['median_merge_days'] is not None
     findings=portfolio_findings(reports)
-    assert any(f['type']=='issue-aging' for f in findings)
+    # A completed last-updated source scan is not a complete inventory.
+    # It is correct to withhold whole-backlog age findings until the
+    # independent open-Issue source has been fully verified.
+    assert r['issues']['sample_aged_denominator'] == 11
+    assert r['issues']['aged_percent'] is None
+    assert not any(f['type']=='issue-aging' for f in findings)
+    assert findings  # Other source-specific findings can still qualify.
     assert all(f['url'].startswith('https://github.com/') for f in findings)
