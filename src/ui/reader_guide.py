@@ -10,7 +10,7 @@ TERMS = (
     ("Issue", "A reported task, question, or bug; it is not automatically overdue."),
     ("Pull request (PR)", "A proposal to change code. It is not finished until merged."),
     ("CI/CD check", "An automated build or test run; one failure is not proof the project failed."),
-    ("Verified period", "GitHub data for the selected 7 or 28 days were fully scanned for all required sources. It is not a project-quality rating or a complete lifetime history."),
+    ("Verified period", "GitHub data for the selected 7 or 28 days were fully scanned for all required sources. It is not a project-quality rating or an assessment of project performance. It is not a complete lifetime history."),
     ("Exploratory", "Only retrieved records are shown. Uncollected or stale records cannot be counted as zero activity."),
 )
 HOW_TO_READ = (
