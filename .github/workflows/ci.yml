@@ -29,6 +29,18 @@ jobs:
         env:
           DATABASE_URL: sqlite:///local.sqlite3
         run: python scripts/verify_kpi_integrity.py
+      - name: Benchmark real restored SQL loader query count
+        env:
+          DATABASE_URL: sqlite:///local.sqlite3
+        run: python scripts/benchmark_sql_loader.py
+      - name: Preserve real SQL performance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2-real-snapshot-sql-loader-benchmark
+          path: sql-loader-benchmark.json
+          if-no-files-found: warn
+          retention-days: 14
       - name: Generate CV evidence receipt from real GitHub snapshot
         run: python scripts/cv_evidence.py
       - name: Audit reviewer findings against real GitHub source records
