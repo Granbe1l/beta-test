@@ -113,8 +113,7 @@ def _chart(fig, height=265, legend=False):
     fig.update_yaxes(gridcolor="#F1EDF7", zeroline=False,
                      tickfont=dict(color="#746D81"))
     st.plotly_chart(fig, use_container_width=True,
-                    config={"displaylogo": False,
-                            "modeBarButtonsToRemove": ["lasso2d", "select2d"]})
+                    config={"displaylogo": False, "displayModeBar": False})
 
 
 def _horizontal_bars(labels, counts, colors=None, height=245, unit="Observed records"):
@@ -610,15 +609,16 @@ def overview(reports, selection):
     ])
     from src.ui.observed import evidence_readiness
     readiness = evidence_readiness(chosen)
-    st.caption(
-        "Evidence-ready cohorts within this selection: "
-        f"**{readiness['joint_verified_7d']}/{readiness['tracked']}** projects "
-        "have all three sources verified for 7 days; "
-        f"**{readiness['joint_verified_28d']}/{readiness['tracked']}** "
-        "for 28 days. A verified time window does not require waiting "
-        "28 new days; it requires a complete scan of existing history. "
-        "Partial projects remain accessible for labelled exploration."
-    )
+    with st.expander("Evidence coverage · verified vs exploratory"):
+        st.caption(
+            "Evidence-ready cohorts within this selection: "
+            f"**{readiness['joint_verified_7d']}/{readiness['tracked']}** projects "
+            "have all three sources verified for 7 days; "
+            f"**{readiness['joint_verified_28d']}/{readiness['tracked']}** "
+            "for 28 days. A verified window uses existing source history; "
+            "it does not require waiting 28 new days. Partial repositories "
+            "remain accessible as explicitly exploratory observations."
+        )
     _section("01 / Activity over time",
              "Daily recorded events · 7 or 28 days · exploratory and verified scopes")
     trend_panel(chosen)
