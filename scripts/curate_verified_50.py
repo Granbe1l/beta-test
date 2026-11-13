@@ -18,12 +18,15 @@ import hashlib
 import json
 import os
 import sys
+import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 SNAPSHOT = ROOT / "data/github_public_snapshot.json.gz"
 MANIFEST = ROOT / "data/curated_50_manifest.json"
 ARCHIVE = ROOT / "data/archived_75_to_50_reports.json.gz"
 RECEIPT = ROOT / "data/curated_50_transition_receipt.json"
+# The original 75-project binary is immutably reachable in this reviewed merge.
+SOURCE_75_COMMIT = "0b7e80867c76d1dd3ba824a8749742e6757ff431"
 SOURCES = ("issues", "pull_requests", "workflow_runs")
 
 
@@ -201,6 +204,25 @@ def _write_gzip(path: Path, payload: dict):
     os.replace(temporary, path)
 
 
+def original_audit_blob() -> bytes:
+    """Fetch exactly the previously reviewed 75-project binary from Git history.
+
+    Used only to reconstruct lost archive/receipt if a first publication
+    committed its 50-project snapshot without both provenance artifacts.
+    Actions must fetch the pinned historical commit before calling this.
+    """
+    try:
+        return subprocess.run(
+            ["git", "show", SOURCE_75_COMMIT + ":data/github_public_snapshot.json.gz"],
+            cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            check=True, timeout=30,
+        ).stdout
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
+        raise RuntimeError(
+            "Original audited 75-project commit is unavailable; refuse archive recovery"
+        ) from None
+
+
 def main():
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     names = validate_manifest(manifest)
@@ -210,7 +232,35 @@ def main():
     if len(payload.get("reports") or []) == 50:
         if previous_names != set(names):
             raise ValueError("Published 50-project membership differs from reviewed manifest")
-        print("CURATED 50: already selected; preserving stable identities")
+        if ARCHIVE.exists() and RECEIPT.exists():
+            with gzip.open(ARCHIVE, "rt", encoding="utf-8") as stream:
+                archived = json.load(stream)
+            receipt = json.loads(RECEIPT.read_text(encoding="utf-8"))
+            if (len(archived.get("removed_reports") or []) != 25
+                    or receipt.get("selected_count") != 50
+                    or receipt.get("removed_count") != 25
+                    or set(receipt.get("selected_repositories") or []) != set(names)):
+                raise ValueError("Existing archive or receipt is incomplete; refusing to ignore it")
+            print("CURATED 50: published membership and 25-record archive verified")
+            return
+        if ARCHIVE.exists() != RECEIPT.exists():
+            raise ValueError("Only one transition artifact exists; refusing partial recovery")
+        # A first run can commit a 50-repo binary before its archive due to
+        # a publisher mistake. Recover strictly from the original SHA-pinned
+        # 75-repo binary WITHOUT overwriting more recent 50-repo source data.
+        source_blob = original_audit_blob()
+        before = json.loads(gzip.decompress(source_blob))
+        source_hash = hashlib.sha256(source_blob).hexdigest()
+        _, archive, receipt = transition(
+            before, manifest, actual_snapshot_sha256=source_hash,
+        )
+        _write_gzip(ARCHIVE, archive)
+        RECEIPT.write_text(
+            json.dumps(receipt, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        print("CURATED 50: recovered original 25-project archive and receipt "
+              "without altering the current 50-project snapshot")
         return
     if ARCHIVE.exists() or RECEIPT.exists():
         raise ValueError("An archive/receipt exists but source snapshot is still 75; review before retry")
