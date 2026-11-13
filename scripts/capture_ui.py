@@ -105,6 +105,11 @@ try:
                                    device_scale_factor=1)
         desktop.goto("http://127.0.0.1:8501", wait_until="domcontentloaded")
         desktop.locator(".d-hero").first.wait_for(timeout=45000)
+        # Actual rendered reviewer summary must remain visible on desktop.
+        desktop.get_by_text("What should we inspect?", exact=True).wait_for(timeout=30000)
+        desktop.get_by_text("How complete is the evidence?", exact=True).wait_for(timeout=30000)
+        assert desktop.get_by_role("link", name="Open an original GitHub record").count() >= 1, (
+            "An actual evidence-backed reviewer action is missing")
         time.sleep(2)
         desktop.screenshot(path=str(OUT / "desktop-overview.png"), full_page=True)
         print("Captured desktop overview", flush=True)
@@ -193,6 +198,7 @@ try:
                                   has_touch=True)
         mobile.goto("http://127.0.0.1:8501", wait_until="domcontentloaded")
         mobile.locator(".d-hero").first.wait_for(timeout=45000)
+        mobile.get_by_text("How complete is the evidence?", exact=True).wait_for(timeout=30000)
         time.sleep(2)
         # Validate the actual mobile drawer. Previously navigation.png was
         # captured while closed and looked identical to the overview.

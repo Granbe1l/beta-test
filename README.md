@@ -2,7 +2,7 @@
 
 An evidence-first, read-only analytics dashboard that helps nontechnical reviewers understand observable issue, pull request, and GitHub Actions activity across an **audited, non-representative sample** of public GitHub repositories. Built with Python, Streamlit, Pandas, Plotly and SQLAlchemy; **SQLite** is the default collector database, with **PostgreSQL optional**. The public demo reads a compressed snapshot without needing a live SQL server. No React, FastAPI, chatbot, generative AI, or paid AI APIs.
 
-> **Current status (12 November 2026):** The audited 75-repository public snapshot exists, GitHub Actions collection has completed successfully, and desktop/mobile browser screenshot tests have passed. GitHub Actions collection is scheduled every six hours, but individual runs can be delayed or fail; never mistake a stored snapshot for real-time data. Hosted Streamlit Cloud deployment and managed PostgreSQL are separate, optional steps and are **not** claimed verified here. All figures are obtained from public GitHub records.
+> **Current status (13 November 2026):** The audited 75-repository public snapshot exists, GitHub Actions collection has completed successfully, and desktop/mobile browser screenshot tests have passed. GitHub Actions collection is scheduled every six hours, but individual runs can be delayed or fail; never mistake a stored snapshot for real-time data. Hosted Streamlit Cloud deployment and managed PostgreSQL are separate, optional steps and are **not** claimed verified here. All figures are obtained from public GitHub records.
 
 ## What SQL is used for
 
@@ -202,16 +202,26 @@ python scripts/run_sync.py --reconcile
 
 The active public-snapshot workflow `.github/workflows/public-snapshot.yml` runs at `27 */6 * * *` (UTC) and also supports manual `workflow_dispatch`. It restores the last saved GitHub snapshot, collects bounded public records, publishes an audit artifact, then commits the updated `.json.gz` snapshot to `main`. The snapshot writer fetches current `main` and reapplies only the new generated binary file; it does not try to rebase conflicting binaries. Code pushes no longer trigger additional data writers. A separate `.github/workflows/sync.yml` is an opt-in PostgreSQL mode and must not be described as a working managed-database deployment without configuration.
 
-Scheduled Actions do **not** guarantee execution at the exact minute, and GitHub may disable scheduled workflows in inactive public repositories. The `GITHUB_TOKEN` in Actions is used exclusively for read-only REST calls. Workflows use `contents: read`, a single concurrency group, and a lock in the database layer.
+Scheduled Actions do **not** guarantee execution at the exact minute, and GitHub may disable scheduled workflows in inactive public repositories. The collector uses read-only GitHub REST API calls. The public snapshot workflow has `contents: write` only to commit its validated snapshot to `main`, and `actions: read` to audit real scheduled runs. The database writer uses a concurrency group and lock.
 
 ## Streamlit Community Cloud
 
-1. Push **only after owner approval** to `Granbe1l/beta-test`, default branch `main`.
-2. Choose **Create app → From repository**, repository `Granbe1l/beta-test`, branch `main`, entrypoint `streamlit_app.py`.
-3. Configure Streamlit Secrets with the managed PostgreSQL `DATABASE_URL`, not the local SQLite path.
-4. Make sure PostgreSQL is reachable through the provider's networking allowlist/TLS settings.
-5. Run a manual initial sync via GitHub Actions or a protected shell. **Do not** use Streamlit Community Cloud as a periodic collector.
-6. Open desktop and mobile browser views, verify data provenance, filter usability, source URLs, and screenshot the **actual running dashboard**. Keep screenshots in `docs/screenshots/` and reference them from this README only when created.
+The **default portfolio demonstration is snapshot-only**, not a live
+PostgreSQL app. A public Streamlit URL has not yet been verified.
+
+1. In Streamlit Community Cloud choose `Granbe1l/beta-test`, branch
+   `main`, entrypoint `streamlit_app.py`.
+2. **No database secret is required** for the checked-in read-only
+   `data/github_public_snapshot.json.gz` mode.
+3. GitHub Actions updates that stored snapshot independently. A visitor
+   does not trigger GitHub API collection or a SQL write.
+4. Check actual deployed desktop/mobile rendering, source links, filter
+   behavior, displayed snapshot time and freshness caveats before publishing
+   the link in a CV.
+5. **Optional, separate path:** for managed PostgreSQL, provision TLS,
+   set `DATABASE_URL` securely and configure the protected collector.
+   Do not claim that deployment exists until credentials, initialization
+   and refresh have been verified.
 
 ## Tests and evidence
 
@@ -227,7 +237,7 @@ The suite covers bounded selection, deduplication, pagination, retry/rate handli
 
 - GitHub Actions produced and audited real public GitHub snapshots. A stored snapshot is not a live API feed; data availability is reported per source.
 - No managed PostgreSQL `DATABASE_URL`, production token, or deployment has been provided.
-- Real-browser desktop/mobile screenshots are pending. Do not substitute a mockup for screenshot evidence.
+- Desktop/mobile real-browser screenshots were captured in GitHub Actions. Actual HRD user-testing and hosted public URL verification remain open.
 - GitHub API pagination and rate-limit behaviors are covered by fixtures, but real API edge cases may require adjustment after live runs.
 - `review-compliance share` remains deliberately Not Available rather than measuring an arbitrary rule.
 - Complete historical issue counts are not claimed. Recent changed-record sampling differs from a full open-backlog scan.
@@ -235,13 +245,13 @@ The suite covers bounded selection, deduplication, pagination, retry/rate handli
 
 ## Screenshot evidence
 
-**Actual screenshots: Pending.** Do not publish design mockups as actual app screenshots. Once local Streamlit runs, capture the overview and narrow/mobile view and update this section with links to the resulting image files.
+**Actual screenshots: available as GitHub Actions artifacts.** The [successful desktop/mobile capture run](https://github.com/Granbe1l/beta-test/actions/runs/43338398246) contains rendered browser screenshots from the real 75-repo snapshot. These are not design mockups or public usability-test results.
 
 ## Repository destination
 
-Approved future destination: <https://github.com/Granbe1l/beta-test> (branch `main`). **No push, merge, or deployment is authorized by the implementation request.**
+Repository: <https://github.com/Granbe1l/beta-test> (branch `main`). Source changes have been reviewed and merged through PR #1; deployment to a live public Streamlit URL is not verified.
 
-**Post-redesign local verification (2026-11-12):** 32 tests passed; 7 UI-runtime tests were skipped because Streamlit could not be installed in this offline workspace. GitHub Actions CI should install Streamlit and execute these tests on the review branch; its result must be checked after the update.
+**GitHub Actions verification (2026-11-13):** main-branch CI passed **111 automated tests**, restored the real 75-repository public snapshot and executed the SQL audit; the [quality-check run](https://github.com/Granbe1l/beta-test/actions/runs/43338398122) is the baseline. Later review changes add regression tests; use the latest completed run rather than assuming an old count remains current.
 
 ## Data snapshot — deploy without PostgreSQL first
 
@@ -257,11 +267,11 @@ For production data and historical incremental synchronization, provision manage
 - **Target: up to 75 curated public repositories** with verified metadata and eligibility, not a representative sample of all GitHub. The existing ten and their evidence records are preserved.
 - Each scheduled GitHub Actions run restores the previous public snapshot into an ephemeral SQLite collector, retaining upsert IDs and per-source checkpoints.
 - Candidate discovery is bounded and audited; expanding selection is allowed only after GitHub Search and standalone-issue/PR eligibility checks.
-- The initial source collection is staged (up to **12 previously unseen repositories per run**). After seeding, the collector attempts incremental updates across the full selection each six-hour run, respecting an **850-request cap** and limited endpoint pagination.
+- The initial source collection is staged (up to **20 previously unseen repositories per run**). After seeding, the collector attempts incremental updates across the full selection each six-hour run, respecting an **850-request cap** and limited endpoint pagination.
 - **A six-hour scheduled run does not guarantee that every repository is refreshed or has complete data every six hours.** GitHub may also delay scheduled runs. The collection order rotates if the request budget is limiting.
 - No full GitHub clone, fake production data, or hidden completeness claims. The dashboard labels incomplete, stale, failed, or unavailable data.
 
-Operational commands for the snapshot workflow: `python scripts/restore_public_snapshot.py`, `python scripts/run_sync.py --expand --initial-batch 12 --max-requests 850`, and `python scripts/build_public_snapshot.py`. The dashboard reads the generated public snapshot. PostgreSQL remains optional until its managed service and credentials are provisioned.
+Operational commands for the snapshot workflow: `python scripts/restore_public_snapshot.py`, `python scripts/run_sync.py --expand --initial-batch 20 --max-requests 850`, and `python scripts/build_public_snapshot.py`. The dashboard reads the generated public snapshot. PostgreSQL remains optional until its managed service and credentials are provisioned.
 
 ## Dashboard validation: comparable periods and evidence quality
 
@@ -289,7 +299,7 @@ must be disclosed rather than hidden by manufactured or estimated totals.
 
 The Dashboard now includes a **real observed daily line chart** with two tabs:
 GitHub issues opened/closed and PRs opened/merged. It defaults to the last
-28 calendar days (UTC) and offers 7 days. The line uses timestamped GitHub
+7 calendar days (UTC) and offers 28 days. The line uses timestamped GitHub
 events **only**, not fabricated observations or smoothed estimates. A value
 of zero means *none in retrieved rows*, not no actual activity on GitHub.
 
@@ -311,7 +321,7 @@ Read [Project Delivery Monitor — portfolio case study](docs/PORTFOLIO_CASE_STU
 ## Coverage gates and latest data-pipeline checks
 
 - The line chart now distinguishes **all observed records (exploratory)** from **only repositories with source-complete verified 7/28-day windows**, independently for issue and PR events.
-- The public collector attempts a 28-day adaptive interval before shorter fallbacks. Narrow-window success never proves a full 28-day history.
+- The public collector bootstraps at the exact 28-day evaluation window instead of wasting API pages on a redundant 30-day attempt; a long explicit reconcile can still retry 28 days before shorter fallbacks. Narrow-window success never proves a full 28-day history.
 - Each scheduled run compares its source coverage against the restored baseline in its GitHub Actions step summary and audit artifacts. Completed runs and complete datasets are separate concepts.
 - Review findings are ordered by transparent evidence thresholds and include original source URLs, without inventing a project-quality score.
 - Browser tests exercise CSV download, two-project comparison, mobile menu, and page captures.
@@ -402,3 +412,28 @@ workflow runs these SQL statements over the real published snapshot.
 See [implementation status](docs/IMPLEMENTATION_STATUS.md) for the
 verified coverage gaps and [nontechnical review protocol](docs/REVIEWER_USABILITY_CHECK.md).
 The review protocol is **not** evidence that HRD user testing already passed.
+
+## Current reviewer-first dashboard and refresh reliability checks
+
+The real-data dashboard places a **three-part quick reading** immediately
+after the first activity chart: recent 7-day observed activity, one source-
+linked opportunity for closer inspection, and verified 28-day Issue/PR/CI
+coverage denominators. The recorded evidence is not a client delivery SLA,
+missed milestone, or employee-productivity score. The rest of the six-page
+visual flow and purple-white Streamlit theme remain intact.
+
+The updated CI/CD collection algorithm **never reuses a previous check for
+the current UTC day** as though it included subsequent workflow events.
+The scheduled GitHub job now also runs
+`scripts/schedule_reliability.py`, which audits the most recent three
+**actual scheduled** workflow executions and observed 3–9 hour intervals.
+Manual/push CI runs cannot satisfy the scheduled-reliability gate.
+Insufficient history is explicitly reported as insufficient, never
+converted into invented success.
+
+The design can be tested using
+[the five-minute nontechnical review protocol](docs/REVIEWER_USABILITY_CHECK.md),
+but real participant outcomes have **not yet** been collected. Data-source
+coverage improvements must be compared using actual before/after audit
+artifacts after a completed refresh; code tests alone do not establish
+coverage gains.

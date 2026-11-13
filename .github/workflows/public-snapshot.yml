@@ -3,6 +3,7 @@ on:
   # Collection runs on schedule, by manual dispatch, and when this precise
   # pipeline workflow is changed. Ordinary UI/code pushes never recollect.
   push:
+    branches: [main]
     paths:
       - '.github/workflows/public-snapshot.yml'
   schedule:
@@ -10,6 +11,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  actions: read
 concurrency:
   group: public-snapshot-main
   cancel-in-progress: false
@@ -25,7 +27,7 @@ jobs:
       SEARCH_PAGES_PER_QUERY: '1'
       MAX_PAGES_PER_SOURCE: '6'
       PER_PAGE: '100'
-      BACKFILL_DAYS: '120' # Explicit reconciliations; bootstrap retries 30/28/7/1-day windows
+      BACKFILL_DAYS: '120' # Explicit reconciliations; bootstrap retries 28/7/1-day windows
       COMPARISON_DAYS: '90'
       STALE_HOURS: '12'
       FRESHNESS_DAYS: '30'
@@ -61,6 +63,9 @@ jobs:
           PY
       - name: Summarize actual coverage progress
         run: python scripts/report_coverage_delta.py snapshot-audit-before.json snapshot-audit.json
+      - name: Audit reliability of actual six-hour scheduled runs
+        continue-on-error: true
+        run: python scripts/schedule_reliability.py
       - name: Preserve evidence and coverage audit
         uses: actions/upload-artifact@v4
         with:

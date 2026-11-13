@@ -47,7 +47,7 @@ def test_short_completed_fallback_cannot_certify_original_window(db, cfg):
         def paginate(self, path, params, pages, **kwargs):
             self.calls.append((path, params, kwargs))
             self.request_count += 1
-            return Page(len(self.calls) >= 3)
+            return Page(len(self.calls) >= 2)
 
     client = CompletedSevenDays()
     cfg = replace(cfg, backfill_days=120, max_pages=6)
@@ -55,4 +55,4 @@ def test_short_completed_fallback_cannot_certify_original_window(db, cfg):
     cp = db.get(SyncCheckpoint, (101, "issues"))
     assert out["status"] == "complete"
     assert cp.coverage_start.date() == (NOW - timedelta(days=7)).date()
-    assert out["attempts"] == 3
+    assert out["attempts"] == 2

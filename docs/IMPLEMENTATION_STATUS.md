@@ -1,45 +1,73 @@
-# Project Delivery Monitor — implementation and evidence status
+# Project Delivery Monitor — current implementation and remaining evidence
 
-Updated: **13 November 2026**. Repository: `Granbe1l/beta-test`.
+Updated: **13 November 2026**. Repository: `Granbe1l/beta-test`. The
+repository has **75 curated public GitHub projects**. Changes must pass PR
+quality checks before merging to `main`.
 
-## What is implemented and verified
+## Implemented
 
-| Work | Current status | Evidence |
-| --- | --- | --- |
-| Six visual Streamlit pages, purple/white theme, Plotly activity charts | Implemented; desktop/mobile browser capture succeeded | `src/ui/dashboard_v2.py`, workflow screenshot run #32 |
-| Fixed 75 curated public GitHub repositories | Verified in published real snapshot | data snapshot audit workflow #13 |
-| Issues, PR, GitHub Actions collection | Implemented; source completeness **partial** | `src/collectors/sync.py`, source audit #13 |
-| 6-hour UTC scheduled snapshot refresh | Implemented; at least one scheduled workflow run succeeded | `public-snapshot.yml`, run #12 (`schedule`) |
-| Explicit 7/28-day verified versus exploratory charts | Implemented and regression-tested | `src/ui/trend_panels.py`, `src/ui/observed.py` |
-| Evidence-first findings, direct record examples and next checks | Implemented on improvement branch; CI verification required | `src/analytics/findings.py`, `tests/test_visual_insights.py` |
-| Read-only SQL CTE audit across all three source tables | Implemented on improvement branch; real snapshot CI verification required | `scripts/sql_insights.py`, `tests/test_sql_insights.py` |
-| Continuous unit tests | Baseline main: **107 passing** as of quality-check run #50 | GitHub Actions `Quality checks` |
-| Public Streamlit Cloud website | **Not verified** | `docs/PUBLIC_DEPLOYMENT.md` |
-| Actual nontechnical user testing | **Not completed** | `docs/REVIEWER_USABILITY_CHECK.md` is a test plan, not test evidence |
+| Capability | State and verification |
+| --- | --- |
+| Six visual Streamlit screens, purple/white theme, real-data Plotly charts | Implemented; browser desktop/mobile screenshots succeeded in main run [43338398246](https://github.com/Granbe1l/beta-test/actions/runs/43338398246) |
+| 75 retained public GitHub repositories | Verified in snapshot audit [43328904930](https://github.com/Granbe1l/beta-test/actions/runs/43328904930) |
+| Issues / PR / GitHub Actions collector, SQLAlchemy and SQLite | Implemented; records are real but **per-source coverage is partial** |
+| Efficient 28-day bootstrap and 7/1-day capped fallback | Implemented on the current improvement branch; no fabricated backfill |
+| Current-UTC-day CI verification | Implemented and regression-tested; previous current-day checkpoint cannot certify newly elapsed hours |
+| Verified/exploratory 7/28-day activity lines | Implemented; denominators are source-specific |
+| Source-linked inspection findings and examples | Implemented with real GitHub Issue, PR and CI run URLs |
+| Nontechnical three-part executive readout | Implemented: activity, source-linked recommended inspection, confidence |
+| SQL CTE analysis and source verification flags | Implemented; real snapshot SQL audit passed on main [43338398122](https://github.com/Granbe1l/beta-test/actions/runs/43338398122) |
+| Six-hour scheduled refresh | Workflow configured for `27 */6 * * *` UTC; run timings can be delayed |
+| Measured schedule-reliability check | Implemented: only actual cron events count, with three successful successive runs needed to verify reliability |
+| Automated tests, snapshot benchmark and screenshot capture | Implemented; see [GitHub Actions](https://github.com/Granbe1l/beta-test/actions) for the latest passing test count |
+| Public hosted Streamlit URL | **Not verified** |
+| Real nontechnical participant usability testing | **Not conducted**. Test procedure exists in `docs/REVIEWER_USABILITY_CHECK.md` |
 
-## Latest validated data audit (workflow #13)
+## Latest audited source coverage
 
-Captured **2026-11-12 23:48 UTC** (2026-11-13 06:48 WIB):
-- Curated repositories: **75**.
-- Persisted issue records: **11,310**.
-- Persisted pull-request records: **25,676**.
-- Persisted GitHub Actions runs: **72,485**.
-- Verified full **28-day** source windows: issues **38/75**, PRs **48/75**, CI/CD **32/75**.
-- Status `complete` describes a completed **bounded source scan**, never complete GitHub lifetime history.
+The latest published audited snapshot evaluated in this review was generated
+**2026-11-12 23:48 UTC** (**2026-11-13 06:48 WIB**):
 
-Source: https://github.com/Granbe1l/beta-test/actions/runs/43328904930
+| Source | Persisted observations | Verified complete 28-day windows |
+| --- | ---: | ---: |
+| GitHub Issues | 11,310 | 38 / 75 |
+| Pull requests | 25,676 | 48 / 75 |
+| GitHub Actions runs | 72,485 | 32 / 75 |
 
-## Remaining work, in priority order
+These are **actual** audit figures from [snapshot run
+43328904930](https://github.com/Granbe1l/beta-test/actions/runs/43328904930),
+not target values. Changes to data collection **do not establish better
+coverage until a subsequent real run and before/after audit prove it**.
 
-1. **P0 — Coverage and correctness:** continue bounded incremental collection on incomplete/stale source checkpoints; prove verified-source coverage improves without dropping previously stored records. A green workflow does not mean all 225 repository/source combinations are verified.
-2. **P0 — Evidence interpretation:** audit the exact 28/90-day period on each claim; retain uncertainty about older, unmodified issues and avoid calling issue age an overdue deadline.
-3. **P1 — Nontechnical validation:** run the five-minute recruiter tasks in `docs/REVIEWER_USABILITY_CHECK.md`, record observed errors/confusion, and iterate the wording/visual hierarchy.
-4. **P1 — Scheduling reliability:** verify successive actual scheduled collection runs and their published before/after source audit artifacts.
-5. **P2 — Public verification:** deploy the read-only Streamlit site as the owner, and run `verify-public-demo.yml` with its real URL.
-6. **P2 — SQL demonstration:** show SQL CTE audit output from actual published snapshot; do not claim the Streamlit public app queries a live PostgreSQL server.
+`complete` only means the particular bounded endpoint scan finished;
+it does not prove total project backlog, private milestones, software
+quality, SLA adherence, or employee productivity. Older unmodified issues
+can be absent from recent-update API sampling.
 
-## Architecture notes
+## Work that is not yet proven
 
-The default public app loads a checked-in real GitHub JSON snapshot. The collector uses SQLAlchemy/SQLite for persistent checkpoints; PostgreSQL is supported but optional. A separate **real handwritten SQL** analysis performs bounded, source-aware aggregations on those SQL tables. Source examples in the findings are original GitHub links to inspect—not proof of project delay, breached SLAs, or developer quality.
+1. **Data completeness:** recheck the actual per-source 28-day counts after
+   the next validated collection, and retain full source audit artifacts.
+   Very busy repositories may remain capped.
+2. **Scheduling:** accumulate at least three successful `schedule` events
+   near the intended six-hour cadence. Green push/PR runs are not evidence
+   of actual scheduled delivery.
+3. **Human comprehension:** conduct the five-minute anonymous user tasks.
+   Automated screenshots and textual checks cannot substitute for people.
+4. **Public URL:** owner may deploy `streamlit_app.py` and then run the
+   dedicated public website verifier; do not claim a deployed app yet.
+5. **Manual coverage review:** audit headline copy/period and denominator
+   against several repository-level original GitHub records.
 
-The cohort is selected from **repositories**, not individual high-activity contributors. Public records cannot reveal private client milestones, contract SLAs, or business delivery dates.
+## Preferred technical explanation for interviews
+
+GitHub REST API → bounded, source-aware collector → SQLAlchemy/SQLite
+checkpoint persistence and upserts → audited compressed GitHub snapshot →
+Streamlit/Plotly visual evidence. Additional handwritten SQL CTE queries
+summarize observed Issues/PR/CI while avoiding join multiplication. GitHub
+Actions attempts refresh every six hours, but the dashboard reads a stored
+snapshot and does not request fresh records on every page visit.
+
+The app describes **observable open-source engineering activity**. It is
+*not* a monitoring system for private client delivery deadlines. This
+boundary is explicit in the new HRD executive summary.
