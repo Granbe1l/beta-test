@@ -120,7 +120,10 @@ def test_recent_cached_days_are_expired_but_older_days_are_reusable(db, cfg):
     rows, result, *_ = fetch_ci_windowed(client, repo, since, cfg, NOW,
                                          verified_days=previously)
     assert result.complete
-    assert client.request_count == 0
+    # Today's cached interval is not valid through the current run time.
+    assert client.request_count == 1
+    assert client.calls[-1].split("..") == [
+        NOW.date().isoformat(), NOW.date().isoformat()]
     old = {k: (NOW - timedelta(days=2)).isoformat()
            for k in previously}
     rows, expired, *_ = fetch_ci_windowed(client, repo, since, cfg, NOW,
@@ -159,3 +162,41 @@ def test_verified_day_checkpoints_survive_snapshot_export_and_restore(db, cfg, t
             assert cp.status == "partial"
     finally:
         engine.dispose()
+
+
+def test_today_requires_actual_ci_recheck_even_when_previously_verified(db, cfg):
+    """Never count current-day events as fetched merely from a prior 6h run."""
+    repo = db.get(Repository, 101)
+    cfg = replace(cfg, max_pages=2)
+    yesterday = (NOW - timedelta(days=1)).date().isoformat()
+    today = NOW.date().isoformat()
+    client = WindowedCIClient()
+    saved = {
+        yesterday: (NOW - timedelta(hours=1)).isoformat(),
+        today: (NOW - timedelta(hours=1)).isoformat(),
+    }
+    rows, result, *rest = fetch_ci_windowed(
+        client, repo, NOW - timedelta(days=1), cfg, NOW,
+        verified_days=saved)
+    assert result.complete
+    assert len(client.calls) == 1
+    assert client.calls[0] == today + ".." + today
+    assert result.verified_days[today] == NOW.isoformat()
+
+
+def test_unverified_current_day_never_passes_entire_window(db, cfg):
+    repo = db.get(Repository, 101)
+    cfg = replace(cfg, max_pages=2)
+    yesterday = (NOW - timedelta(days=1)).date().isoformat()
+    today = NOW.date().isoformat()
+    client = WindowedCIClient(cap_daily=True)
+    saved = {
+        yesterday: NOW.isoformat(),
+        today: NOW.isoformat(),
+    }
+    _, result, *_ = fetch_ci_windowed(
+        client, repo, NOW - timedelta(days=1), cfg, NOW,
+        verified_days=saved)
+    assert not result.complete
+    assert result.verified_days.get(today) is None
+    assert client.calls == [today + ".." + today]
