@@ -105,10 +105,6 @@ with st.sidebar:
         st.divider()
         for instruction in HOW_TO_READ:
             st.caption(instruction)
-    st.markdown(
-        '<div class="side-footer">Candy Ristyan · Public GitHub data</div>',
-        unsafe_allow_html=True,
-    )
 
 nav = st.session_state["main_nav"]
 
@@ -156,6 +152,10 @@ with st.sidebar:
         "Issues, PR and CI checks. It does not certify the full "
         "open-Issue backlog or project quality."
     )
+    st.markdown(
+        '<div class="side-footer">Candy Ristyan · Public GitHub data</div>',
+        unsafe_allow_html=True,
+    )
 if selected_scope.startswith("Verified · 28"):
     reports = verified_28
 elif selected_scope.startswith("Verified · 7"):
@@ -163,9 +163,8 @@ elif selected_scope.startswith("Verified · 7"):
 else:
     reports = all_reports
 st.caption(
-    f"**ANALYSIS COHORT:** {len(reports)} of {len(all_reports)} tracked "
-    f"public projects · {selected_scope}. "
-    "Unverified sources are retained, not treated as missing or zero activity."
+    f"**ANALYSIS COHORT:** {len(reports)}/{len(all_reports)} tracked public "
+    f"projects · {selected_scope}. Unverified projects are not counted as inactive."
 )
 if selected_scope.startswith("All tracked"):
     st.warning(
@@ -177,9 +176,9 @@ if selected_scope.startswith("All tracked"):
 if data_info["mode"] == "snapshot":
     when = data_info["generated_at"].strftime("%d %b %Y · %H:%M UTC")
     st.caption(
-        f"**PUBLIC GITHUB SNAPSHOT** · Captured {when} · read-only · "
-        f"{'stale / refresh needed' if data_info['stale'] else 'recent snapshot'} · "
-        "not a live API connection. "
+        f"**PUBLIC GITHUB SNAPSHOT:** Captured {when} · "
+        f"{'stale / refresh needed' if data_info['stale'] else 'recent'} · "
+        "read-only, not a live connection · "
         "[Data notes](https://github.com/Granbe1l/beta-test#data-snapshot)"
     )
 else:
