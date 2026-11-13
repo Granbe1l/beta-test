@@ -82,12 +82,13 @@ def test_optional_historical_repair_cannot_preempt_expiring_verified(db, cfg, mo
     assert scanned[6] == 105  # repair runs after urgent refreshes
 
 
-def test_scheduled_refreshes_are_staggered_without_looser_verified_definition():
+def test_four_hour_refresh_and_manual_candidate_audit_do_not_weaken_verified_definition():
     from pathlib import Path
     root = Path(__file__).resolve().parents[1]
     refresh = (root / ".github/workflows/public-snapshot.yml").read_text()
     scout = (root / ".github/workflows/candidate-audit.yml").read_text()
     assert "cron: '17 1,5,9,13,17,21 * * *'" in refresh
-    assert "cron: '23 3,15 * * *'" in scout
+    assert "workflow_dispatch:" in scout
+    assert "cron:" not in scout
     assert "STALE_HOURS: '12'" in refresh
     assert "--max-requests 850" in refresh
