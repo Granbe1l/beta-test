@@ -174,3 +174,28 @@ audit pass on actual scheduled data.
 verified. Project selection is curated, not a statistically random sample.
 Real-user HRD comprehension and the public hosted Streamlit URL are
 also not independently established.
+
+## P1 implementation and operational evidence
+
+- **P1.1**: findings contain a quantified trigger, source URL or
+  explicit listing fallback, a structured three-step inspection,
+  clear limitations and a CSV reviewer export.
+  [PR #10](https://github.com/Granbe1l/beta-test/pull/10) passed
+  code, SQL/real-snapshot and rendered desktop/mobile browser tests.
+- **P1.2**: all six pages expose a collapsed, one-minute glossary,
+  navigation tooltips and an explicit explanation of Verified
+  versus Exploratory data.
+  [PR #11](https://github.com/Granbe1l/beta-test/pull/11) passed
+  automated and browser rendering checks.
+  **The real 3–5-participant usability evaluation has not happened.**
+  The form in `docs/REVIEWER_RESULT_FORM.csv` is blank on purpose.
+- **P1.3**: scheduled-run audit now requires both plausible spacing
+  among three actual `schedule`-triggered successful runs **and a
+  recent latest run**. A machine-readable proof is saved with the
+  source audit. A push/manual run cannot substitute for a cron run.
+  The last audit established only **two** actual scheduled successes,
+  so reliability **must remain unverified** until real schedule history
+  satisfies the gate.
+
+The main application is CV-usable without reporting 100% source
+coverage, guaranteed six-hour runtime, or invented HRD testing.
