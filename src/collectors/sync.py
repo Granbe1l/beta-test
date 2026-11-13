@@ -554,10 +554,59 @@ def coverage_repair_targets(session: Session, repositories: list[Repository],
     return {repo.id: sources for repo, sources, _ in candidates[:max_repos]}
 
 
+
+def verified_refresh_priority_order(session: Session, repos: list[Repository],
+                                    settings: Settings, now: datetime) -> list[Repository]:
+    """Protect authentic 28-day, three-source checkpoints nearing staleness.
+
+    Scheduling changes only WHICH real GitHub endpoints are scanned first.
+    It never promotes coverage, changes freshness thresholds, or advances a
+    last-success timestamp without a completed API scan. Stable input order
+    (which is rotated per run) provides fairness within each priority band.
+    """
+    now = utc(now)
+    start = now - timedelta(days=28)
+    caution = now - timedelta(hours=settings.stale_hours / 2)
+    stale = now - timedelta(hours=settings.stale_hours)
+    scored = []
+    for index, repo in enumerate(repos):
+        cps = [session.get(SyncCheckpoint, (repo.id, source))
+               for source in SOURCES]
+        complete_28d = [
+            cp for cp in cps
+            if cp is not None and cp.status == "complete"
+            and cp.coverage_start is not None and cp.last_success_at is not None
+            and utc(cp.coverage_start) <= start
+        ]
+        recent_complete = [
+            cp for cp in cps
+            if cp is not None and cp.status == "complete"
+            and cp.last_success_at is not None
+        ]
+        oldest = min((utc(cp.last_success_at) for cp in recent_complete),
+                     default=now)
+        if len(complete_28d) == len(SOURCES):
+            # Previously verified cohorts are first only when within half
+            # the allowed freshness interval of expiring, or already stale.
+            priority = 0 if oldest <= caution else 4
+        elif len(complete_28d) == len(SOURCES) - 1:
+            # Finish one missing source after protecting the complete cohort.
+            priority = 1
+        elif recent_complete and oldest <= stale:
+            priority = 2
+        else:
+            priority = 3
+        scored.append((priority, oldest if priority <= 2 else now,
+                       index, repo))
+    scored.sort(key=lambda item: (item[0], item[1], item[2]))
+    return [item[3] for item in scored]
+
+
 def synchronize(session: Session, client: GitHubClient, settings: Settings, reconcile=False,
                 initial_batch_size: int | None = None, run_at=None,
                 audit_open_backlog=False, max_backlog_repos=8,
-                repair_coverage=False, max_repair_repos=4) -> list[dict]:
+                repair_coverage=False, max_repair_repos=4,
+                protect_verified=False) -> list[dict]:
     result = []
     repos = list(session.scalars(select(Repository).where(Repository.selected.is_(True)).order_by(Repository.full_name)))
     if initial_batch_size is not None and initial_batch_size > 0:
@@ -602,7 +651,8 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
                         ordered.append(incomplete.pop(0))
                 if healthy:
                     ordered.append(healthy.pop(0))
-            repos = ordered
+            repos = (verified_refresh_priority_order(
+                session, rotated, settings, now) if protect_verified else ordered)
     repair_targets = (
         coverage_repair_targets(session, repos, run_at or utcnow(),
                                 max_repos=max_repair_repos)
@@ -611,8 +661,32 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
     if repair_targets:
         # Act on the bounded repair set before the GitHub API request budget
         # is exhausted, then continue the existing fair rotation.
-        repos = ([r for r in repos if r.id in repair_targets]
-                 + [r for r in repos if r.id not in repair_targets])
+        if protect_verified:
+            # Never let optional broad repair displace a joint 28d cohort
+            # whose real checkpoints must be refreshed before they expire.
+            urgent = [
+                r for r in repos
+                if all(
+                    (cp := session.get(SyncCheckpoint, (r.id, source)))
+                    is not None and cp.status == "complete"
+                    and cp.coverage_start is not None
+                    and cp.last_success_at is not None
+                    and utc(cp.coverage_start) <= utc(run_at or utcnow()) - timedelta(days=28)
+                    for source in SOURCES
+                ) and any(
+                    utc(session.get(SyncCheckpoint, (r.id, source)).last_success_at)
+                    <= utc(run_at or utcnow()) - timedelta(hours=settings.stale_hours / 2)
+                    for source in SOURCES
+                )
+            ]
+            urgent_ids = {r.id for r in urgent}
+            remainder = [r for r in repos if r.id not in urgent_ids]
+            repos = (urgent
+                     + [r for r in remainder if r.id in repair_targets]
+                     + [r for r in remainder if r.id not in repair_targets])
+        else:
+            repos = ([r for r in repos if r.id in repair_targets]
+                     + [r for r in repos if r.id not in repair_targets])
         print("Targeted 28d Issue/PR repair attempts:", {
             r.full_name: sorted(repair_targets[r.id])
             for r in repos if r.id in repair_targets

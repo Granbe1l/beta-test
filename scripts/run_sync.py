@@ -25,6 +25,8 @@ def main():
                         help="Use spare API budget for independent full-open-Issue scans")
     parser.add_argument("--repair-coverage", action="store_true",
                         help="Bounded 28d reattempt for up to four low-page Issue/PR sources with short checkpoints")
+    parser.add_argument("--protect-verified", action="store_true",
+                        help="Refresh genuinely complete 28d three-source cohorts before they become stale; never infer source success")
     args=parser.parse_args()
     cfg=Settings.from_env()
     client=GitHubClient(cfg.github_token,cfg.timeout_seconds,cfg.max_retries,
@@ -57,7 +59,8 @@ def main():
             results=synchronize(session,client,cfg,reconcile=args.reconcile,
                                 initial_batch_size=args.initial_batch or None,
                                 audit_open_backlog=args.audit_open_backlog,
-                                repair_coverage=args.repair_coverage)
+                                repair_coverage=args.repair_coverage,
+                                protect_verified=args.protect_verified)
             for row in results: print(row)
             if not results:
                 print("No selected repositories. Run scripts/run_sync.py --discover when GitHub API is accessible.")
