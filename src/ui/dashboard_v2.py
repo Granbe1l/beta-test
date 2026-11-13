@@ -263,19 +263,34 @@ def _scope(reports, key):
             "Code pushed · last 30 days",
             "Issue or PR events · last 30 days",
             "No recent signal · last 30 days",
+            "Verified all three sources · 7 days",
+            "Verified all three sources · 28 days",
         ], key=key + "_activity")
     chosen = []
     period = 30 if "30 days" in mode else 7
-    for r in reports:
-        status = recent_activity(r, days=period)
-        active = status["pushed_recently"] or status["recent_issue_or_pr_event"]
-        if (mode == "All tracked projects"
-                or mode.startswith("Code pushed") and status["pushed_recently"]
-                or mode.startswith("Issue or PR events") and status["recent_issue_or_pr_event"]
-                or mode.startswith("No recent signal") and not active):
-            chosen.append(r)
+    if mode.startswith("Verified all three sources"):
+        from src.ui.observed import verified_joint_cohort
+        days = 28 if "28 days" in mode else 7
+        chosen = verified_joint_cohort(reports, days=days)
+        st.caption(
+            f"{len(chosen)} of {len(reports)} tracked projects have independently "
+            f"verified Issue, PR and CI/CD sources for the same {days}-day period. "
+            "Excluded projects are not counted as inactive."
+        )
+    else:
+        for r in reports:
+            status = recent_activity(r, days=period)
+            active = status["pushed_recently"] or status["recent_issue_or_pr_event"]
+            if (mode == "All tracked projects"
+                    or mode.startswith("Code pushed") and status["pushed_recently"]
+                    or mode.startswith("Issue or PR events") and status["recent_issue_or_pr_event"]
+                    or mode.startswith("No recent signal") and not active):
+                chosen.append(r)
     if not chosen:
-        st.info("No matching activity was observed. This does not prove the projects are finished.")
+        st.info(
+            "No repositories qualify for the selected view. Missing verified "
+            "coverage does not establish inactivity or missed deadlines."
+        )
         return []
     names = [r["repository"]["full_name"] for r in chosen]
     with right_filter:
@@ -539,6 +554,17 @@ def overview(reports, selection):
         ("Projects pushed · 7d", _number(activity["pushed_recently"]),
          "GitHub last-push metadata, not feature releases", "↗"),
     ])
+    from src.ui.observed import evidence_readiness
+    readiness = evidence_readiness(chosen)
+    st.caption(
+        "Evidence-ready cohorts within this selection: "
+        f"**{readiness['joint_verified_7d']}/{readiness['tracked']}** projects "
+        "have all three sources verified for 7 days; "
+        f"**{readiness['joint_verified_28d']}/{readiness['tracked']}** "
+        "for 28 days. A verified time window does not require waiting "
+        "28 new days; it requires a complete scan of existing history. "
+        "Partial projects remain accessible for labelled exploration."
+    )
     _section("01 / Activity over time",
              "Daily recorded events · 7 or 28 days · exploratory and verified scopes")
     trend_panel(chosen)
