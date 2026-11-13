@@ -44,3 +44,40 @@ I created a dashboard using public GitHub API records to monitor observable task
 ## Next operational evidence gate
 
 Inspect the latest GitHub Actions public-snapshot run and its audit summary. Confirm snapshot publication, compare verified 28-day source counts with the previous audit, and require multiple successful scheduled runs before claiming reliable automated refresh.
+
+## Nontechnical decision-first readout
+
+The first visual activity chart is followed by a **three-column Quick reading**:
+- **Recent observed activity:** latest seven-day repository pushes and captured
+  Issue/PR events (not proof of feature releases);
+- **Where to inspect next:** one evidence-backed finding, the observed
+  figure and a direct original-record link;
+- **Confidence in the evidence:** number of project-specific Issue, PR and
+  automated-check sources whose **entire 28-day** window is validated.
+
+This format deliberately avoids fake deadline/quality scores and keeps the
+existing graphs as the primary evidence.
+
+## Collection and independent SQL contribution
+
+The bootstrap scans the exact 28-day analysis period first to reduce
+near-duplicate API requests. For CI/CD the **current UTC day is rechecked**
+on every run rather than trusting a six-hour-old day-level checkpoint.
+Old stored records are retained when a GitHub API window is capped.
+
+The separate read-only SQL analysis in `scripts/sql_insights.py` uses
+CTEs, grouped SQL joins and CASE-based source-specific verification flags.
+Its source tables are grouped before being joined to avoid cross-source
+count multiplication. GitHub Actions tests this query against restored
+**real** public GitHub records; the public website still reads a stored
+snapshot, not a live SQL query.
+
+## What remains to verify
+
+- A new successful snapshot run must establish **actual** before/after 28-day
+  source-coverage changes, not presumed gains from code optimizations.
+- A schedule audit must observe at least three genuine successful cron events
+  near the six-hour cadence before claiming scheduling reliability.
+- A real 3–5 participant test described in
+  [the review protocol](REVIEWER_USABILITY_CHECK.md) remains to be
+  conducted; automated screenshots do not prove human understanding.
