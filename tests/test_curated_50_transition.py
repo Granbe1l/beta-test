@@ -148,3 +148,44 @@ def test_source_archive_is_lossless_and_rerun_has_no_second_migration(
     expected_archive = archived.read_bytes()
     curator.main()
     assert archived.read_bytes() == expected_archive
+
+
+def test_recover_missing_archive_after_50_snapshot_publication(tmp_path, monkeypatch):
+    """Old git commit reconstructs all 25 reports, without reverting new 50 data."""
+    original, manifest = source_fixture()
+    old_raw = gzip.compress(json.dumps(original).encode("utf-8"))
+    manifest["source_snapshot_sha256"] = hashlib.sha256(old_raw).hexdigest()
+    new, _, _ = curator.transition(
+        original, manifest,
+        actual_snapshot_sha256=manifest["source_snapshot_sha256"]
+    )
+    new["generated_at"] = "2026-11-14T04:15:00+00:00"
+    new_raw = gzip.compress(json.dumps(new).encode("utf-8"))
+    current = tmp_path / "current.json.gz"
+    current.write_bytes(new_raw)
+    archive = tmp_path / "archive.json.gz"
+    receipt = tmp_path / "receipt.json"
+    config = tmp_path / "manifest.json"
+    config.write_text(json.dumps(manifest))
+    monkeypatch.setattr(curator, "SNAPSHOT", current)
+    monkeypatch.setattr(curator, "ARCHIVE", archive)
+    monkeypatch.setattr(curator, "RECEIPT", receipt)
+    monkeypatch.setattr(curator, "MANIFEST", config)
+    monkeypatch.setattr(curator, "original_audit_blob", lambda: old_raw)
+    curator.main()
+    assert current.read_bytes() == new_raw
+    with gzip.open(archive, "rt", encoding="utf-8") as file:
+        saved = json.load(file)
+    assert len(saved["removed_reports"]) == 25
+    assert json.loads(receipt.read_text())["original_count"] == 75
+    assert json.loads(receipt.read_text())["selected_count"] == 50
+    curator.main()  # No second migration once archive and receipt are present.
+    assert current.read_bytes() == new_raw
+
+
+def test_remote_receipt_guard_checks_git_tree_not_untracked_file():
+    source = (Path(__file__).resolve().parents[1] /
+              ".github/workflows/public-snapshot.yml").read_text()
+    assert "git cat-file -e 'origin/main:data/curated_50_transition_receipt.json'" in source
+    assert "git cat-file -e 'origin/main:data/archived_75_to_50_reports.json.gz'" in source
+    assert "git fetch --no-tags origin 0b7e80867c76d1dd3ba824a8749742e6757ff431" in source
