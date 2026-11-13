@@ -257,10 +257,16 @@ def _scope(reports, key):
     from src.ui.observed import verified_joint_cohort
     verified_28 = verified_joint_cohort(reports, days=28)
     verified_7 = verified_joint_cohort(reports, days=7)
+    global_scope = st.session_state.get("global_evidence_scope", "")
+    is_all_tracked = global_scope.startswith("All tracked")
+    # The global scope has already filtered the input reports. Never describe
+    # its verified subset as "All tracked" when other projects are excluded.
+    all_label = ("All tracked projects · exploratory" if is_all_tracked
+                 else "All projects in verified cohort")
     options = [
         "Verified all three sources · 28 days",
         "Verified all three sources · 7 days",
-        "All tracked projects · exploratory",
+        all_label,
         "Code pushed · last 7 days",
         "Issue or PR events · last 7 days",
         "No recent signal · last 7 days",
@@ -268,18 +274,20 @@ def _scope(reports, key):
         "Issue or PR events · last 30 days",
         "No recent signal · last 30 days",
     ]
-    # Verified-first without hiding the tracked cohort. If no data qualify,
-    # show an explicitly exploratory selection rather than an empty dashboard.
-    global_scope = st.session_state.get("global_evidence_scope", "")
+    # Verified-first is the global default. Preserve a valid custom filter,
+    # but reset invalid stale Streamlit widgets when global scope changes.
     if global_scope.startswith("All tracked"):
         default_index = 2
     elif global_scope.startswith("Verified · 7"):
         default_index = 1
     else:
         default_index = 0 if verified_28 else 1 if verified_7 else 2
+    activity_key = key + "_activity"
+    if st.session_state.get(activity_key) not in (None, *options):
+        st.session_state.pop(activity_key, None)
     with left_filter:
         mode = st.selectbox("Activity filter", options, index=default_index,
-                            key=key + "_activity")
+                            key=activity_key)
     chosen = []
     period = 30 if "30 days" in mode else 7
     if mode.startswith("Verified all three sources"):
@@ -294,7 +302,7 @@ def _scope(reports, key):
         for r in reports:
             status = recent_activity(r, days=period)
             active = status["pushed_recently"] or status["recent_issue_or_pr_event"]
-            if (mode == "All tracked projects"
+            if (mode == all_label
                     or mode.startswith("Code pushed") and status["pushed_recently"]
                     or mode.startswith("Issue or PR events") and status["recent_issue_or_pr_event"]
                     or mode.startswith("No recent signal") and not active):
@@ -306,11 +314,19 @@ def _scope(reports, key):
         )
         return []
     if not mode.startswith("Verified"):
-        st.caption(
-            "**Exploratory selection:** the displayed repositories may have "
-            "partial or stale Issues, PRs or CI/CD records. Only source-specific "
-            "verified windows qualify for confirmed period charts."
-        )
+        if is_all_tracked:
+            st.caption(
+                "**Exploratory selection:** some displayed repositories may "
+                "have incomplete source scans. Retrieved absence is not proof "
+                "of inactivity; verify source-specific windows before inferring a trend."
+            )
+        else:
+            st.caption(
+                "**Within verified cohort:** the selected repositories still "
+                "come from the global evidence scope. Push/activity filters are "
+                "descriptive; a 30-day event filter does not certify a 30-day "
+                "source history when only 28 days were verified."
+            )
     names = [r["repository"]["full_name"] for r in chosen]
     with right_filter:
         picked = st.selectbox("Repository", ["All matching projects"] + names, key=key)
