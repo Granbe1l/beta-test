@@ -1,8 +1,12 @@
 # Project Delivery Monitor — Open-Source Analytics
 
-An evidence-first, read-only analytics dashboard that helps nontechnical reviewers understand observable issue, pull request, and GitHub Actions activity across an **audited, non-representative sample** of public GitHub repositories. Built with Python, Streamlit, Pandas, Plotly, SQLAlchemy, and PostgreSQL. No React, FastAPI, chatbot, generative AI, or paid AI APIs.
+An evidence-first, read-only analytics dashboard that helps nontechnical reviewers understand observable issue, pull request, and GitHub Actions activity across an **audited, non-representative sample** of public GitHub repositories. Built with Python, Streamlit, Pandas, Plotly and SQLAlchemy; **SQLite** is the default collector database, with **PostgreSQL optional**. The public demo reads a compressed snapshot without needing a live SQL server. No React, FastAPI, chatbot, generative AI, or paid AI APIs.
 
 > **Current status (12 November 2026):** The audited 75-repository public snapshot exists, GitHub Actions collection has completed successfully, and desktop/mobile browser screenshot tests have passed. GitHub Actions collection is scheduled every six hours, but individual runs can be delayed or fail; never mistake a stored snapshot for real-time data. Hosted Streamlit Cloud deployment and managed PostgreSQL are separate, optional steps and are **not** claimed verified here. All figures are obtained from public GitHub records.
+
+## What SQL is used for
+
+This project **does use a SQL database for data collection and checkpointing**, but the read-only Streamlit demo primarily analyzes a checked-in JSON snapshot using Python/Pandas. Database access is implemented with SQLAlchemy ORM, not an extensive library of handwritten SQL queries. Read the [actual schema and SQL examples](docs/SQL_DATABASE_USAGE.md) to distinguish the implemented pipeline from illustrative SQL queries.
 
 ## Public demo — deployment gate
 
