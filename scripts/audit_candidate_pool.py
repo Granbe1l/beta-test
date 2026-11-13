@@ -37,8 +37,8 @@ def discover_candidates(client, known_ids, settings, *, now, max_candidates=24):
     errors = []
     per_language = max(5, min(15, max_candidates // 4))
     for language in QUERY_LANGUAGES:
-        if len(found) >= max_candidates:
-            break
+        # Sample every configured language, not only the first languages
+        # that happened to fill the candidate-search budget.
         q = (
             f"language:{language} is:public fork:false archived:false "
             f"stars:>=50 pushed:>={cutoff}"
