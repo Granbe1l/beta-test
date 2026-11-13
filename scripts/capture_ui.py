@@ -249,6 +249,15 @@ try:
             except Exception as exc:
                 print("Additional viewport unavailable: " + str(exc), flush=True)
             if label == "Explore repositories":
+                # Assert the initial history tab is genuinely informative even
+                # when only one independent inventory snapshot exists.
+                desktop.get_by_role("tab", name="Activity history").click(timeout=12000)
+                desktop.get_by_text("Current collected snapshot", exact=True).wait_for(
+                    timeout=12000)
+                assert_no_streamlit_exception(desktop, "Activity history")
+                desktop.screenshot(
+                    path=str(OUT / "desktop-repositories-history-current.png"),
+                    full_page=False)
                 # These are required interactions. Do not silently pass a
                 # screenshot workflow when the comparison page breaks.
                 tab = "Compare two projects"
@@ -268,6 +277,19 @@ try:
                 for tab in ("Compare projects", "Source details"):
                     desktop.get_by_role("tab", name=tab).click(timeout=10000)
                     time.sleep(1)
+                    assert_no_streamlit_exception(desktop, "Explorer / " + tab)
+                    if tab == "Compare projects":
+                        # A verified chart or explicitly labelled observed
+                        # source fallback must be rendered, not a blank tab.
+                        has_comparison = (
+                            desktop.get_by_text("Showing", exact=False).count() > 0
+                            or desktop.get_by_text(
+                                "No comparison is inferred from missing data.",
+                                exact=False).count() > 0
+                        )
+                        assert has_comparison, (
+                            "No source-qualified chart or labelled fallback "
+                            "in cross-project comparison")
                     desktop.screenshot(
                         path=str(OUT / (
                             "desktop-repositories-" + tab.lower().replace(" ", "-") + ".png")),
