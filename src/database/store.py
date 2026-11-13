@@ -28,6 +28,12 @@ def init_db(engine):
             conn.execute(text(
                 "ALTER TABLE sync_checkpoints ADD COLUMN verified_days JSON"
             ))
+        observation_columns = {c["name"] for c in inspect(conn).get_columns("observations")}
+        if "collection_basis" not in observation_columns:
+            conn.execute(text(
+                "ALTER TABLE observations ADD COLUMN collection_basis "
+                "VARCHAR(40) NOT NULL DEFAULT 'legacy_observed'"
+            ))
 
 
 def session_factory(engine):
