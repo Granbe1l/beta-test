@@ -1,4 +1,4 @@
-"""Re-audit nine specifically sourced replacement prospects using real GitHub REST.
+"""Re-audit second-wave source-screened replacement prospects using real GitHub REST.
 
 These names were screened individually for public metadata and plausible
 28-day Issues, PR and Actions volume. This is purposive portfolio curation,
@@ -18,15 +18,17 @@ from src.config.settings import Settings
 from src.discovery.selection import validate_candidate
 
 TARGETS = (
-    "subzeroid/aiograpi",                  # Python, small
-    "getsentry/action-release",            # TypeScript, small
-    "crossplane/upjet",                    # Go, small
-    "umputun/revdiff",                     # Go, medium
-    "cpvalente/ontime",                    # TypeScript, medium
-    "codecentric/chaos-monkey-spring-boot",# Java, medium
-    "Waboodoo/HTTP-Shortcuts",             # Kotlin, medium
-    "adrcotfas/goodtime",                  # Kotlin, medium
-    "owntracks/android",                   # Kotlin, medium
+    "terraform-docs/terraform-docs",
+    "flipt-io/flipt",
+    "squidowl/halloy",
+    "breezy-weather/breezy-weather",
+    "T8RIN/ImageToolbox",
+    "iamgio/quarkdown",
+    "maxrave-dev/SimpMusic",
+    "usesend/useSend",
+    "formkit/formkit",
+    "surveyjs/survey-library",
+    "dmno-dev/varlock",
 )
 
 
