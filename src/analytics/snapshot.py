@@ -66,7 +66,8 @@ def read_snapshot(path:Path=SNAPSHOT_PATH,observation_days=90,stale_hours=12,now
         )
         r["coverage_ok"]=all(x=="complete" for x in status.values())
         r["issues"]=calculate_issues(r.get("issue_rows",[]),now,observation_days,
-                                     status["issues"]=="complete",(cp.get("issues") or {}).get("coverage_start"))
+                                     status["issues"]=="complete",(cp.get("issues") or {}).get("coverage_start"),
+                                     backlog_complete=r["open_backlog_status"]=="complete")
         r["prs"]=calculate_prs(r.get("pr_rows",[]),now,observation_days,
                                status["pull_requests"]=="complete",(cp.get("pull_requests") or {}).get("coverage_start"))
         r["ci"]=calculate_ci(r.get("ci_rows",[]),now,observation_days,
