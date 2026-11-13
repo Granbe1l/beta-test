@@ -19,7 +19,8 @@ def test_snapshot_roundtrip_and_expiry(tmp_path):
     assert result["source_records"]["issues"]==1
     loaded,selection,meta=read_snapshot(path,now=NOW)
     assert selection==audit and meta["mode"]=="snapshot"
-    assert loaded[0]["issues"]["aged_percent"]==100.0
+    assert loaded[0]["issues"]["sample_aged_percent"] == 100.0
+    assert loaded[0]["issues"]["aged_percent"] is None
     assert loaded[0]["issue_rows"][0]["url"].startswith("https://github.com/")
     older,_,stale=read_snapshot(path,now=NOW+timedelta(hours=13))
     assert stale["stale"]
