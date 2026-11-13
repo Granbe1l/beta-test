@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.analytics.executive import executive_brief
 from src.analytics.findings import portfolio_findings
+from src.analytics.review_decisions import evidence_action
 from src.analytics.snapshot import read_snapshot
 from src.ui.observed import verified_joint_cohort
 
@@ -42,6 +43,11 @@ def audit() -> dict:
         assert plan.get("trigger") and plan.get("not_proven")
         assert (plan.get("first_record_url") or "").startswith(base + "/"), (
             f"Evidence link outside source repository for {name}")
+        action = evidence_action(item)
+        assert action["url"] == plan["first_record_url"]
+        assert action["record_level"] == bool(item.get("examples")), (
+            "UI must never present a listing as an individual record")
+        assert action["url"].startswith(base + "/")
         row_sources = (report.get("issue_rows") or []) + (
             report.get("pr_rows") or []) + (report.get("ci_rows") or [])
         genuine_urls = {r.get("url") for r in row_sources if r.get("url")}
