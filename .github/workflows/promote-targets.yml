@@ -2,12 +2,7 @@ name: Verify and promote individually screened GitHub projects
 
 on:
   workflow_dispatch:
-  # Re-run on reviewed candidate-code updates; otherwise manually dispatch.
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/promote-targets.yml'
-      - 'scripts/audit_targeted_candidates.py'
+  # Manual-only; do not automatically change the curated cohort.
 
 permissions:
   contents: write
@@ -27,6 +22,7 @@ jobs:
       MAX_PAGES_PER_SOURCE: '6'
       PER_PAGE: '100'
       STALE_HOURS: '12'
+      MAX_REPOS: '50'
       TARGET_AUDIT_REQUEST_BUDGET: '280'
       PROMOTION_MAX_SWAPS: '9'
       PROMOTION_API_BUDGET: '350'
@@ -41,7 +37,7 @@ jobs:
       - run: pip install -r requirements.txt
       - name: Independently verify real Issues, PR and Actions for 28 days
         run: python scripts/audit_targeted_candidates.py
-      - name: Restore current original 75 source reports to SQLite
+      - name: Restore current original 50 source reports to SQLite
         run: python scripts/restore_public_snapshot.py
       - name: Independently recollect 29d and archive only when fully verified
         run: python scripts/promote_verified_candidates.py target-candidate-verified-audit.json
@@ -56,8 +52,8 @@ jobs:
               receipt = json.load(f)
           with open("target-promoted-source-audit.json", encoding="utf-8") as f:
               audit = json.load(f)
-          if receipt["active"] != 75 or len(audit["repositories"]) != 75:
-              raise SystemExit("Active repository count must remain 75")
+          if receipt["active"] != 50 or len(audit["repositories"]) != 50:
+              raise SystemExit("Active repository count must remain 50")
           added = len(receipt["replacements"])
           if not added or receipt["verified_after"] < receipt["verified_before"] + added:
               raise SystemExit("Verified membership increase not substantiated")
