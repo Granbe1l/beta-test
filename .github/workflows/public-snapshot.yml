@@ -42,6 +42,8 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: pip install -r requirements.txt
+      - name: Fetch pinned pre-curation snapshot commit for archival recovery
+        run: git fetch --no-tags origin 0b7e80867c76d1dd3ba824a8749742e6757ff431
       - name: Curate audited 50-project membership; losslessly archive 25 prior reports
         run: python scripts/curate_verified_50.py
       - name: Restore last validated public snapshot
@@ -61,9 +63,14 @@ jobs:
           git config user.email '103526238+Granbe1l@users.noreply.github.com'
           git fetch origin main
           git reset --hard origin/main
-          # Only commit a cutover that has not already been published.
-          if [ -f data/curated_50_transition_receipt.json ]; then
+          # The receipt in the working tree is UNTRACKED and survives
+          # git reset --hard. Check origin/main's Git tree, not the file.
+          if git cat-file -e 'origin/main:data/curated_50_transition_receipt.json' 2>/dev/null; then
             echo 'Another audited cutover was already published'
+            git cat-file -e 'origin/main:data/archived_75_to_50_reports.json.gz' || {
+              echo 'Receipt exists without original archive; refusing inconsistent cutover'
+              exit 1
+            }
           else
             cp /tmp/curated_50_cutover.json.gz data/github_public_snapshot.json.gz
             cp /tmp/curated_50_removed_archive.json.gz data/archived_75_to_50_reports.json.gz
