@@ -42,7 +42,11 @@ def comparable_observation_pair(reports: list[dict]) -> dict | None:
             matched = sorted({
                 name for name, day in daily if day == latest
                 and (name, earlier) in daily
-                and daily[(name, earlier)][3] == daily[(name, latest)][3]
+                # Matching two samples of last-updated Issues is NOT
+                # evidence of net backlog change: membership is incomplete.
+                # Only independently completed full-open inventories qualify.
+                and daily[(name, earlier)][3] == "verified_open_inventory"
+                and daily[(name, latest)][3] == "verified_open_inventory"
             })
             if not matched:
                 continue
@@ -53,7 +57,7 @@ def comparable_observation_pair(reports: list[dict]) -> dict | None:
                 "current_issues": sum(daily[(r, latest)][1] for r in matched),
                 "previous_prs": sum(daily[(r, earlier)][2] for r in matched),
                 "current_prs": sum(daily[(r, latest)][2] for r in matched),
-                "definition": "Observed open items in the same projects using the same collection method on both dates",
+                "definition": "Full-open inventory on the same projects using the same collection method on both dates; open PR counts are sampled and not a verified backlog trend",
             }
     return None
 

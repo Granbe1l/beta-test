@@ -10,7 +10,8 @@ def snapshot(name, data):
             "observations": [
                 {"measured_at": NOW - timedelta(days=days, hours=hour),
                  "open_issues_observed": issues,
-                 "open_prs_observed": prs}
+                 "open_prs_observed": prs,
+                 "collection_basis": "verified_open_inventory"}
                 for days, hour, issues, prs in data]}
 
 
@@ -120,3 +121,25 @@ def test_legacy_missing_basis_is_not_matched_to_explicit_new_basis():
          "collection_basis": "sampled_updated_events"},
     ]}
     assert comparable_observation_pair([report]) is None
+
+
+def test_two_recent_update_samples_cannot_claim_verified_backlog_growth():
+    report = {"repository": {"full_name": "org/A"}, "observations": [
+        {"measured_at": NOW-timedelta(days=1),
+         "open_issues_observed": 15, "open_prs_observed": 5,
+         "collection_basis": "sampled_updated_events"},
+        {"measured_at": NOW,
+         "open_issues_observed": 70, "open_prs_observed": 30,
+         "collection_basis": "sampled_updated_events"},
+    ]}
+    assert comparable_observation_pair([report]) is None
+
+
+def test_legacy_observations_cannot_be_presented_as_verified_backlog_trend():
+    assert comparable_observation_pair([
+        snapshot("org/legacy", [(0, 0, 20, 5), (1, 0, 10, 4)])
+        | {"observations": [
+            {**v, "collection_basis": "legacy_observed"} for v in
+            snapshot("org/legacy", [(0, 0, 20, 5), (1, 0, 10, 4)])["observations"]
+        ]}
+    ]) is None

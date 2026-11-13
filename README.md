@@ -494,3 +494,45 @@ verified 28-day sources: Issues 40/75, PR 50/75, CI 35/75.
 [Audit and published snapshot](https://github.com/Granbe1l/beta-test/actions/runs/43342299579).
 Do not claim that the newly added open backlog source is fully covered
 before its own real refresh audit confirms it.
+
+
+## P0 verified-first portfolio and safe candidate verification
+
+All **six Streamlit pages** now default to repositories with verified
+28-day Issues, PR and CI/CD history simultaneously, controlled through a
+single sidebar evidence-scope selector. A 7-day verified filter
+and the original 75-project exploratory view remain accessible. Missing
+records are not silently excluded from storage, and 28-day coverage means
+historical records checked, **not waiting 28 calendar days**.
+
+The current validated 2026-11-13 09:10 WIB snapshot has:
+- 75 curated tracked projects, **35** with all three source types verified
+  for the same 28-day period.
+- Independent 28-day source coverage: Issues **43/75**, PR **53/75**,
+  GitHub Actions **38/75**.
+- Independently verified full open-Issue inventories: **7/75** (not
+  equivalent to the event-window coverage counts).
+- Observed stored records: **12,557 Issues**, **26,549 PRs** and
+  **94,573 CI/CD runs**. These are retrieved observations, not complete
+  lifetime repository histories.
+
+The nonmutating [Candidate audit workflow](.github/workflows/candidate-audit.yml)
+discovers real public repositories and checks 28-day Issue, PR and
+CI coverage without changing the fixed original cohort. It publishes
+two read-only artifacts: actual verification evidence and a diversity-
+matched, unapproved candidate-replacement proposal. No replacement is
+automatically performed. An unverified or low-information
+candidate is not promoted merely to improve a percentage.
+
+Large open-Issue inventories can fall back to strictly bounded
+creation-date search shards when REST pagination is capped. This uses
+remaining API budget and labels nonexhaustive attempts as partial.
+Full-backlog aged-Issue percentages are now gated on independent
+open-inventory verification; otherwise only a **labelled sample**
+percentage may be shown. Historical backlog-change charts use only
+matched, independently verified full-open-inventory observations.
+
+See [P0 data integrity policy](docs/P0_VERIFIED_FIRST.md) and
+[CV-ready language](docs/CV_EVIDENCE.md). P0 source coverage improvements
+must be validated by new real GitHub workflow audit artifacts, never
+inferred from unit tests or a hand-selected easy repository.

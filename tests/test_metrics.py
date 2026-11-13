@@ -14,10 +14,16 @@ def test_denominator_zero():
 def test_issue_aging_and_trends():
     items=[{"state":"open","created_at":NOW-timedelta(days=d),"closed_at":None,"labels":["bug"]} for d in (3,10,50,100)]
     m=calculate_issues(items,NOW,90,True,NOW-timedelta(days=180))
-    assert m["observed_open"]==4 and m["aged_open"]==2 and m["aged_percent"]==50.0
-    assert sum(row["count"] for row in m["weekly_opened"])==3
+    assert m["observed_open"] == 4
+    assert m["sample_aged_open"] == 2 and m["sample_aged_percent"] == 50.0
+    assert m["aged_open"] is None and m["aged_percent"] is None
+    assert sum(row["count"] for row in m["weekly_opened"]) == 3
+    verified = calculate_issues(items, NOW, 90, True, NOW-timedelta(days=180),
+                                 backlog_complete=True)
+    assert verified["aged_open"] == 2 and verified["aged_percent"] == 50.0
     partial=calculate_issues(items,NOW,90,False,NOW-timedelta(days=180))
     assert partial["aged_percent"] is None and partial["weekly_opened"] is None
+    assert partial["sample_aged_percent"] == 50.0
 
 
 def test_pr_median_vs_mean_and_draft():
@@ -68,3 +74,26 @@ def test_finding_requires_evidence():
        "ci":{"known_conclusion_denominator":None,"success_percent":None},"closure":None}
     f=findings_for_repo(r)[0]
     assert "70%" in f["headline"] and "7 of 10" in f["evidence"] and f["url"].startswith("https://github.com/")
+
+
+def test_recent_updated_scan_cannot_validate_all_aged_open_issues():
+    """A 28-day complete updated-events scan may omit an old untouched open Issue."""
+    rows = [
+        {"state": "open", "created_at": NOW-timedelta(days=65), "labels": []},
+        {"state": "open", "created_at": NOW-timedelta(days=4), "labels": []},
+    ]
+    result = calculate_issues(
+        rows, NOW, observation_days=28, complete=True,
+        coverage_start=NOW-timedelta(days=29), backlog_complete=False)
+    assert result["trend_valid"]
+    assert result["sample_aged_percent"] == 50.0
+    assert result["sample_aged_denominator"] == 2
+    assert result["aged_percent"] is None
+    assert result["aged_denominator"] is None
+    assert not result["full_open_backlog_verified"]
+    validated = calculate_issues(
+        rows, NOW, observation_days=28, complete=True,
+        coverage_start=NOW-timedelta(days=29), backlog_complete=True)
+    assert validated["aged_percent"] == 50.0
+    assert validated["aged_denominator"] == 2
+    assert validated["full_open_backlog_verified"]

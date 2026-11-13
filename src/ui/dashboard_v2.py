@@ -254,22 +254,35 @@ def _scope(reports, key):
     if not reports:
         return []
     left_filter, right_filter = st.columns(2, gap="small")
+    from src.ui.observed import verified_joint_cohort
+    verified_28 = verified_joint_cohort(reports, days=28)
+    verified_7 = verified_joint_cohort(reports, days=7)
+    options = [
+        "Verified all three sources · 28 days",
+        "Verified all three sources · 7 days",
+        "All tracked projects · exploratory",
+        "Code pushed · last 7 days",
+        "Issue or PR events · last 7 days",
+        "No recent signal · last 7 days",
+        "Code pushed · last 30 days",
+        "Issue or PR events · last 30 days",
+        "No recent signal · last 30 days",
+    ]
+    # Verified-first without hiding the tracked cohort. If no data qualify,
+    # show an explicitly exploratory selection rather than an empty dashboard.
+    global_scope = st.session_state.get("global_evidence_scope", "")
+    if global_scope.startswith("All tracked"):
+        default_index = 2
+    elif global_scope.startswith("Verified · 7"):
+        default_index = 1
+    else:
+        default_index = 0 if verified_28 else 1 if verified_7 else 2
     with left_filter:
-        mode = st.selectbox("Activity filter", [
-            "All tracked projects",
-            "Code pushed · last 7 days",
-            "Issue or PR events · last 7 days",
-            "No recent signal · last 7 days",
-            "Code pushed · last 30 days",
-            "Issue or PR events · last 30 days",
-            "No recent signal · last 30 days",
-            "Verified all three sources · 7 days",
-            "Verified all three sources · 28 days",
-        ], key=key + "_activity")
+        mode = st.selectbox("Activity filter", options, index=default_index,
+                            key=key + "_activity")
     chosen = []
     period = 30 if "30 days" in mode else 7
     if mode.startswith("Verified all three sources"):
-        from src.ui.observed import verified_joint_cohort
         days = 28 if "28 days" in mode else 7
         chosen = verified_joint_cohort(reports, days=days)
         st.caption(
@@ -292,6 +305,12 @@ def _scope(reports, key):
             "coverage does not establish inactivity or missed deadlines."
         )
         return []
+    if not mode.startswith("Verified"):
+        st.caption(
+            "**Exploratory selection:** the displayed repositories may have "
+            "partial or stale Issues, PRs or CI/CD records. Only source-specific "
+            "verified windows qualify for confirmed period charts."
+        )
     names = [r["repository"]["full_name"] for r in chosen]
     with right_filter:
         picked = st.selectbox("Repository", ["All matching projects"] + names, key=key)
@@ -464,39 +483,47 @@ def _matched_snapshot_chart(chosen):
     paired = comparable_observation_pair(chosen)
     if paired:
         with st.container(border=True):
-            _chart_title("Change across two verified snapshots",
+            _chart_title(
+                "Open Issues across two verified inventory checks",
                 f'{paired["previous_date"]} → {paired["current_date"]} · '
-                f'{paired["matched_count"]} identical repositories measured on both dates')
+                f'{paired["matched_count"]} identical repositories with '
+                'complete open-Issue inventories on both dates'
+            )
             first, second = paired["previous_date"], paired["current_date"]
-            left, right = st.columns(2, gap="medium")
-            for column, label, before, after, color in (
-                (left, "Open issues", paired["previous_issues"], paired["current_issues"], PURPLE),
-                (right, "Open pull requests", paired["previous_prs"], paired["current_prs"], GREEN),
-            ):
-                with column:
-                    delta = after - before
-                    st.caption(f'{label}: {before:,} → {after:,} '
-                               f'({delta:+,} observed items)')
-                    ylo = max(0, min(before, after) - max(1, round(max(before, after) * .10)))
-                    yhi = max(before, after) + max(1, round(max(before, after) * .15))
-                    if yhi <= ylo:
-                        yhi = ylo + 1
-                    fig = go.Figure(go.Scatter(
-                        x=[first, second], y=[before, after],
-                        mode="lines+markers+text",
-                        line=dict(color=color, width=3),
-                        marker=dict(size=11, color=color, line=dict(color="white", width=2)),
-                        text=[f'{before:,}', f'{after:,}'],
-                        textposition="top center",
-                        hovertemplate="%{x}<br>Observed open items: %{y:,}<extra></extra>",
-                    ))
-                    fig.update_layout(
-                        yaxis=dict(range=[ylo, yhi], title="Observed open items"),
-                        xaxis=dict(type="category", title=None),
-                    )
-                    _chart(fig, height=205)
-            st.caption("Two verified observations show only a net change in recorded open work, "
-                       "not a productivity trend, cause of delay, or comparison of all 75 projects.")
+            before, after = paired["previous_issues"], paired["current_issues"]
+            st.caption(
+                f'Verified open Issues: {before:,} → {after:,} '
+                f'({after-before:+,} items in the matched cohort). '
+                'This is a change in observed open work, not a deadline '
+                'or productivity score.'
+            )
+            ylo = max(0, min(before, after) -
+                      max(1, round(max(before, after) * .10)))
+            yhi = max(before, after) + max(
+                1, round(max(before, after) * .15))
+            if yhi <= ylo:
+                yhi = ylo + 1
+            fig = go.Figure(go.Scatter(
+                x=[first, second], y=[before, after],
+                mode="lines+markers+text",
+                line=dict(color=PURPLE, width=3),
+                marker=dict(size=11, color=PURPLE,
+                            line=dict(color="white", width=2)),
+                text=[f'{before:,}', f'{after:,}'],
+                textposition="top center",
+                hovertemplate="%{x}<br>Verified open Issues: %{y:,}<extra></extra>",
+            ))
+            fig.update_layout(
+                yaxis=dict(range=[ylo, yhi], title="Open Issues in matched projects"),
+                xaxis=dict(type="category", title=None),
+            )
+            _chart(fig, height=245)
+            st.caption(
+                "Open pull requests are intentionally excluded from this "
+                "backlog-change chart because a full-open PR inventory has "
+                "not been independently verified. A sampling change must "
+                "not masquerade as real project progress."
+            )
     else:
         with st.container(border=True):
             _chart_title("Opened vs completed activity · last 7 days",
@@ -548,7 +575,8 @@ def overview(reports, selection):
     activity = sample_activity(chosen, days=7)
     scope = "Selected project" if len(chosen) == 1 else "Curated public sample"
     _kpis([
-        ("Projects tracked", _number(info["repositories"]), scope, "▣"),
+        ("Projects in analysis", _number(info["repositories"]),
+         "Verified cohort or explicitly exploratory selection · tracked total shown in sidebar", "▣"),
         ("Open tasks retrieved", _number(info["open_issues"]), "Observed GitHub issues · not the full backlog", "◷"),
         ("Open code changes", _number(info["open_changes"]), "Observed PRs including drafts", "⇄"),
         ("Projects pushed · 7d", _number(activity["pushed_recently"]),
@@ -630,7 +658,7 @@ def overview(reports, selection):
         st.caption(
             "The overview uses 7-day push and event metadata, the line uses "
             "a selectable 7/28-day window, and the check outcome donut uses "
-            "the last 30 days. Different windows are always labelled."
+            "the last 28 days. Different windows are always labelled."
         )
 
     _section("03 / Delivery activity", "What remains open, and how did automatic checks perform?")
@@ -641,8 +669,8 @@ def overview(reports, selection):
         _horizontal_bars(list(bands), list(bands.values()), BAR,
                          height=250, unit="Observed open issues")
     with right, st.container(border=True):
-        _chart_title("Automated check outcomes", "Share of known GitHub Actions results · last 30 days.")
-        _ci_donut(info["ci_rows"], period=30)
+        _chart_title("Automated check outcomes", "Share of known GitHub Actions results · last 28 days.")
+        _ci_donut(info["ci_rows"], period=28)
 
     _section("04 / Matched snapshot change",
              "A trend is shown only for projects with comparable validated observations on two different days.")
@@ -749,21 +777,16 @@ def project_details(reports):
     a, side_by_side, b, c = st.tabs(["Activity history", "Compare two projects",
                                       "Compare projects", "Source details"])
     with a:
-        observations = sorted(r.get("observations") or [],
-                              key=lambda x: utc(x["measured_at"]))
-        # Do not draw a misleading increase when a project switches from
-        # a recent-update sample to a separately verified full open backlog.
-        bases = {v.get("collection_basis") or "legacy_observed"
-                 for v in observations}
-        if len(bases) > 1:
-            latest_basis = (observations[-1].get("collection_basis")
-                            or "legacy_observed")
-            observations = [v for v in observations
-                            if (v.get("collection_basis") or
-                                "legacy_observed") == latest_basis]
-            st.caption("Collection method changed. Previous open-item counts "
-                       "are not directly comparable to the current method; "
-                       "this chart only shows observations using the same basis.")
+        observations = sorted(
+            (v for v in r.get("observations") or []
+             if v.get("collection_basis") == "verified_open_inventory"),
+            key=lambda x: utc(x["measured_at"]))
+        if len(observations) < 2:
+            st.caption(
+                "A historical open-backlog trend requires at least two "
+                "independently verified full open inventories. Older sampled "
+                "observations cannot prove a change in total outstanding work."
+            )
         if len(observations) >= 2:
             df = pd.DataFrame([
                 {"Observation": utc(v["measured_at"]).isoformat()[:16],
@@ -785,7 +808,7 @@ def project_details(reports):
             else:
                 st.info("There are no collected open issue records to chart yet.")
         else:
-            st.info("No observation history has been collected yet.")
+            st.info("No comparable verified open-inventory history is available yet.")
     with side_by_side:
         compare_two_repositories(reports)
     with b:
@@ -803,12 +826,19 @@ def issues_backlog(reports):
         return
     info = r["issues"]
     observed = summary([r])
+    full_backlog = r.get("open_backlog_status") == "complete"
     _kpis([
-        ("Open tasks retrieved", _number(observed["open_issues"]), "Observed issue records", "◷"),
-        ("30+ days old", _number(observed["aged_issues"]), "Open task age · not lateness", "◴"),
-        ("Share aged 30+ days", _percent(observed["aged_share"]), "Of retrieved open tasks", "%"),
+        ("Open tasks retrieved", _number(observed["open_issues"]),
+         "Retrieved GitHub Issues · not necessarily full backlog", "◷"),
+        ("30+ days old · observed", _number(info["sample_aged_open"]),
+         "Observed sample age · not a missed deadline", "◴"),
+        ("Share aged 30+ days" if full_backlog else "Share aged · sample only",
+         _percent(info["aged_percent"] if full_backlog
+                  else info["sample_aged_percent"]),
+         "Verified full open-Issue inventory" if full_backlog
+         else "Sample of retrieved open Issues; may omit older items", "%"),
     ])
-    if r.get("open_backlog_status") == "complete":
+    if full_backlog:
         st.caption("Full open-Issue inventory scan finished for this repository. "
                    "Open-item counts reflect that scan; source event trends "
                    "still need their own 28-day verification.")
@@ -860,6 +890,13 @@ def pull_request_review(reports):
         return
     info = r["prs"]
     observed = summary([r])
+    from src.ui.observed import qualified_reports
+    if not qualified_reports([r], "pull_requests", days=90):
+        st.caption(
+            "The 90-day PR view contains retrieved records and may be "
+            "incomplete. Its counts are observations, not the total "
+            "number of changes across all 90 days."
+        )
     _kpis([
         ("Open changes retrieved", _number(observed["open_changes"]), "Includes draft pull requests", "⇄"),
         ("Draft changes", _number(observed["draft_changes"]), "Of observed open changes", "◈"),
@@ -917,9 +954,16 @@ def cicd_activity(reports):
     if not r:
         empty_state("No repository selected")
         return
-    period = st.selectbox("Observation period", [30, 90],
+    period = st.selectbox("Observation period", [28, 90],
                           format_func=lambda d: f"Last {d} days", key="v3_ci_period")
     info = checks_in_period(r["ci_rows"], days=period)
+    from src.ui.observed import qualified_reports
+    if not qualified_reports([r], "workflow_runs", days=period):
+        st.warning(
+            f"Only a retrieved sample is available for the selected {period}-day "
+            "CI/CD period; the source has not verified this entire interval. "
+            "Outcome percentages describe retrieved known runs only."
+        )
     _kpis([
         (f"Completed checks · {period}d", _number(info["total"]),
          "Retrieved GitHub Actions runs", "▣"),

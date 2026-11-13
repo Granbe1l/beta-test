@@ -11,12 +11,19 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 
 from src.collectors.normalize import issue
+from src.collectors.client import PageResult
+from src.collectors.backlog_search import search_open_issues_by_created
 from src.database.models import Issue, SyncLog, utcnow
 from src.database.store import get_checkpoint, safe_error, write_records
 
 
-def fetch_open_backlog(client, repo, settings):
-    """Ascending oldest-first is stable for examples; never fake completion."""
+def fetch_open_backlog(client, repo, settings, *, now=None):
+    """REST oldest-first scan; shard by creation time only if REST is capped.
+
+    The initial REST source remains observable if Search API calls fail.
+    When sharding fully succeeds its returned Issue IDs become the
+    authoritative current-open inventory for reconciliation.
+    """
     result = client.paginate(
         f"/repos/{repo.full_name}/issues",
         {"state": "open", "sort": "created", "direction": "asc",
@@ -28,8 +35,21 @@ def fetch_open_backlog(client, repo, settings):
         value = issue(raw, repo.id)
         if value is not None and value.get("state") == "open":
             rows[value["id"]] = value
+    if not result.complete and callable(getattr(client, "get", None)):
+        shard = search_open_issues_by_created(
+            client, repo, settings, now=now, max_calls=20)
+        if shard.complete:
+            # Fully exhausted shards, not an inferred total from partial REST
+            rows = {row["id"]: row for row in shard.items}
+        else:
+            for row in shard.items:
+                rows[row["id"]] = row
+        total = result.pages + shard.pages
+        result = PageResult(
+            list(rows.values()), total, bool(shard.complete),
+            not shard.complete, False,
+        )
     return list(rows.values()), result
-
 
 def sync_open_backlog(session, client, repo, settings, now=None):
     """Store sampled open rows even on cap; certify only exhausted lists.
@@ -44,7 +64,7 @@ def sync_open_backlog(session, client, repo, settings, now=None):
     session.add(log)
     session.commit()
     try:
-        rows, result = fetch_open_backlog(client, repo, settings)
+        rows, result = fetch_open_backlog(client, repo, settings, now=now)
         write_records(session, "issues", rows)
         if result.complete:
             observed_ids = {row["id"] for row in rows}
@@ -63,7 +83,7 @@ def sync_open_backlog(session, client, repo, settings, now=None):
             cp.last_error = None
         else:
             cp.last_error = (
-                "Open-issue backlog exceeded bounded API pagination; "
+                "Open-issue backlog exceeded bounded pagination or Search sharding incomplete; "
                 "observed rows do not establish total open backlog"
             )
         cp.status = "complete" if result.complete else "partial"
