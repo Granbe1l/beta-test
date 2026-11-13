@@ -254,22 +254,29 @@ def _scope(reports, key):
     if not reports:
         return []
     left_filter, right_filter = st.columns(2, gap="small")
+    from src.ui.observed import verified_joint_cohort
+    verified_28 = verified_joint_cohort(reports, days=28)
+    verified_7 = verified_joint_cohort(reports, days=7)
+    options = [
+        "Verified all three sources · 28 days",
+        "Verified all three sources · 7 days",
+        "All tracked projects · exploratory",
+        "Code pushed · last 7 days",
+        "Issue or PR events · last 7 days",
+        "No recent signal · last 7 days",
+        "Code pushed · last 30 days",
+        "Issue or PR events · last 30 days",
+        "No recent signal · last 30 days",
+    ]
+    # Verified-first without hiding the tracked cohort. If no data qualify,
+    # show an explicitly exploratory selection rather than an empty dashboard.
+    default_index = 0 if verified_28 else 1 if verified_7 else 2
     with left_filter:
-        mode = st.selectbox("Activity filter", [
-            "All tracked projects",
-            "Code pushed · last 7 days",
-            "Issue or PR events · last 7 days",
-            "No recent signal · last 7 days",
-            "Code pushed · last 30 days",
-            "Issue or PR events · last 30 days",
-            "No recent signal · last 30 days",
-            "Verified all three sources · 7 days",
-            "Verified all three sources · 28 days",
-        ], key=key + "_activity")
+        mode = st.selectbox("Activity filter", options, index=default_index,
+                            key=key + "_activity")
     chosen = []
     period = 30 if "30 days" in mode else 7
     if mode.startswith("Verified all three sources"):
-        from src.ui.observed import verified_joint_cohort
         days = 28 if "28 days" in mode else 7
         chosen = verified_joint_cohort(reports, days=days)
         st.caption(
@@ -292,6 +299,12 @@ def _scope(reports, key):
             "coverage does not establish inactivity or missed deadlines."
         )
         return []
+    if not mode.startswith("Verified"):
+        st.caption(
+            "**Exploratory selection:** the displayed repositories may have "
+            "partial or stale Issues, PRs or CI/CD records. Only source-specific "
+            "verified windows qualify for confirmed period charts."
+        )
     names = [r["repository"]["full_name"] for r in chosen]
     with right_filter:
         picked = st.selectbox("Repository", ["All matching projects"] + names, key=key)
