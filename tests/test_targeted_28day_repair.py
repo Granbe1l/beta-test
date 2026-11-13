@@ -56,12 +56,19 @@ def test_capped_28d_attempt_remains_partial_and_does_not_fake_coverage(db,cfg):
     cp=_checkpoint(101,"pull_requests")
     db.add(cp); db.commit()
     old=cp.coverage_start
+    old_success=cp.last_success_at
+    old_pages=cp.pages_fetched
     client=RecordedDateClient(complete=False)
     result=sync_one(db,client,repository,"pull_requests",cfg,now=NOW,
                     min_window_days=28)
     assert result["status"] == "partial"
     assert result["requested_repair_window_days"] == 28
-    assert db.get(SyncCheckpoint,(101,"pull_requests")).coverage_start == old
+    saved=db.get(SyncCheckpoint,(101,"pull_requests"))
+    assert saved.coverage_start == old
+    assert saved.last_success_at == old_success
+    assert saved.pages_fetched == old_pages
+    assert saved.status == "complete"  # The earlier 7d scan was genuinely complete
+    assert "Page cap" in saved.last_error
 
 
 def test_repair_selector_prefers_two_short_solvable_sources_and_skips_high_caps(db,cfg):
@@ -97,3 +104,23 @@ def test_workflow_uses_bounded_repair_without_removing_75_original_repos():
     assert "MAX_REPOS: '75'" in workflow
     assert "--max-requests 850" in workflow
     assert "MAX_PAGES_PER_SOURCE: '6'" in workflow
+
+
+def test_failed_optional_repair_preserves_last_valid_short_checkpoint(db, cfg):
+    repository = db.get(Repository,101)
+    cp = _checkpoint(101,"issues",days=7,pages=2)
+    db.add(cp)
+    db.commit()
+    old = cp.last_success_at
+    class ErrorClient:
+        max_requests = 850
+        request_count = 0
+        def paginate(self, *args, **kwargs):
+            raise RuntimeError("Synthetic API error for isolated test")
+    result = sync_one(db, ErrorClient(), repository, "issues", cfg,
+                      now=NOW, min_window_days=28)
+    saved = db.get(SyncCheckpoint, (101, "issues"))
+    assert result["status"] == "failed"
+    assert saved.status == "complete"
+    assert saved.last_success_at == old
+    assert "RuntimeError" in saved.last_error
