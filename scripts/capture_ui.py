@@ -170,10 +170,6 @@ try:
                 export_action = desktop.get_by_role(
                     "button", name="Export evidence review plan (CSV)")
                 if export_action.count():
-                    desktop.get_by_text(
-                        "A three-step evidence review", exact=True).first.wait_for(
-                            timeout=15000) if desktop.get_by_text(
-                        "A three-step evidence review", exact=True).count() else None
                     with desktop.expect_download(timeout=20000) as csv_info:
                         export_action.click(timeout=10000)
                     export = csv_info.value
