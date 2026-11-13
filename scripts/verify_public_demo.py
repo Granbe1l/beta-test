@@ -40,8 +40,8 @@ def expected_snapshot_stamp(path: Path = SNAPSHOT) -> str:
     """The exact visible timestamp from the repository's checked-in snapshot."""
     with gzip.open(path, "rt", encoding="utf-8") as stream:
         payload = json.load(stream)
-    if payload.get("schema_version") != 1 or len(payload.get("reports") or []) != 75:
-        raise ValueError("Local repository snapshot does not contain 75 verified repo records")
+    if payload.get("schema_version") != 1 or len(payload.get("reports") or []) != 50:
+        raise ValueError("Local repository snapshot does not contain 50 curated repository records")
     stamp = datetime.fromisoformat(payload["generated_at"].replace("Z", "+00:00"))
     stamp = stamp.astimezone(timezone.utc)
     return stamp.strftime("%d %b %Y · %H:%M UTC")
@@ -88,7 +88,7 @@ def verify_public_demo(url: str, snapshot_path: Path = SNAPSHOT,
                 "expected_snapshot_utc": expected,
                 "dashboard_chart_visible": True,
                 "key_findings_page_visible": True,
-                "repo_count": 75,
+                "repo_count": 50,
             }
         finally:
             browser.close()
