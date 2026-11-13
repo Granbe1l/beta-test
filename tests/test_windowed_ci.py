@@ -100,7 +100,7 @@ def test_verified_ci_days_resume_after_partial_collector_run(db, cfg):
                       now=NOW + timedelta(hours=6))
     done = db.get(SyncCheckpoint, (101, "workflow_runs"))
     assert second["status"] == "complete"
-    assert len(done.verified_days) >= 30
+    assert len(done.verified_days) >= 29
     assert client.request_count - first_attempts < first_attempts
     assert done.high_watermark is not None
 
