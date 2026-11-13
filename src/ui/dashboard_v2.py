@@ -406,11 +406,21 @@ def _findings_view(findings):
                     st.write(f["headline"])
                 _finding_visual(f)
                 st.caption(f'Next check: {f["review"]}')
+                plan = f.get("review_plan") or {}
+                if plan.get("trigger"):
+                    st.caption(f'Why inspect: {plan["trigger"]}')
                 if f.get("url"):
                     st.link_button("Inspect evidence on GitHub", f["url"],
                                    use_container_width=True)
                 with st.expander("Evidence and limitations"):
                     st.caption(f.get("evidence_scope", "Observed GitHub records"))
+                    plan = f.get("review_plan") or {}
+                    if plan.get("steps"):
+                        st.markdown("**A three-step evidence review**")
+                        for step in plan["steps"]:
+                            st.write(step)
+                    if plan.get("not_proven"):
+                        st.caption("Not proven: " + plan["not_proven"])
                     st.write(f["evidence"])
                     st.write(f["interpretation"])
                     examples = f.get("examples") or []
@@ -623,6 +633,8 @@ def overview(reports, selection):
                     f'{lead["metric_label"]}: {lead["metric_value"]} '
                     f'· {lead["scope"]}'
                 )
+                if brief.get("why_review"):
+                    st.caption("Why this deserves a look: " + brief["why_review"])
                 st.caption(f'Next check: {brief["next_check"]}')
                 if brief["source_url"]:
                     st.link_button("Open an original GitHub record",
@@ -1041,6 +1053,16 @@ def risks_recommendations(reports, selection):
     _section("Priorities for a closer look",
              "Source-linked observations; inspection priority is not a project-quality ranking.")
     _findings_view(found)
+    if found:
+        from src.analytics.review_decisions import review_csv
+        st.download_button(
+            "Export evidence review plan (CSV)",
+            data=review_csv(found),
+            file_name="delivery-monitor-evidence-review.csv",
+            mime="text/csv", key="p1_review_plan_csv",
+            help="The same source-backed findings currently shown above. "
+                 "Records and decisions are not invented.",
+        )
     st.caption("Review first is a transparent inspection priority—not proof of delay. "
                "Record-level links in each expanded finding allow the reviewer to test the claim. "
                "It does not mean a project is delayed, low-quality, or has a confirmed defect.")
