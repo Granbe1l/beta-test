@@ -88,6 +88,6 @@ def test_scheduled_refreshes_are_staggered_without_looser_verified_definition():
     refresh = (root / ".github/workflows/public-snapshot.yml").read_text()
     scout = (root / ".github/workflows/candidate-audit.yml").read_text()
     assert "cron: '17 1,5,9,13,17,21 * * *'" in refresh
-    assert "cron: '23 4,10,16,22 * * *'" in scout
+    assert "cron: '23 3,15 * * *'" in scout
     assert "STALE_HOURS: '12'" in refresh
     assert "--max-requests 850" in refresh
