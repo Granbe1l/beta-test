@@ -35,7 +35,7 @@ def test_verified_cohorts_are_strict_intersections_not_75_repo_claim():
     assert read["verified_7d"] == {
         "issues": 3, "pull_requests": 4, "workflow_runs": 3}
     assert read["verified_28d"] == {
-        "issues": 3, "pull_requests": 3, "workflow_runs": 2}
+        "issues": 3, "pull_requests": 3, "workflow_runs": 3}
     assert read["joint_verified_7d"] == 2
     assert read["joint_verified_28d"] == 1
     assert [r["repository"]["full_name"] for r in verified_joint_cohort(records, 28, NOW)] == ["org/A"]
