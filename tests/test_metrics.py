@@ -74,3 +74,26 @@ def test_finding_requires_evidence():
        "ci":{"known_conclusion_denominator":None,"success_percent":None},"closure":None}
     f=findings_for_repo(r)[0]
     assert "70%" in f["headline"] and "7 of 10" in f["evidence"] and f["url"].startswith("https://github.com/")
+
+
+def test_recent_updated_scan_cannot_validate_all_aged_open_issues():
+    """A 28-day complete updated-events scan may omit an old untouched open Issue."""
+    rows = [
+        {"state": "open", "created_at": NOW-timedelta(days=65), "labels": []},
+        {"state": "open", "created_at": NOW-timedelta(days=4), "labels": []},
+    ]
+    result = calculate_issues(
+        rows, NOW, observation_days=28, complete=True,
+        coverage_start=NOW-timedelta(days=29), backlog_complete=False)
+    assert result["trend_valid"]
+    assert result["sample_aged_percent"] == 50.0
+    assert result["sample_aged_denominator"] == 2
+    assert result["aged_percent"] is None
+    assert result["aged_denominator"] is None
+    assert not result["full_open_backlog_verified"]
+    validated = calculate_issues(
+        rows, NOW, observation_days=28, complete=True,
+        coverage_start=NOW-timedelta(days=29), backlog_complete=True)
+    assert validated["aged_percent"] == 50.0
+    assert validated["aged_denominator"] == 2
+    assert validated["full_open_backlog_verified"]
