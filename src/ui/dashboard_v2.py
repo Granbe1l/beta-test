@@ -725,6 +725,19 @@ def project_details(reports):
     with a:
         observations = sorted(r.get("observations") or [],
                               key=lambda x: utc(x["measured_at"]))
+        # Do not draw a misleading increase when a project switches from
+        # a recent-update sample to a separately verified full open backlog.
+        bases = {v.get("collection_basis") or "legacy_observed"
+                 for v in observations}
+        if len(bases) > 1:
+            latest_basis = (observations[-1].get("collection_basis")
+                            or "legacy_observed")
+            observations = [v for v in observations
+                            if (v.get("collection_basis") or
+                                "legacy_observed") == latest_basis]
+            st.caption("Collection method changed. Previous open-item counts "
+                       "are not directly comparable to the current method; "
+                       "this chart only shows observations using the same basis.")
         if len(observations) >= 2:
             df = pd.DataFrame([
                 {"Observation": utc(v["measured_at"]).isoformat()[:16],
