@@ -52,12 +52,20 @@ def calculate_issues(issues: list[dict], now, observation_days: int = 90, comple
     # An independent exhausted open-backlog scan does, but never changes
     # eligibility for 7/28/90-day source event trends.
     valid_observed_open = complete or backlog_complete
+    # NEVER equate a complete recent-updates scan with the entire open
+    # backlog. Such scans miss years-old Issues that were never updated.
+    # Independent full-open inventory is the sole gate for true backlog
+    # shares; the observed sample is reported separately and explicitly.
     return {"observed_open": len(active) if valid_observed_open else None,
             "observed_open_partial": len(active),
-            "aged_open": len(aged) if valid_observed_open else None,
-            "aged_percent": ratio(len(aged), len(active)) if valid_observed_open else None,
-            "aged_denominator": len(active) if valid_observed_open else None,
-            "age_distribution": age_groups if valid_observed_open else None,
+            "sample_aged_open": len(aged),
+            "sample_aged_denominator": len(active),
+            "sample_aged_percent": ratio(len(aged), len(active)),
+            "sample_age_distribution": age_groups,
+            "aged_open": len(aged) if backlog_complete else None,
+            "aged_percent": ratio(len(aged), len(active)) if backlog_complete else None,
+            "aged_denominator": len(active) if backlog_complete else None,
+            "age_distribution": age_groups if backlog_complete else None,
             "full_open_backlog_verified": bool(backlog_complete),
             "weekly_opened": opened, "weekly_closed": closed,
             "label_counts": labels.most_common(8) if complete else None,
