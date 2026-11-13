@@ -417,11 +417,12 @@ def _weekly(rows, days=84):
 
 def _coverage_details(reports):
     with st.expander("About the data and its limitations"):
-        st.caption("Selected, bounded public GitHub repositories. A complete bounded scan does not mean the full issue/PR history was collected. Missing records are not zero activity; a push does not prove feature development.")
+        st.caption("Updated-event coverage and full open-Issue inventory are independent. A complete 28-day updated-event scan does not cover every older open issue. A bounded backlog scan is complete only when all open-Issue pages were exhausted; otherwise the open counts remain samples. Missing records are not zero activity.")
         if reports:
             frame = pd.DataFrame([
                 {"Repository": r["repository"]["full_name"],
                  "Issues": r["status"].get("issues"),
+                 "Full open backlog": r.get("open_backlog_status", "unavailable"),
                  "Code changes": r["status"].get("pull_requests"),
                  "Automated checks": r["status"].get("workflow_runs"),
                  "Last source refresh": at_time(r.get("last_success"))}
@@ -768,7 +769,17 @@ def issues_backlog(reports):
         ("30+ days old", _number(observed["aged_issues"]), "Open task age · not lateness", "◴"),
         ("Share aged 30+ days", _percent(observed["aged_share"]), "Of retrieved open tasks", "%"),
     ])
-    st.caption("Issue cards and charts count the same retrieved records—not the complete backlog.")
+    if r.get("open_backlog_status") == "complete":
+        st.caption("Full open-Issue inventory scan finished for this repository. "
+                   "Open-item counts reflect that scan; source event trends "
+                   "still need their own 28-day verification.")
+    else:
+        st.caption(
+            "Open-task counts use retrieved Issue records, not a verified "
+            "full backlog. Older Issues that were never recently updated "
+            "may be missing. Independent open-inventory scan: " +
+            str(r.get("open_backlog_status", "unavailable")) + "."
+        )
     c1, c2 = st.columns(2, gap="large")
     with c1, st.container(border=True):
         _chart_title("Age of observed open issues",
