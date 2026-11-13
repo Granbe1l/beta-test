@@ -23,6 +23,8 @@ def main():
     parser.add_argument("--max-requests", type=int, default=0, help="Bound entire collection run to avoid rate-limit exhaustion")
     parser.add_argument("--audit-open-backlog", action="store_true",
                         help="Use spare API budget for independent full-open-Issue scans")
+    parser.add_argument("--repair-coverage", action="store_true",
+                        help="Bounded 28d reattempt for up to four low-page Issue/PR sources with short checkpoints")
     args=parser.parse_args()
     cfg=Settings.from_env()
     client=GitHubClient(cfg.github_token,cfg.timeout_seconds,cfg.max_retries,
@@ -54,7 +56,8 @@ def main():
                     print("Keeping audited selection; expansion already attempted")
             results=synchronize(session,client,cfg,reconcile=args.reconcile,
                                 initial_batch_size=args.initial_batch or None,
-                                audit_open_backlog=args.audit_open_backlog)
+                                audit_open_backlog=args.audit_open_backlog,
+                                repair_coverage=args.repair_coverage)
             for row in results: print(row)
             if not results:
                 print("No selected repositories. Run scripts/run_sync.py --discover when GitHub API is accessible.")
