@@ -336,10 +336,17 @@ def fetch_source_adaptive(client: GitHubClient, repo: Repository, source: str,
     return list(merged.values()), result, effective_since, attempts, total_pages
 
 
-def sync_one(session: Session, client: GitHubClient, repo: Repository, source: str, settings: Settings, reconcile=False, now=None) -> dict:
+def sync_one(session: Session, client: GitHubClient, repo: Repository, source: str,
+             settings: Settings, reconcile=False, now=None,
+             min_window_days=None) -> dict:
     now = now or utcnow()
     cp = get_checkpoint(session, repo.id, source)
     since = start_window(cp, settings, now, reconcile)
+    if min_window_days:
+        # A narrow 1/7d successful checkpoint must not permanently trap
+        # future syncs in short overlap-only windows. Retry a full 28d
+        # event history for a small, deliberately selected subset.
+        since = min(since, utc(now) - timedelta(days=min_window_days))
     log = SyncLog(repo_id=repo.id, source=source, started_at=now)
     session.add(log)
     session.commit()
@@ -383,7 +390,8 @@ def sync_one(session: Session, client: GitHubClient, repo: Repository, source: s
         session.commit()
         return {"repo": repo.full_name, "source": source,
                 "status": status, "records": len(rows), "pages": total_pages,
-                "attempts": attempts, "window_days": round((now - actual_since).total_seconds() / 86400, 2)}
+                "attempts": attempts, "window_days": round((now - actual_since).total_seconds() / 86400, 2),
+                "requested_repair_window_days": min_window_days}
     except Exception as exc:
         # Revert all in-flight rows/checkpoint changes, keep historical records.
         session.rollback()
@@ -494,9 +502,48 @@ def backlog_priority_order(session: Session, repositories: list[Repository],
     return rotate(eligible) + rotate(remainder)
 
 
+def coverage_repair_targets(session: Session, repositories: list[Repository],
+                            now: datetime, *, max_repos=4) -> dict[int, set[str]]:
+    """Target low-page short Issue/PR windows, without selecting easier repos.
+
+    A source with status=complete but coverage_start only 1/7 days ago
+    cannot support a 28-day analysis. Standard 48h watermark overlaps
+    cannot extend that historical start backward on later runs. Limit
+    extra 28d attempts to four repositories per collector run and only
+    low-page prior sources; saturated high-volume endpoints remain
+    explicitly exploratory until their API history can actually be scanned.
+    """
+    if max_repos < 1:
+        return {}
+    cutoff = utc(now) - timedelta(days=28)
+    candidates = []
+    for repo in repositories:
+        sources, effort = set(), 0
+        for source in ("issues", "pull_requests"):
+            cp = session.get(SyncCheckpoint, (repo.id, source))
+            if (cp and cp.status == "complete" and cp.coverage_start and
+                    utc(cp.coverage_start) > cutoff and
+                    cp.pages_fetched is not None and
+                    1 <= int(cp.pages_fetched) <= 4):
+                sources.add(source)
+                effort += int(cp.pages_fetched)
+        if sources:
+            candidates.append((repo, sources, effort))
+    # Repositories with two repairable source windows get considered first;
+    # six-hour slot rotation prevents a fixed set always absorbing the
+    # spare scan budget. Eligibility is a cost forecast, NOT source proof.
+    candidates.sort(key=lambda item: (-len(item[1]), item[2], item[0].full_name))
+    if candidates:
+        slot = int(utc(now).timestamp() // (6 * 3600))
+        offset = (slot * 3) % len(candidates)
+        candidates = candidates[offset:] + candidates[:offset]
+    return {repo.id: sources for repo, sources, _ in candidates[:max_repos]}
+
+
 def synchronize(session: Session, client: GitHubClient, settings: Settings, reconcile=False,
                 initial_batch_size: int | None = None, run_at=None,
-                audit_open_backlog=False, max_backlog_repos=8) -> list[dict]:
+                audit_open_backlog=False, max_backlog_repos=8,
+                repair_coverage=False, max_repair_repos=4) -> list[dict]:
     result = []
     repos = list(session.scalars(select(Repository).where(Repository.selected.is_(True)).order_by(Repository.full_name)))
     if initial_batch_size is not None and initial_batch_size > 0:
@@ -542,6 +589,20 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
                 if healthy:
                     ordered.append(healthy.pop(0))
             repos = ordered
+    repair_targets = (
+        coverage_repair_targets(session, repos, run_at or utcnow(),
+                                max_repos=max_repair_repos)
+        if repair_coverage else {}
+    )
+    if repair_targets:
+        # Act on the bounded repair set before the GitHub API request budget
+        # is exhausted, then continue the existing fair rotation.
+        repos = ([r for r in repos if r.id in repair_targets]
+                 + [r for r in repos if r.id not in repair_targets])
+        print("Targeted 28d Issue/PR repair attempts:", {
+            r.full_name: sorted(repair_targets[r.id])
+            for r in repos if r.id in repair_targets
+        })
     visited = []
     for repo in repos:
         # Stop before exhausting the allocated API quota; never mark unvisited
@@ -556,8 +617,11 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
         slot = int((run_at or utcnow()).timestamp() // (6 * 3600))
         source_order = SOURCES[slot % len(SOURCES):] + SOURCES[:slot % len(SOURCES)]
         for source in source_order:
-            result.append(sync_one(session, client, repo, source, settings,
-                                   reconcile=reconcile, now=run_at or utcnow()))
+            result.append(sync_one(
+                session, client, repo, source, settings,
+                reconcile=reconcile, now=run_at or utcnow(),
+                min_window_days=(28 if source in repair_targets.get(repo.id, ())
+                                 else None)))
         if not audit_open_backlog:
             record_observations(session, repo.id)
         visited.append(repo)
