@@ -617,7 +617,8 @@ def overview(reports, selection):
             f"**{readiness['joint_verified_28d']}/{readiness['tracked']}** "
             "for 28 days. A verified window uses existing source history; "
             "it does not require waiting 28 new days. Partial repositories "
-            "remain accessible as explicitly exploratory observations."
+            "remain accessible as explicitly exploratory observations. "
+            "Unverified sources are retained, never deleted or counted as zero activity."
         )
     _section("01 / Activity over time",
              "Daily recorded events · 7 or 28 days · exploratory and verified scopes")
