@@ -53,10 +53,11 @@ def start_window(cp: SyncCheckpoint, settings: Settings, now: datetime, reconcil
     if reconcile:
         return baseline
     if not cp.high_watermark:
-        # A first complete scan of a recent 30-day window is more useful
-        # than repeatedly hitting a six-page cap over 120+ days.
-        # A separate explicit --reconcile still attempts the long backfill.
-        return max(baseline, now - timedelta(days=30))
+        # Start at the exact decision window. A 30-day bootstrap followed
+        # by another 28-day retry spent the page budget on near-duplicate
+        # high-volume data, starving other repositories' source scans.
+        # An explicit --reconcile still requests the long backfill window.
+        return max(baseline, now - timedelta(days=28))
     # All source endpoints use overlap; GitHub workflow runs filter by created date.
     return max(baseline, utc(cp.high_watermark) - timedelta(hours=settings.overlap_hours if cp.source != "workflow_runs" else max(336, settings.overlap_hours)))
 
