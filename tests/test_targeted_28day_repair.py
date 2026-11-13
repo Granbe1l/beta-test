@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 
 from src.collectors.client import PageResult
-from src.collectors.sync import coverage_repair_targets, sync_one
+from src.collectors.sync import coverage_repair_targets, sync_one, utc
 from src.database.models import Repository, SyncCheckpoint
 
 NOW = datetime(2026, 11, 13, 12, tzinfo=timezone.utc)
@@ -47,7 +47,8 @@ def test_exact_full_28d_history_can_upgrade_old_narrow_source_only_after_complet
     assert client.calls[0][1]["since"] == (NOW-timedelta(days=28)).strftime(
         "%Y-%m-%dT%H:%M:%SZ")
     checkpoint=db.get(SyncCheckpoint, (101,"issues"))
-    assert checkpoint.coverage_start <= NOW-timedelta(days=28)
+    # SQLite stores timezone-naive DATETIME; compare normalized UTC instants.
+    assert utc(checkpoint.coverage_start) <= NOW-timedelta(days=28)
 
 
 def test_capped_28d_attempt_remains_partial_and_does_not_fake_coverage(db,cfg):
