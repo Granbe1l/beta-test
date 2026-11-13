@@ -11,6 +11,15 @@ on:
       - src/analytics/comparisons.py
       - src/analytics/findings.py
       - data/github_public_snapshot.json.gz
+  pull_request:
+    paths:
+      - .github/workflows/ui-screenshots.yml
+      - streamlit_app.py
+      - scripts/capture_ui.py
+      - src/ui/**
+      - src/analytics/comparisons.py
+      - src/analytics/findings.py
+      - data/github_public_snapshot.json.gz
   workflow_dispatch:
 permissions:
   contents: read
