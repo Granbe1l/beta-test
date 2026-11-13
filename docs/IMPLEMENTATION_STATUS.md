@@ -77,6 +77,26 @@ The app describes **observable open-source engineering activity**. It is
 *not* a monitoring system for private client delivery deadlines. This
 boundary is explicit in the new HRD executive summary.
 
+## CV-ready verified cohort without waiting
+
+The app has separate, **strict same-project** cohort filters for complete
+7-day and 28-day history across all three Issues, PR and CI source types.
+The period describes **existing historical data**; a 28-day countdown is
+not required. Partial sources remain accessible as exploratory data,
+and neither exploratory nor source-specific cohorts should be described
+as "all 75 verified".
+
+`python scripts/cv_evidence.py` emits a reproducible receipt from the
+real committed snapshot, including the matching 7/28-day cohort sizes,
+the source-specific verified denominators, and the stored record counts
+with timestamp. The sample can therefore be shown to recruiters with
+honest qualifiers **before full 75/75 coverage**.
+
+The independent historical open-Issue inventory remains separately
+tracked. Passing tests and successful refreshes cannot substitute for
+a genuine audit of its remaining incomplete repositories. Read
+[CV evidence wording](CV_EVIDENCE.md) for ATS-safe descriptions.
+
 ## P0 integrity follow-up
 
 GitHub Issues REST `since` filters **last-updated records**, not the full
