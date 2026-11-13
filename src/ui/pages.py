@@ -524,40 +524,88 @@ def cicd_activity(reports):
 
 
 def comparison(reports, embedded=False):
+    """Evidence-gated comparison with a usable and visibly labelled fallback.
+
+    The previous default 90-day window suppressed nearly every metric for
+    sources whose *actual* verified coverage was 28 days. The selected 7/28
+    day window now applies to every period metric, and a full-backlog share
+    is kept separately gated by an independently exhausted inventory.
+    """
+    from src.analytics.comparison_views import (
+        comparison_rows, metric_options, preferred_metric, metric_disclosure,
+    )
     if not embedded:
-        page_header("Cross-repository comparison", "Variation between selected projects is descriptive, never a ranking of project quality.", status_for(reports))
+        page_header("Cross-repository comparison",
+                    "Descriptive differences from original GitHub records—not a quality ranking.",
+                    status_for(reports))
     if not reports:
         return empty_state("No comparable repositories")
-    col1,col2,col3 = st.columns(3)
-    with col1: days = st.selectbox("Observation window", [30,60,90], index=2, key="compare_days")
-    categories = sorted({r["repository"]["category"] for r in reports})
-    with col2: cat = st.selectbox("Project category", ["All"]+categories, key="compare_category")
-    options = ["30+ day issues (%)", "Median merge (days)", "Closed issues (28d)"]
-    with col3: metric = st.selectbox("Metric", options, key="compare_metric")
-    now = datetime.now(timezone.utc)
-    ready = []
-    for r in reports:
-        if cat != "All" and r["repository"]["category"] != cat: continue
-        result = dict(r)
-        cp = r["coverage"]
-        result["issues"] = calculate_issues(r["issue_rows"], now, days, source_available(r,"issues"),
-                                             (cp["issues"] or {}).get("coverage_start"))
-        result["prs"] = calculate_prs(r["pr_rows"], now, days, source_available(r,"pull_requests"),
-                                      (cp["pull_requests"] or {}).get("coverage_start"))
-        ready.append(result)
-    df = pd.DataFrame(comparable_metrics(ready))
-    if df.empty:
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        days = st.selectbox("Observation window", [7, 28, 90], index=1,
+                            format_func=lambda n: f"Last {n} days",
+                            key="compare_days")
+    categories = sorted({r["repository"].get("category") or "Other" for r in reports})
+    with col2:
+        cat = st.selectbox("Project category", ["All"] + categories,
+                           key="compare_category")
+    scoped = [r for r in reports if cat == "All"
+              or (r["repository"].get("category") or "Other") == cat]
+    rows = comparison_rows(scoped, days=days)
+    if not rows:
         return empty_state("No repository matches these filters")
+    df = pd.DataFrame(rows)
+    options = metric_options(days)
+    selected_metric_key = "compare_metric"
+    previous_scope_key = "_compare_data_scope"
+    signature = (days, cat)
+    if st.session_state.get(previous_scope_key) != signature:
+        st.session_state.pop(selected_metric_key, None)
+        st.session_state[previous_scope_key] = signature
+    if st.session_state.get(selected_metric_key) not in (None, *options):
+        st.session_state.pop(selected_metric_key, None)
+    default = preferred_metric(rows, days)
+    with col3:
+        metric = st.selectbox(
+            "Metric", options, index=options.index(default),
+            key=selected_metric_key,
+            help="Verified period measures need complete source coverage. "
+                 "Exploratory totals explicitly describe retrieved records only.")
+    st.caption(metric_disclosure(rows, metric, days))
     chart_rows = df.dropna(subset=[metric])
-    if not chart_rows.empty:
-        fig = px.bar(chart_rows.sort_values(metric), x=metric, y="Repository", orientation="h",
-                     color_discrete_sequence=[PURPLE],
-                     hover_data=["Open issue sample (n)", "Merged PR sample (n)", "Coverage"])
-        st.plotly_chart(chart_style(fig, min(590, max(270, len(chart_rows)*39))), use_container_width=True)
+    if len(chart_rows) >= 2:
+        ordered = chart_rows.sort_values(metric, ascending=False)
+        visible = ordered.head(12).sort_values(metric)
+        st.caption(
+            f"Showing {len(visible)} of {len(chart_rows)} repositories with "
+            "eligible values. The complete data table remains below.")
+        fig = px.bar(
+            visible, x=metric, y="Repository", orientation="h",
+            color_discrete_sequence=[PURPLE],
+            hover_data=["Event coverage", "Full open inventory"],
+            text=metric)
+        fig.update_traces(textposition="outside", cliponaxis=False)
+        st.plotly_chart(
+            chart_style(fig, min(590, max(280, len(visible) * 42))),
+            use_container_width=True,
+            config={"displayModeBar": False, "displaylogo": False})
     else:
-        empty_state("Insufficient Data for comparison", "Metrics are suppressed when sources are incomplete or relevant denominators are too small.")
-    st.dataframe(df, hide_index=True, use_container_width=True)
-    st.caption("The source sample is curated, not representative. Governance rules, workflow complexity and project sizes differ.")
+        st.info(
+            f"Only {len(chart_rows)} repository/repositories qualify for "
+            f"'{metric}'. No comparison is inferred from missing data. "
+            "The table below still reports what was retrieved.")
+        exploratory = df[[
+            "Repository", "Issue records retrieved · exploratory",
+            "PR records retrieved · exploratory",
+            "CI records retrieved · exploratory",
+            "Event coverage",
+        ]]
+        st.dataframe(exploratory, hide_index=True, use_container_width=True)
+    with st.expander("All repositories · verification and original values"):
+        st.dataframe(df, hide_index=True, use_container_width=True)
+    st.caption("Source counts are observed, not proof of project performance. "
+               "Only original GitHub records and verified scan windows "
+               "are used; a blank value never means confirmed zero activity.")
 
 
 def methodology_contents(reports, selection):
