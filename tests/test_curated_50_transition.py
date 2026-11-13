@@ -189,3 +189,26 @@ def test_remote_receipt_guard_checks_git_tree_not_untracked_file():
     assert "git cat-file -e 'origin/main:data/curated_50_transition_receipt.json'" in source
     assert "git cat-file -e 'origin/main:data/archived_75_to_50_reports.json.gz'" in source
     assert "git fetch --no-tags origin 0b7e80867c76d1dd3ba824a8749742e6757ff431" in source
+
+
+def test_actual_checked_in_binary_meets_exact_audited_manifest():
+    """Real 75->50 proof; after publication check the persistent 50 identities."""
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    raw = curator.SNAPSHOT.read_bytes()
+    current = json.loads(gzip.decompress(raw))
+    names = {r["repository"]["full_name"] for r in current["reports"]}
+    selected = set(manifest["selected"])
+    if len(current["reports"]) == 75:
+        assert hashlib.sha256(raw).hexdigest() == manifest["source_snapshot_sha256"]
+        reduced, removed, receipt = curator.transition(
+            current, manifest, actual_snapshot_sha256=hashlib.sha256(raw).hexdigest()
+        )
+        assert {r["repository"]["full_name"] for r in reduced["reports"]} == selected
+        assert len(removed["removed_reports"]) == 25
+        assert receipt["original_verified_28d"] == 56
+    elif len(current["reports"]) == 50:
+        assert names == selected
+        assert (current["selection"]["parameters"]["purpose"] ==
+                "curated_verified_50")
+    else:
+        raise AssertionError("Source snapshot must be original 75 or reviewed 50")
