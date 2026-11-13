@@ -270,7 +270,13 @@ def _scope(reports, key):
     ]
     # Verified-first without hiding the tracked cohort. If no data qualify,
     # show an explicitly exploratory selection rather than an empty dashboard.
-    default_index = 0 if verified_28 else 1 if verified_7 else 2
+    global_scope = st.session_state.get("global_evidence_scope", "")
+    if global_scope.startswith("All tracked"):
+        default_index = 2
+    elif global_scope.startswith("Verified · 7"):
+        default_index = 1
+    else:
+        default_index = 0 if verified_28 else 1 if verified_7 else 2
     with left_filter:
         mode = st.selectbox("Activity filter", options, index=default_index,
                             key=key + "_activity")
