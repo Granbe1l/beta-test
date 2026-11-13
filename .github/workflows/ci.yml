@@ -25,5 +25,9 @@ jobs:
         run: |
           python scripts/restore_public_snapshot.py
           python scripts/sql_insights.py
+      - name: Verify SQL / snapshot / Streamlit KPI consistency
+        env:
+          DATABASE_URL: sqlite:///local.sqlite3
+        run: python scripts/verify_kpi_integrity.py
       - name: Generate CV evidence receipt from real GitHub snapshot
         run: python scripts/cv_evidence.py
