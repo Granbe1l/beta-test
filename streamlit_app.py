@@ -212,7 +212,7 @@ status_slot.markdown(
 )
 
 if nav == "Dashboard":
-    overview(reports, selection)
+    overview(reports, selection, all_reports=all_reports)
 elif nav == "Key findings":
     risks_recommendations(reports, selection)
 else:
