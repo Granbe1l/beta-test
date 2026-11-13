@@ -7,7 +7,7 @@ from .test_discovery import candidate
 
 
 def test_targets_explicit_and_unique():
-    assert len(TARGETS) == 9
+    assert len(TARGETS) == 11
     assert len(set(TARGETS)) == 9
 
 
