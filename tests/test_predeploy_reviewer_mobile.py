@@ -6,9 +6,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_reviewer_brief_has_true_global_verified_denominator():
     source = (ROOT/"src/ui/dashboard_v2.py").read_text(encoding="utf-8")
-    assert "entire = evidence_readiness(reports)" in source
-    assert 'entire["joint_verified_28d"]' in source
-    assert 'entire["tracked"]' in source
+    assert "global_cohort = all_reports if all_reports is not None else reports" in source
+    assert 'cohort["verified_28d"]' in source
+    assert 'cohort["tracked"]' in source
     assert "First inspect" in source
     assert "No client-deadline or quality verdict" in source
     assert "finding_cards = initial_findings" in source
