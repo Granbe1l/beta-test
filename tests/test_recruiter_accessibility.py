@@ -30,7 +30,8 @@ def test_recruiter_facing_supporting_text_contrast():
         "verified status": ("#14764E", "#E7F5EE"),
     }
     for label, (foreground, background) in pairs.items():
-        assert foreground in CSS_V2 and background in CSS_V2, label
+        assert foreground in CSS_V2, label
+        assert background in CSS_V2 or (background == "#FFFFFF" and "background:#fff" in CSS_V2), label
         assert contrast(foreground, background) >= 4.5, label
 
 
