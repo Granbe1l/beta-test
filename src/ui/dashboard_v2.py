@@ -15,6 +15,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.analytics.findings import portfolio_findings
+from src.analytics.executive import executive_brief
 from src.analytics.metrics import utc
 from src.analytics.activity import recent_activity, sample_activity, activity_label, weekly_activity
 from src.analytics.comparisons import comparable_observation_pair, checks_in_period
@@ -541,20 +542,54 @@ def overview(reports, selection):
              "Daily recorded events · 7 or 28 days · exploratory and verified scopes")
     trend_panel(chosen)
 
-    # Brief reading comes AFTER the first chart, not in front of it.
-    st.markdown(
-        '<div class="d-context"><strong>Quick reading · 7-day observed sample:</strong> '
-        f'{activity["pushed_recently"]:,}/{len(chosen):,} projects have a recent code push. '
-        f'{activity["new_issues"]:,} issues opened · '
-        f'{activity["closed_issues"]:,} issues closed · '
-        f'{activity["new_prs"]:,} PRs opened · '
-        f'{activity["merged_prs"]:,} PRs merged. '
-        '<span>Counts are from retrieved records, not a productivity score.</span>'
-        '</div>', unsafe_allow_html=True)
+    # Keep the first chart visual-first. Follow it with a small executive
+    # readout instead of a dense technical paragraph.
+    finding_cards = _findings(chosen)
+    brief = executive_brief(chosen, findings=finding_cards)
+    with st.container(border=True):
+        st.caption("Quick reading · public development signals, not client deadlines")
+        recent, review, confidence = st.columns([1.0, 1.4, 1.1], gap="medium")
+        with recent:
+            st.markdown("**Activity · last 7 days**")
+            st.metric("Projects with a code push",
+                      f'{brief["activity"]["recent_pushes"]:,}/{len(chosen):,}',
+                      help="Repository last-push metadata. This does not prove a feature release.")
+            st.caption(
+                f'{brief["activity"]["opened_issues"]:,} issues opened · '
+                f'{brief["activity"]["merged_prs"]:,} PRs merged '
+                'in retrieved records. Missing records are not zero activity.'
+            )
+        with review:
+            st.markdown("**What should we inspect?**")
+            if brief["finding"]:
+                lead = brief["finding"]
+                st.markdown(f'**{lead["title"]}**')
+                st.caption(
+                    f'{lead["metric_label"]}: {lead["metric_value"]} '
+                    f'· {lead["scope"]}'
+                )
+                st.caption(f'Next check: {brief["next_check"]}')
+                if brief["source_url"]:
+                    st.link_button("Open an original GitHub record",
+                                   brief["source_url"], use_container_width=True)
+            else:
+                st.write("No source-backed finding passes the review thresholds.")
+                st.caption("This is not proof that all monitored projects are healthy.")
+        with confidence:
+            st.markdown("**How complete is the evidence?**")
+            verified = brief["coverage_28d"]
+            st.metric("Verified Issues · 28d",
+                      f'{verified["issues"]}/{len(chosen)}',
+                      help="Number of source scans verified for the full last 28 days.")
+            st.caption(
+                f'PRs {verified["pull_requests"]}/{len(chosen)} · '
+                f'CI checks {verified["workflow_runs"]}/{len(chosen)} verified '
+                'for 28 days. Incomplete sources remain excluded from verified trends.'
+            )
 
     _section("02 / Three evidence-backed checks",
              "Numbers, context and a direct next step—not unverified project-health scores")
-    _findings_view(_findings(chosen))
+    _findings_view(finding_cards)
 
     with st.expander("Source completeness, periods and technical terms"):
         _coverage_banner(chosen)
