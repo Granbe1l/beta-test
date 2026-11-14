@@ -51,6 +51,19 @@ Original full-resolution screenshots and all six mobile-page checks remain
 available as time-limited [GitHub Actions screenshot artifacts](https://github.com/Granbe1l/beta-test/actions/workflows/ui-screenshots.yml).
 See [gallery limitations and provenance](docs/gallery/README.md).
 
+## Reviewer usability and performance evidence
+
+The P1 Dashboard uses a single brief **What happened → Why inspect →
+Next action → source record**, with optional deeper charts. Browser-captured
+full-page height decreased from **7,227 to 5,108 pixels** at 390px mobile
+width and from **4,298 to 2,680 pixels** on desktop (before/after identical
+local screenshot workflow conditions). This is a **layout-length comparison,
+not a public website speed or user-understanding claim**.
+
+See [P2 source scope, accessibility, API throttling and local render
+measurement](docs/REVIEWER_P2_EVIDENCE.md). A real human usability study
+and public deployment verification are intentionally separate.
+
 ## What SQL is used for
 
 This project **uses SQLite in the collector and for source-level checkpoints**, with optional PostgreSQL support. `src/analytics/read.py` retrieves tables through SQLAlchemy in **batched SELECTs** (measured on a restored real snapshot), while `scripts/sql_insights.py` runs **actual read-only SQL** with grouped CTEs and source-coverage safeguards. The default public Streamlit view reads a committed, compressed JSON snapshot and uses Python/Pandas for presentation; it does not run remote SQL on each visitor's request. See [schema and SQL usage](docs/SQL_DATABASE_USAGE.md) and [the measured performance gate](https://github.com/Granbe1l/beta-test/pull/15).

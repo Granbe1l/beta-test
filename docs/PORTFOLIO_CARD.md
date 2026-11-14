@@ -27,8 +27,11 @@ inspection questions**, not opaque project-health or productivity scores.
 
 ## Result / demonstrated engineering
 
-- **50 repositories** were selected from a verified subset of the former 75; they are not a representative random
-  sample of all GitHub projects.
+- **50 curated public repositories** were independently Verified on the
+  **14 November 2026 09:39 WIB** snapshot for 28-day Issues, PR and CI/CD
+  source windows **and separately** 50/50 fresh complete open-Issue
+  inventories. This is a timestamped validation, not a live guarantee.
+  The curated sample is **not a representative random sample** of GitHub.
 - For the historical original 75-repo dataset, the SQL loader reduced its
   measured SELECT count from **376 to 6** after batching sources and
   retaining the 30 most recent per-project observations. This is **query
@@ -42,8 +45,9 @@ inspection questions**, not opaque project-health or productivity scores.
 
 ## How a nontechnical reviewer can explore it
 
-1. **Dashboard:** start with the cohort size, actual capture timestamp and
-   the activity chart; understand what was *observed*
+1. **Dashboard:** read What happened → Why inspect → Next action → GitHub
+   evidence; then inspect the activity chart. Optional detailed charts can
+   be expanded without overwhelming the first screen.
 2. **Key findings:** open a measurable inspection opportunity and verify
    its source URL and suggested next check
 3. **Explore repositories:** compare two sources and switch Verified /
@@ -53,6 +57,17 @@ inspection questions**, not opaque project-health or productivity scores.
 projects, deadlines, SLAs, developer productivity or code quality. The
 four-hour GitHub Actions schedule is best effort; full cadence reliability
 is not established by a successful manual run.
+
+
+## Reviewer readiness: tested versus not yet tested
+
+- **Automated:** real saved GitHub snapshot, SQL/KPI parity, browser screenshots
+  on desktop/mobile, original evidence links, and honest missing-source labels.
+- **Human:** a 3–5-participant nontechnical usability test **has not been
+  conducted**; the [unfilled test protocol](REVIEWER_USABILITY_CHECK.md)
+  is available, and no participant scores are invented.
+- **Hosting:** a public Streamlit Community Cloud URL **has not been verified**.
+  Local browser performance is **not** hosted cold-start performance.
 
 ## Links to independently check
 

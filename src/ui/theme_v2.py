@@ -161,6 +161,25 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:v
   [data-testid="stTabs"] button{font-size:.86rem!important;}
   .d-trend-caveat{font-size:.74rem!important;padding:6px 8px!important;}
 }
+/* Keyboard controls need an unambiguous, non-color-only focus indicator.
+   The light canvas and dark sidebar have distinct contrast-safe outlines. */
+.stButton button:focus-visible,
+.stLinkButton a:focus-visible,
+[data-testid="stTabs"] button:focus-visible,
+[data-testid="stSelectbox"] [role="combobox"]:focus-visible{
+  outline:3px solid #563590!important;
+  outline-offset:2px!important;
+}
+[data-testid="stSidebar"] button:focus-visible{
+  outline:3px solid #DCC7FF!important;
+  outline-offset:2px!important;
+}
+@media(max-width:700px){
+  .stButton button,.stLinkButton a,
+  [data-testid="stSidebar"] .stButton button{
+    min-height:44px!important;
+  }
+}
 </style>
 """
 

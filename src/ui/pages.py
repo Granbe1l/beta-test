@@ -601,6 +601,29 @@ def comparison(reports, embedded=False):
             "Event coverage",
         ]]
         st.dataframe(exploratory, hide_index=True, use_container_width=True)
+    with st.expander("Within-category context · median and spread"):
+        from src.analytics.comparable_groups import category_distributions
+        if "exploratory" in metric.lower():
+            st.info(
+                "Sampled record counts cannot be used as comparable peer "
+                "benchmarks: pagination and source sizes vary."
+            )
+        else:
+            peers = category_distributions(rows, metric, min_group=4)
+            if peers:
+                st.caption(
+                    "Verified eligible values only. Each category requires "
+                    "at least four eligible repositories; median and middle "
+                    "50% (25th–75th percentiles) describe this curated "
+                    "non-random sample, not project quality or a GitHub-wide norm."
+                )
+                st.dataframe(pd.DataFrame(peers), hide_index=True,
+                             use_container_width=True)
+            else:
+                st.info(
+                    "No category has four eligible repositories for this "
+                    "metric and period. Missing sources are not zeros."
+                )
     with st.expander("All repositories · verification and original values"):
         st.dataframe(df, hide_index=True, use_container_width=True)
     st.caption("Source counts are observed, not proof of project performance. "

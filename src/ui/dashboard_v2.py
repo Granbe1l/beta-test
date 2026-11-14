@@ -85,7 +85,9 @@ def _kpis(cards):
     fragments = []
     for label, value, context, glyph in cards:
         fragments.append(
-            f'<div class="d-kpi" title="{esc(label)}: {esc(context)}">'
+            f'<div class="d-kpi" role="group" '
+            f'aria-label="{esc(label)}: {esc(value)}. {esc(context)}" '
+            f'title="{esc(label)}: {esc(context)}">'
             f'<div class="d-kpi-label"><span>{esc(label)}</span>'
             f'<span class="d-kpi-icon" aria-hidden="true">{esc(glyph)}</span></div>'
             f'<div class="d-kpi-value">{esc(value)}</div>'

@@ -17,8 +17,9 @@ The overview includes two additional Activity filter options:
 - `Verified all three sources · 28 days`: the stricter, **same-cohort**
   comparison over 28 days.
 
-These subsets can differ in size and are **never represented as all 50**.
-The data-readiness caption also displays the exact joint denominators
+These subsets can differ in size and must always show the **actual denominator**;
+they may correctly show all 50 only when the dated source audit verifies them.
+The data-readiness caption displays the exact joint denominators
 computed live from the loaded real snapshot. Selecting all projects keeps
 the exploratory sample and existing source-specific verified trends.
 
@@ -81,10 +82,13 @@ distinguishes incomplete exploratory histories.
 
 ## What not to claim
 
-Do **not** say 50 projects have complete 28-day sources, continuous
-24/7 uptime, live real-time data, employee productivity ranking,
-confirmed missed deadlines, customer SLAs, or comprehensive GitHub
-history. The fixed cohort is not a random statistical sample and is
+A [dated 14 November 2026 source audit](https://github.com/Granbe1l/beta-test/actions/runs/43547169286)
+**did** verify 50/50 complete 28-day Issue/PR/CI sources and separately
+50/50 fresh full-open Issue inventories. You may state that **dated**
+result with its verification link, but do **not** imply permanent
+50/50 coverage, continuous 24/7 uptime, live real-time data, employee
+productivity rankings, confirmed missed deadlines, customer SLAs,
+or comprehensive GitHub history. The fixed cohort is not a random statistical sample and is
 not representative of every GitHub project.
 
 Use [actual source coverage and remaining gates](IMPLEMENTATION_STATUS.md)
