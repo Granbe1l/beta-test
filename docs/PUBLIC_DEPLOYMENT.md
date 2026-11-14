@@ -63,7 +63,7 @@ screenshot is not proof of a public demo.
 
 This verifies a real public interface and the snapshot it renders.
 It does not establish complete lifetime GitHub history, perfectly timed
-six-hour updates, visitor broadband speed, or access to private SLAs and
+four-hour updates, visitor broadband speed, or access to private SLAs and
 client milestones. All activity statistics remain bounded observations.
 
 ## Alternative hosting

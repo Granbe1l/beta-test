@@ -1,8 +1,14 @@
 # Project Delivery Monitor — current implementation and remaining evidence
 
 Updated: **14 November 2026**. Repository: `Granbe1l/beta-test`. The
-repository's planned/current cutover has **50 selected public GitHub projects**. Changes must pass PR
+repository currently has **50 selected public GitHub projects**. Changes must pass PR
 quality checks before merging to `main`.
+
+## Most recent independently audited published 50-repository snapshot
+
+**14 November 2026, 08:32 WIB** · [actual scheduled collector run](https://github.com/Granbe1l/beta-test/actions/runs/43540739560) · 50/50 repositories with verified 28-day Issues, PR and GitHub Actions windows; 4,947 observed Issue records, 5,497 PR records, 44,171 CI runs. Separately, 41/50 independently verified full-open Issue inventories; four stale, five unavailable. These are observations at the stated instant, not promises of indefinitely stable coverage. The refresh was a real `schedule` event, but **three consecutive successful scheduled intervals have not yet been demonstrated**. Public Streamlit Cloud URL and actual nontechnical participant study are not yet verified.
+
+**Analysis-period policy:** 7 days = recent activity, 28 days = primary four-week comparison and activity filter, 90 days = long-term analysis only with verified coverage. **30+ days describes an Issue-age threshold**, not the activity observation period. Never compare an unverified 30-day event filter to the verified 28-day cohort.
 
 ## Implemented
 
@@ -10,7 +16,7 @@ quality checks before merging to `main`.
 | --- | --- |
 | Six visual Streamlit screens, purple/white theme, real-data Plotly charts | Implemented; browser desktop/mobile screenshots succeeded in main run [43338398246](https://github.com/Granbe1l/beta-test/actions/runs/43338398246) |
 | 50 approved Verified-at-selection repositories | Drawn from the actual 56/75 source proof in [refresh 43495494116](https://github.com/Granbe1l/beta-test/actions/runs/43495494116); archive 25 historical reports during cutover |
-| Issues / PR / GitHub Actions collector, SQLAlchemy and SQLite | Implemented; records are real but **per-source coverage is partial** |
+| Issues / PR / GitHub Actions collector, SQLAlchemy and SQLite | Implemented; **50/50 source event windows verified for 28 days** at the latest dated audit; full-open inventory is separate |
 | Efficient 28-day bootstrap and 7/1-day capped fallback | Implemented on main; latest observed coverage improved modestly |
 | Current-UTC-day CI verification | Implemented and regression-tested; previous current-day checkpoint cannot certify newly elapsed hours |
 | Verified/exploratory 7/28-day activity lines | Implemented; denominators are source-specific |
@@ -28,9 +34,9 @@ quality checks before merging to `main`.
 
 ## Historical audited source coverage
 
-**Historical numbers below are from 13 November at 02:10 UTC, not the current 75-repo verified intersection.** For current beta refresh cadence and proof gates, see [refresh stability](REFRESH_STABILITY.md) and the latest `data/verified_cohort_change_receipt.json`.
+**Historical 75-repository numbers below are from 13 November at 02:10 UTC and MUST NOT be described as current 50-repository results.** For current beta refresh cadence and proof gates, see [refresh stability](REFRESH_STABILITY.md) and the latest `data/verified_cohort_change_receipt.json`.
 
-The latest published audited snapshot evaluated in this review was generated
+The archived historical snapshot examined for this section was generated
 **2026-11-13 02:10 UTC** (**2026-11-13 09:10 WIB**):
 
 | Source | Persisted observations | Verified complete 28-day windows |
@@ -51,11 +57,7 @@ can be absent from recent-update API sampling.
 
 ## Work that is not yet proven
 
-1. **Data completeness:** actual 28-day coverage remains partial at
-   43/75 Issues, 53/75 PR and 38/75 CI in the latest audited refresh.
-   Recheck the new independent open-inventory source after its first
-   scheduled run and retain full source audit artifacts.
-   Very busy repositories may remain capped.
+1. **Data completeness:** 50/50 sources had a verified 28-day event window in the dated 14 November audit, while **41/50** independent full-open Issue inventories were verified. Four inventory states were stale and five unavailable. Do not confuse the two coverage types; these counts can change at future refreshes.
 2. **Scheduling:** accumulate at least three successful `schedule` events
    near the intended four-hour cadence. Green push/PR runs are not evidence
    of actual scheduled delivery.
@@ -101,7 +103,7 @@ a genuine audit of its remaining incomplete repositories. Read
 
 ## Current P0 verified-first implementation and audit gates
 
-The latest 13 November snapshot includes **35/75** repositories with
+The archived 13 November 75-project snapshot included **35/75** repositories with
 all three Issues/PR/CI sources verified for the **same** 28-day period.
 The dashboard now defaults to this verified 28-day cohort (7-day
 verified fallback if needed), while all tracked projects remain available
@@ -109,7 +111,7 @@ as explicitly exploratory data. The candidate discovery and 28-day
 verification process is read-only, and **does not silently replace or
 delete existing repositories**. See [P0 verified-first protocol](P0_VERIFIED_FIRST.md).
 
-From the latest actual API refresh, **7/75** independently exhausted
+In the archived 13 November 75-project refresh, **7/75** independently exhausted
 current open-Issue inventories; one additional source was partial and
 67 had no completed standalone inventory scan. This is NOT the
 same denominator as 43/75 Issues with complete 28-day recent events.
