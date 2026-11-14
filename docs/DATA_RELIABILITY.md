@@ -178,9 +178,10 @@ of the following independent observations:
 
 - At least **three actual `schedule` events** on `main`, each completed
   successfully, evaluated from the refresh workflow's real Actions history.
-- Their consecutive observed start-time intervals must be between **3
-  and 9 hours**, allowing real GitHub scheduler delay.
-- **The newest scheduled event must be within 9 hours** of the audit time.
+- Their consecutive observed start-time intervals must be between **2.5
+  and 5.75 hours**, allowing moderate scheduler delay without counting a
+  six-hour cadence as correct for the configured four-hour schedule.
+- **The newest scheduled event must be within 6.5 hours** of the audit time.
   Three successful events months ago never establish current health.
 
 Results now include the most recent scheduled-run timestamp and age.
