@@ -47,7 +47,7 @@ def test_mobile_recruiter_copy_is_not_shrunk_to_unreadable_size():
         (".d-chart-sub", 0.74),
         (".d-hero-overview p", 0.75),
     ):
-        pattern = re.escape(selector) + r"\\{font-size:([0-9.]+)rem!important;"
+        pattern = re.escape(selector) + r"\{font-size:([0-9.]+)rem!important;"
         matches = re.findall(pattern, CSS_V2)
         assert matches, selector
         assert float(matches[-1]) >= minimum_rem, selector
