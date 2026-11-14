@@ -384,7 +384,7 @@ def _finding_visual(f):
         observed = f.get("observed")
         total = f.get("denominator")
         suffix = ("open issues 30+ days old" if kind == "issue-aging"
-                  else "successful known automated checks")
+                  else "successful checks among all known outcomes")
     if observed is None or total is None or total <= 0:
         st.caption(f.get("metric_context", "Based on retrieved GitHub evidence"))
         return
@@ -437,6 +437,9 @@ def _findings_view(findings):
                 else:
                     st.write(f["headline"])
                 _finding_visual(f)
+                if f["type"] == "ci":
+                    st.caption("CI success share includes skipped/other known outcomes "
+                               "in its denominator. These are not failures.")
                 st.caption(f'Next check: {f["review"]}')
                 plan = f.get("review_plan") or {}
                 if plan.get("trigger"):
@@ -603,8 +606,8 @@ def overview(reports, selection, all_reports=None):
     from src.ui.observed import summary
     st.markdown(
         '<div class="d-hero d-hero-overview"><div><span class="d-eyebrow">PUBLIC GITHUB · ACTIVITY MONITOR</span>'
-        '<h1>Delivery activity at a glance.</h1>'
-        '<p>Issues, code changes and automated checks—with source links.</p>'
+        '<h1>Public engineering activity at a glance.</h1>'
+        '<p>Public GitHub issues, code changes and automated checks—not client milestones.</p>'
         '</div><div class="d-mark">D / M</div></div>',
         unsafe_allow_html=True)
     if not reports:

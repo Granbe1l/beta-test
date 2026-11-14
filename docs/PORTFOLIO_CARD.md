@@ -3,6 +3,10 @@
 **Python · SQL (SQLite/SQLAlchemy, read-only grouped queries) · Streamlit ·
 Pandas · Plotly · GitHub REST API · GitHub Actions**
 
+## Project scope in one sentence
+
+**This is a public GitHub engineering-activity and evidence-review dashboard, not a tracker of client delivery dates or project milestones.** The name "Project Delivery Monitor" is a portfolio product name; the app does not claim to measure contractual delivery performance.
+
 ## The problem
 
 Someone reviewing public software projects can see thousands of GitHub Issues,
@@ -21,7 +25,9 @@ inspection questions**, not opaque project-health or productivity scores.
 - **Validate:** distinguish each source's complete 7/28-day window from
   exploratory scans; preserve incomplete records instead of deleting them
 - **Analyze:** real read-only SQL/CTE insights and deterministic Python
-  metrics for Issue age, observed PR merge time, and known CI outcomes
+  metrics for Issue age, verified 28-day PR merge time, and known 28-day CI outcomes.
+  CI success share includes skipped/other known results in its denominator;
+  those outcomes are not treated as verified build failures.
 - **Review:** headline measures, trends, filters, original GitHub record
   links where available, three-step inspection actions and CSV evidence plan
 

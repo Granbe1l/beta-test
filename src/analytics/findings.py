@@ -2,7 +2,7 @@
 from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
-from src.analytics.metrics import utc
+from src.analytics.metrics import utc, calculate_ci, calculate_prs
 from src.analytics.review_decisions import review_decision
 
 
@@ -19,7 +19,8 @@ def _has_verified_history(report: dict, source: str, days: int, now=None) -> boo
 
 
 
-def evidence_examples(report: dict, kind: str, *, now=None, limit=3) -> list[dict]:
+def evidence_examples(report: dict, kind: str, *, now=None, limit=3,
+                      period_days=90) -> list[dict]:
     """Trace a review suggestion to real GitHub records, not generic listing pages.
 
     Examples are inspection starting points, not proof of a defect, lateness,
@@ -55,14 +56,14 @@ def evidence_examples(report: dict, kind: str, *, now=None, limit=3) -> list[dic
             priority = (age, created)
         elif kind == "merge-duration":
             created, merged = utc(row.get("created_at")), utc(row.get("merged_at"))
-            if not created or not merged or not now - timedelta(days=90) <= merged <= now:
+            if not created or not merged or not now - timedelta(days=period_days) <= merged <= now:
                 continue
             elapsed = max(0.0, (merged - created).total_seconds() / 86400)
             reason = f"Observed merge duration: {elapsed:.1f} days"
             priority = (elapsed, merged)
         elif kind == "ci":
             created = utc(row.get("created_at"))
-            if (not created or not now - timedelta(days=90) <= created <= now or
+            if (not created or not now - timedelta(days=period_days) <= created <= now or
                     row.get("status") != "completed" or
                     row.get("conclusion") not in {"failure", "timed_out"}):
                 continue
@@ -84,6 +85,30 @@ def evidence_examples(report: dict, kind: str, *, now=None, limit=3) -> list[dic
 
 def findings_for_repo(report: dict) -> list[dict]:
     i, p, ci, c = report["issues"], report["prs"], report["ci"], report["closure"]
+    now = datetime.now(timezone.utc)
+    statuses = report.get("status") or {}
+    coverage = report.get("coverage") or {}
+
+    # Current real reports include source checkpoints, so recompute findings
+    # over the same Verified 28-day period used by the comparison screen.
+    # Existing archival/handcrafted reports without checkpoints keep their
+    # explicitly legacy 90-day aggregates, avoiding invented coverage.
+    pr_period = 90
+    ci_period = 90
+    if "pull_requests" in statuses:
+        pr_period = 28
+        p = calculate_prs(
+            report.get("pr_rows") or [], now, observation_days=pr_period,
+            complete=statuses["pull_requests"] == "complete",
+            coverage_start=(coverage.get("pull_requests") or {}).get("coverage_start"),
+        )
+    if "workflow_runs" in statuses:
+        ci_period = 28
+        ci = calculate_ci(
+            report.get("ci_rows") or [], now, observation_days=ci_period,
+            complete=statuses["workflow_runs"] == "complete",
+            coverage_start=(coverage.get("workflow_runs") or {}).get("coverage_start"),
+        )
     name = report["repository"]["full_name"]
     url = report["repository"]["url"]
     out = []
@@ -101,11 +126,12 @@ def findings_for_repo(report: dict) -> list[dict]:
         duration = (f"{d * 1440:.0f} min" if d < 1 / 24 else
                     f"{d * 24:.1f} hours" if d < 1 else f"{d:.1f} days")
         out.append({"type": "merge-duration", "headline": f"Merged PRs took a median of {duration} (n={p['merge_duration_n']})",
-                    "evidence": f"Computed from creation to merge timestamps for {p['merge_duration_n']} merged PRs in the observation window.",
+                    "evidence": f"Computed from creation to merge timestamps for {p['merge_duration_n']} merged PRs in the verified {pr_period}-day window.",
                     "interpretation": "This describes observed completion time, not the cause of slower or faster merges.",
-                    "review": "Inspect the longest observed merged PRs; compare change complexity and review history before drawing conclusions.",
-                    "url": p["merged_evidence"][0] if p["merged_evidence"] else url + "/pulls", "scope": name, "review_priority": "Explore context"})
-    if (_has_verified_history(report, "issues", days=56)
+                    "review": "Inspect the longest observed merged PRs from this same period; check change complexity and review discussion before drawing conclusions.",
+                    "url": p["merged_evidence"][0] if p["merged_evidence"] else url + "/pulls", "scope": name,
+                    "period_days": pr_period, "review_priority": "Explore context"})
+    if (_has_verified_history(report, "issues", days=56, now=now)
             and c and c["denominator"] >= 5
             and c["change_percent"] is not None
             and abs(c["change_percent"]) >= 20):
@@ -121,12 +147,21 @@ def findings_for_repo(report: dict) -> list[dict]:
                     "review": "Inspect closed issues from both 28-day periods before explaining the observed change.",
                     "url": url + "/issues?q=is%3Aissue+is%3Aclosed", "scope": name,
                     "review_priority": "Review first" if abs(c["change_percent"]) >= 50 and c["denominator"] >= 10 else "Review next"})
-    if (ci["known_conclusion_denominator"] or 0) >= 10 and ci["success_percent"] is not None and ci["success_percent"] < 80:
+    if ((ci["known_conclusion_denominator"] or 0) >= 10
+            and ci["success_percent"] is not None and ci["success_percent"] < 80
+            # Skipped/cancelled-only runs are not a reason to imply failed CI.
+            and (ci.get("failure") is None or ci["failure"] > 0)):
         out.append({"type": "ci", "headline": f"{ci['success_percent']:.0f}% of completed runs with known outcomes succeeded",
-                    "evidence": f"{ci['success']} successes out of {ci['known_conclusion_denominator']} completed runs with known conclusions.",
+                    "evidence": (
+                        f"{ci['success']} successes among {ci['known_conclusion_denominator']} "
+                        f"completed runs with known conclusions in {ci_period} days. "
+                        f"{ci.get('failure') if ci.get('failure') is not None else 'Unknown'} failed/timed out; "
+                        f"{ci.get('skipped') if ci.get('skipped') is not None else 'unknown'} skipped; "
+                        "skipped/cancelled/other outcomes are included in the known-outcome denominator, not counted as failures."
+                    ),
                     "interpretation": "The observed CI completion share is not an overall software-quality score.",
-                    "review": "Open the most recent failed checks; compare workflows, branches and repeated failure causes.",
-                    "url": url + "/actions", "scope": name,
+                    "review": "Open a failed or timed-out check from the verified period; compare workflow, branch, logs and reruns before escalating.",
+                    "url": url + "/actions", "scope": name, "period_days": ci_period,
                     "review_priority": "Review first" if ci["success_percent"] < 50 and ci["known_conclusion_denominator"] >= 20 else "Review next"})
     # Compact visual evidence uses only this report's already-computed
     # measurements. Ratios are displayed only where a real denominator exists.
@@ -164,9 +199,9 @@ def findings_for_repo(report: dict) -> list[dict]:
             )
     source_context = {
         "issue-aging": "Current observed open issues · completed bounded issue scan",
-        "merge-duration": "Merged changes · verified 90-day PR window",
+        "merge-duration": f"Merged changes · verified {pr_period}-day PR window",
         "closure-change": "Issue closures · verified adjacent 28+28-day windows",
-        "ci": "Known completed checks · verified 90-day Actions window",
+        "ci": f"Known completed outcomes · verified {ci_period}-day Actions window (skipped/other are not failures)",
     }
     for item in out:
         item["evidence_scope"] = source_context.get(item["type"], "Observed GitHub records")
@@ -176,7 +211,10 @@ def findings_for_repo(report: dict) -> list[dict]:
                 if report.get("open_backlog_status") == "complete"
                 else "Observed retrieved open Issues · not a complete backlog"
             )
-        item["examples"] = evidence_examples(report, item["type"])
+        item["examples"] = evidence_examples(
+            report, item["type"], now=now,
+            period_days=(item.get("period_days") or 90),
+        )
         # A structured, checkable decision: measured signal -> original
         # record -> inspection -> bounded conclusion. Never a defect verdict.
         item["review_plan"] = review_decision(item)

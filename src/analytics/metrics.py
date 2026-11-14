@@ -102,11 +102,17 @@ def calculate_ci(runs: list[dict], now, observation_days=90, complete=True, cove
     completed = [r for r in runs if r.get("status") == "completed" and since <= utc(r["created_at"]) <= now]
     known = [r for r in completed if r.get("conclusion") is not None]
     counts = Counter(r.get("conclusion") for r in known)
+    failures = counts["failure"] + counts["timed_out"]
+    other_known = len(known) - counts["success"] - failures - counts["skipped"]
     return {"completed": len(completed) if valid else None,
             "success": counts["success"] if valid else None,
-            "failure": counts["failure"] + counts["timed_out"] if valid else None,
+            "failure": failures if valid else None,
             "skipped": counts["skipped"] if valid else None,
+            "other_known": other_known if valid else None,
+            "unknown_conclusion": len(completed) - len(known) if valid else None,
             "known_conclusion_denominator": len(known) if valid else None,
+            # This is a success share across ALL known conclusions: skipped,
+            # cancelled and neutral outcomes are not silently treated as failures.
             "success_percent": ratio(counts["success"], len(known)) if valid else None,
             "total_observed": len(runs), "trend_valid": valid}
 
