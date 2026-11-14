@@ -239,6 +239,22 @@ try:
                 desktop, OUT / file.replace(".png", "-full.png"))
             print("Captured " + file, flush=True)
             if label == "Key findings":
+                desktop.get_by_text(
+                    "Real GitHub evidence walkthroughs", exact=True).wait_for(
+                    timeout=15000)
+                case_tab = desktop.get_by_role("tab", name="Older open work")
+                if case_tab.count():
+                    case_tab.first.click(timeout=10000)
+                    link = desktop.get_by_role(
+                        "link", name="Open recorded GitHub evidence").first
+                    link.wait_for(timeout=10000)
+                    assert (link.get_attribute("href") or "").startswith(
+                        "https://github.com/"), "Case source must be real GitHub"
+                    print("Verified record-linked case-study browser journey", flush=True)
+                else:
+                    assert desktop.get_by_text(
+                        "No original-record examples meet", exact=False).count(), (
+                        "Missing verified case examples require truthful empty state")
                 export_action = desktop.get_by_role(
                     "button", name="Export evidence review plan (CSV)")
                 if export_action.count():
