@@ -183,6 +183,15 @@ try:
                     timeout=30000)
             print("Verified original GitHub evidence action in reviewer summary", flush=True)
         print("Captured desktop overview", flush=True)
+        checks = desktop.get_by_text(
+            "02 / Inspect all evidence-backed checks", exact=True)
+        checks.wait_for(timeout=10000)
+        checks.click(timeout=10000)
+        desktop.get_by_text("CHECK 1/", exact=False).first.wait_for(
+            timeout=10000)
+        checks.click(timeout=10000)
+        print("Verified collapsed evidence details expand to original checks",
+              flush=True)
         # Capture the real 28-day line chart, not only the hero or KPIs.
         # Scroll to the actual chart canvas, not just its title (which may
         # already be visible at the bottom of the viewport).

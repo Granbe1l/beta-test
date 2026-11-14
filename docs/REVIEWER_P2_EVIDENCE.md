@@ -9,7 +9,9 @@ exists, and no recruiter comprehension score is invented.
 The Dashboard begins with **What happened → Why inspect → Next action →
 GitHub evidence**. It separates seven-day recorded activity, 28-day jointly
 Verified event sources and independently exhausted full-open Issues.
-Main Issues/PR trend and three sourced findings remain visible. Deep
+Main Issues/PR trend and the primary evidence-linked action remain visible.
+The three full evidence cards are one expandable step away to avoid long
+stacked cards on narrow screens. Deep
 Issue-age, CI, matched-history and activity charts sit behind an explicit
 toggle; expensive Plotly charts are not generated when the toggle is closed.
 

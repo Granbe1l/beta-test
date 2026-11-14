@@ -730,9 +730,11 @@ def overview(reports, selection, all_reports=None):
              "Daily recorded events · 7 or 28 days · exploratory and verified scopes")
     trend_panel(chosen)
 
-    _section("02 / Three evidence-backed checks",
-             "Numbers, context and a direct next step—not unverified project-health scores")
-    _findings_view(finding_cards)
+    # The lead finding and original GitHub CTA are already readable above.
+    # Keep the other checks discoverable without stacking three full cards
+    # onto the default 390px mobile overview.
+    with st.expander("02 / Inspect all evidence-backed checks", expanded=False):
+        _findings_view(finding_cards)
 
     with st.expander("Source completeness, periods and technical terms"):
         _coverage_banner(chosen)
