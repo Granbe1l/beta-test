@@ -249,6 +249,58 @@ try:
             except Exception as exc:
                 print("Additional viewport unavailable: " + str(exc), flush=True)
             if label == "Explore repositories":
+                # Capture real public repository inspector states. This is
+                # a strictly read-only external GitHub REST API preview.
+                # Never insert mocked responses to make the screenshot pass.
+                desktop.get_by_text("Inspect public GitHub URL", exact=True).click(
+                    timeout=10000)
+                desktop.get_by_text(
+                    "Inspect a public GitHub project", exact=True).wait_for(
+                        timeout=12000)
+                form_url = desktop.get_by_role(
+                    "textbox", name="GitHub repository URL")
+                assert form_url.input_value() == "", (
+                    "Empty-state screenshot unexpectedly had a URL")
+                assert_no_streamlit_exception(desktop, "Inspector / URL empty")
+                desktop.screenshot(
+                    path=str(OUT / "desktop-inspector-empty.png"),
+                    full_page=False)
+                capture_scrolling_main(
+                    desktop, OUT / "desktop-inspector-empty-full.png")
+                print("Captured actual empty public GitHub URL form",
+                      flush=True)
+                form_url.fill("https://github.com/psf/requests")
+                desktop.screenshot(
+                    path=str(OUT / "desktop-inspector-url-entered.png"),
+                    full_page=False)
+                desktop.get_by_role(
+                    "button", name="Inspect public project").click(
+                        timeout=12000)
+                desktop.get_by_text(
+                    "What should the project manager inspect?",
+                    exact=True).wait_for(timeout=40000)
+                desktop.get_by_text(
+                    "Live exploratory preview:", exact=False).wait_for(
+                        timeout=40000)
+                assert_no_streamlit_exception(
+                    desktop, "Inspector / URL submitted")
+                assert desktop.get_by_text("psf/requests", exact=True).count() > 0, (
+                    "Inspector did not display fetched public repo name")
+                assert desktop.get_by_role("tab", name="Issues").count() >= 1, (
+                    "Result did not display source evidence tabs")
+                desktop.screenshot(
+                    path=str(OUT / "desktop-inspector-submitted.png"),
+                    full_page=False)
+                capture_scrolling_main(
+                    desktop, OUT / "desktop-inspector-submitted-full.png")
+                print("Captured actual GitHub URL submission with source evidence",
+                      flush=True)
+                # Restore the audited tracked mode before running existing
+                # side-by-side and source-tab browser regression checks.
+                desktop.get_by_text("Tracked dataset", exact=True).click(
+                    timeout=12000)
+                desktop.get_by_role(
+                    "tab", name="Activity history").wait_for(timeout=12000)
                 # Assert the initial history tab is genuinely informative even
                 # when only one independent inventory snapshot exists.
                 desktop.get_by_role("tab", name="Activity history").click(timeout=12000)
