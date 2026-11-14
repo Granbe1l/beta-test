@@ -1,9 +1,15 @@
 name: Rescue stale public GitHub snapshot
 on:
   # Best-effort independent monitor. Hourly GitHub cron is not a guarantee,
-  # but reduces dependence on a single delayed six-hour schedule.
+  # but reduces dependence on a single delayed four-hour schedule.
   schedule:
-    - cron: '41 * * * *'
+    # Shift minute to resync GitHub's best-effort scheduler.
+    - cron: '47 * * * *'
+  # Independent safety net when cron delivery is delayed but main-branch
+  # quality checks still run. PR or failed checks never trigger a rescue.
+  workflow_run:
+    workflows: [Quality checks]
+    types: [completed]
   workflow_dispatch:
   push:
     branches: [main]
@@ -17,6 +23,11 @@ concurrency:
   cancel-in-progress: false
 jobs:
   freshness-check:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

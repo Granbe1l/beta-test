@@ -8,7 +8,7 @@ def test_reliability_audit_runs_after_actual_completed_refresh_not_inside_it():
     ingester = (ROOT / ".github/workflows/public-snapshot.yml").read_text()
     observer = (ROOT / ".github/workflows/schedule-audit.yml").read_text()
     assert "schedule:" in ingester
-    assert "17 1,5,9,13,17,21 * * *" in ingester
+    assert "23 1,5,9,13,17,21 * * *" in ingester
     assert "run: python scripts/schedule_reliability.py" not in ingester
     assert "workflow_run:" in observer
     assert "Refresh curated public GitHub snapshot" in observer

@@ -7,7 +7,9 @@ on:
     paths:
       - '.github/workflows/public-snapshot.yml'
   schedule:
-    - cron: '17 1,5,9,13,17,21 * * *'
+    # Resync the GitHub scheduler after two absent 14 Nov 2026 cron events.
+    # Keep four-hour intervals; GitHub scheduled events remain best-effort.
+    - cron: '23 1,5,9,13,17,21 * * *'
   workflow_dispatch:
 permissions:
   contents: write

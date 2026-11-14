@@ -11,7 +11,7 @@ proof that 50/50 is stable or that GitHub Actions always fires on time.
 - Keep the honest 12-hour freshness cutoff. A stale checkpoint can be
   refreshed to become Verified again, but must **not** be displayed as current
   while stale. Never relabel a partial scan as complete.
-- Production snapshot cron: `17 1,5,9,13,17,21 * * *` (UTC), **every 4 hours**.
+- Production snapshot cron: `23 1,5,9,13,17,21 * * *` (UTC), **every 4 hours**.
   Candidate audits are manual-only during the fixed 50-project maintenance period.
   The single recurring collector has more API headroom, but GitHub may still
   delay, skip, or overlap queued jobs. No time-of-day promise is made.
@@ -49,3 +49,27 @@ The original 6-hour cron was `27 */6 * * *`. If API utilization, scheduled
 overlap, or update failures worsen, revert both cron entries and the
 maintenance prioritization as a single reviewed change. Never roll back the
 snapshot itself without preserving the current curated 50-repository data and audit.
+
+## Missing schedule events: 14 November 2026 (dated observation)
+
+At the audit around 17:35 WIB, the scheduled collection at 08:27 WIB had
+completed successfully, but neither the expected 12:17 nor 16:17 WIB cron
+trigger appeared in GitHub Actions' available workflow-run history. The
+09:39 WIB `push`-triggered collection subsequently published a real 50/50
+28-day Verified snapshot and 50/50 independently complete open-Issue
+inventories. That push success does **not** count as an on-time cron cycle.
+The hourly watchdog's last observed scheduled run was at 10:32 WIB; its
+log skipped dispatch because the committed snapshot was only 0.88 hours old.
+The precise reason for missing cron events is not proven. GitHub's official
+documentation warns that scheduled events can be delayed or dropped.
+
+Mitigation change: shift both cron expressions by six minutes to prompt
+schedule re-registration while preserving the four-hour collection cadence;
+also let a successful **main push** Quality Checks completion invoke the
+existing conditional watchdog (which still dispatches only if the committed
+snapshot is >8 hours old, no collector is underway, and the 90-minute
+backoff has elapsed). This extra trigger is **not** a replacement for a
+reliable independent scheduler, and neither the code change nor a manually
+triggered refresh counts as three successful scheduled runs.
+
+Source: https://docs.github.com/en/actions/how-tos/troubleshoot-workflows

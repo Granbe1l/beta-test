@@ -87,7 +87,7 @@ def test_four_hour_refresh_and_manual_candidate_audit_do_not_weaken_verified_def
     root = Path(__file__).resolve().parents[1]
     refresh = (root / ".github/workflows/public-snapshot.yml").read_text()
     scout = (root / ".github/workflows/candidate-audit.yml").read_text()
-    assert "cron: '17 1,5,9,13,17,21 * * *'" in refresh
+    assert "cron: '23 1,5,9,13,17,21 * * *'" in refresh
     assert "workflow_dispatch:" in scout
     assert "cron:" not in scout
     assert "STALE_HOURS: '12'" in refresh
