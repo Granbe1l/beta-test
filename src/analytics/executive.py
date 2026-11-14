@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from src.analytics.activity import sample_activity
+from src.analytics.trends import calendar_activity
 from src.analytics.findings import portfolio_findings
 from src.ui.observed import analysis_window_coverage
 
@@ -31,7 +31,7 @@ def executive_brief(reports: list[dict], *, findings=None, now=None) -> dict:
         return {"repositories": 0, "activity": None, "coverage_28d": None,
                 "finding": None, "next_check": None, "source_url": None,
                 "source_label": None, "type": None}
-    activity = sample_activity(reports, now=now, days=7)
+    activity = calendar_activity(reports, now=now, days=7)
     coverage = analysis_window_coverage(reports, days=28, now=now)
     candidates = list(findings if findings is not None else
                       portfolio_findings(reports, max_findings=3))
@@ -45,7 +45,7 @@ def executive_brief(reports: list[dict], *, findings=None, now=None) -> dict:
             "closed_issues": activity["closed_issues"],
             "opened_prs": activity["new_prs"],
             "merged_prs": activity["merged_prs"],
-            "scope": "retrieved source records · 7 days",
+            "scope": "retrieved source records · seven UTC calendar dates (today partial)",
         },
         "coverage_28d": coverage,
         "finding": {

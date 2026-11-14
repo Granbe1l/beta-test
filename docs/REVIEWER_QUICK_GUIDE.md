@@ -19,6 +19,8 @@ milestones, SLAs, private team capacity or software quality.
    completed source windows. `All tracked · exploratory` includes incomplete
    records, where missing does not equal zero.
 
+**7-day activity:** Dashboard totals, the daily trend and exported events use the same seven UTC calendar dates, including today's incomplete date. The last point is not a full-day result. A verified 28-day source window is a separate source-coverage requirement.
+
 ## Common terms and their limits
 
 | Label | What it means | What it does **not** establish |

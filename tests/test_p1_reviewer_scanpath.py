@@ -9,8 +9,8 @@ def test_first_screen_has_one_decision_path_before_charts():
     overview = code.split("def overview(reports,", 1)[1].split(
         "def project_details(reports):", 1)[0]
     assert overview.index('Quick reading') < overview.index('trend_panel(chosen)')
-    assert overview.index('What happened in the last 7 days?') < overview.index(
-        'What should we inspect?')
+    assert overview.index('What should we inspect?') < overview.index(
+        'What happened in the last 7 days?')
     assert overview.index('What should we inspect?') < overview.index(
         'How complete is the evidence?')
     assert overview.index('trend_panel(chosen)') < overview.index(

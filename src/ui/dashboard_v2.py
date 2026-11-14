@@ -17,6 +17,7 @@ import streamlit as st
 from src.analytics.findings import portfolio_findings
 from src.analytics.executive import executive_brief
 from src.analytics.metrics import utc
+from src.analytics.trends import calendar_activity
 from src.analytics.activity import recent_activity, sample_activity, activity_label, weekly_activity
 from src.analytics.comparisons import comparable_observation_pair, checks_in_period
 from src.ui.charts import observed_age_bands, observed_merge_times, observed_outcomes
@@ -576,9 +577,9 @@ def _matched_snapshot_chart(chosen):
             )
     else:
         with st.container(border=True):
-            _chart_title("Opened vs completed activity · last 7 days",
-                         "Compare events within each category; counts cover retrieved records only.")
-            a = sample_activity(chosen, days=7)
+            _chart_title("Opened vs completed activity · last 7 UTC calendar dates",
+                         "Today is a partial UTC date; counts cover retrieved records only.")
+            a = calendar_activity(chosen, days=7)
             fig = go.Figure()
             fig.add_trace(go.Bar(
                 name="Opened", x=["Issues", "Pull requests"],
@@ -608,8 +609,8 @@ def overview(reports, selection, all_reports=None):
     from src.ui.observed import summary
     st.markdown(
         '<div class="d-hero d-hero-overview"><div><span class="d-eyebrow">PUBLIC GITHUB · ACTIVITY MONITOR</span>'
-        '<h1>GitHub activity at a glance.</h1>'
-        '<p>Issues, code changes and automated checks—with original source links.</p>'
+        '<h1>From GitHub activity to evidence.</h1>'
+        '<p>See what changed in public projects, what to inspect, and which original record to check next.</p>'
         '</div><div class="d-mark">D / M</div></div>',
         unsafe_allow_html=True)
     if not reports:
@@ -624,7 +625,7 @@ def overview(reports, selection, all_reports=None):
     if not chosen:
         return
     info = summary(chosen)
-    activity = sample_activity(chosen, days=7)
+    activity = calendar_activity(chosen, days=7)
     scope = "Selected project" if len(chosen) == 1 else "Curated public sample"
     _kpis([
         ("Projects in analysis", _number(info["repositories"]),
@@ -632,7 +633,7 @@ def overview(reports, selection, all_reports=None):
         ("Open tasks retrieved", _number(info["open_issues"]), "Observed GitHub issues · not the full backlog", "◷"),
         ("Open code changes", _number(info["open_changes"]), "Observed PRs including drafts", "⇄"),
         ("Projects pushed · 7d", _number(activity["pushed_recently"]),
-         "GitHub last-push metadata, not feature releases", "↗"),
+         "Last seven UTC calendar dates; a push is not a release", "↗"),
     ])
     from src.ui.observed import evidence_readiness
     from src.ui.reviewer_cohort import decision_brief_cohort
@@ -657,35 +658,36 @@ def overview(reports, selection, all_reports=None):
                    "No client-deadline or quality verdict is inferred from this data.")
         activity_column, evidence_column = st.columns([1.65, 1], gap="medium")
         with activity_column:
-            st.markdown("**What happened in the last 7 days?**")
-            st.markdown(
-                f'{brief["activity"]["recent_pushes"]:,}/{len(chosen):,} '
-                "projects have a recent code push in GitHub metadata. "
-                f'{brief["activity"]["opened_issues"]:,} Issues opened and '
-                f'{brief["activity"]["merged_prs"]:,} PRs merged in '
-                "retrieved records."
-            )
-            st.caption("Missing records are not zero activity. A push is "
-                       "not proof that a feature or client milestone shipped.")
             st.markdown("**What should we inspect?**")
             if brief["finding"]:
                 lead = brief["finding"]
-                st.markdown(
-                    f'**First inspect: {lead["title"]}**'
-                )
-                st.caption(
-                    f'{lead["metric_label"]}: {lead["metric_value"]} '
-                    f'· {lead["scope"]}'
-                )
-                if brief.get("why_review"):
-                    st.caption("Why inspect: " + brief["why_review"])
-                st.caption("Next action: " + brief["next_check"])
+                st.markdown(f'**First inspect: {lead["title"]}**')
+                st.metric(lead["metric_label"], lead["metric_value"],
+                          help=lead["scope"] + " · public GitHub source records")
+                st.caption("Project: " + lead["scope"])
+                st.markdown("**Next check:** " + brief["next_check"])
+                with st.expander("Why this finding merits a closer look"):
+                    if brief.get("why_review"):
+                        st.caption("Measured inspection trigger: " + brief["why_review"])
+                    if brief.get("not_proven"):
+                        st.caption("Not proven: " + brief["not_proven"])
             else:
                 st.write("No source-backed finding passes the review thresholds.")
                 st.caption(
                     "This does not prove that all projects are healthy. "
                     "Review original records and source completeness."
                 )
+            st.markdown("**What happened in the last 7 days?**")
+            st.caption(
+                f'{brief["activity"]["recent_pushes"]:,}/{len(chosen):,} projects '
+                "have a recent code push in GitHub metadata. "
+                f'{brief["activity"]["opened_issues"]:,} Issues opened and '
+                f'{brief["activity"]["merged_prs"]:,} PRs merged in retrieved records."
+            )
+            st.caption(
+                "Last seven UTC calendar dates, including today's incomplete day. "
+                "Missing records are not zero activity. A push is not proof of a release."
+            )
         with evidence_column:
             st.markdown("**How complete is the evidence?**")
             verified = brief["coverage_28d"]
@@ -776,7 +778,7 @@ def overview(reports, selection, all_reports=None):
     
         _section("05 / Where are new changes happening?", "Recent activity is not a score of project quality or developer productivity.")
         rows = []
-        for report, a in sample_activity(chosen, days=7)["items"]:
+        for report, a in calendar_activity(chosen, days=7)["items"]:
             events = a["new_issues"] + a["closed_issues"] + a["new_prs"] + a["merged_prs"]
             if events:
                 rows.append({

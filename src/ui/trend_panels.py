@@ -5,6 +5,8 @@ release dates, productivity scores or interpolated missing GitHub records.
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -38,11 +40,12 @@ def trend_panel(reports):
     if not reports:
         st.info("No monitored repositories are available.")
         return
+    now = datetime.now(timezone.utc)
     with st.container(border=True):
         heading, period_col, scope_col = st.columns([2.5, 1, 1.7], gap="small")
         with heading:
             st.markdown("**Daily development activity**")
-            st.caption("Actual issue and code-change events")
+            st.caption("UTC calendar dates · today is still in progress")
         with period_col:
             days = st.selectbox(
                 "Days", [7, 28], format_func=lambda n: f"{n} days",
@@ -80,7 +83,7 @@ def trend_panel(reports):
             (issue_tab, "issues", "Issues opened", "Issues closed", "issues"),
             (pr_tab, "pull_requests", "PRs opened", "PRs merged", "pull requests"),
         ):
-            eligible = qualified_reports(reports, source, days)
+            eligible = qualified_reports(reports, source, days, now=now)
             displayed = reports if exploratory else eligible
             with tab:
                 st.caption(
@@ -102,10 +105,10 @@ def trend_panel(reports):
                         ),
                     ):
                         pass
-                    collected[source] = pd.DataFrame(daily_event_series([], days))
+                    collected[source] = pd.DataFrame(daily_event_series([], days, now=now))
                     continue
                 any_usable = True
-                data = pd.DataFrame(daily_event_series(displayed, days=days))
+                data = pd.DataFrame(daily_event_series(displayed, days=days, now=now))
                 collected[source] = data
                 totals = observed_event_totals(data.to_dict("records"))
                 if totals[first] + totals[second] == 0:
@@ -132,6 +135,10 @@ def trend_panel(reports):
                     yaxis=dict(title="Recorded events / day", rangemode="tozero"),
                 )
                 _draw_plot(fig, height=272)
+                st.caption(
+                    f"**{now.date().isoformat()} UTC is still in progress.** "
+                    "The last point is partial; do not treat it as a whole-day decline."
+                )
                 if topic == "issues":
                     st.caption(
                         f"**Reading:** {totals[first]:,} issues opened and "
@@ -165,6 +172,9 @@ def trend_panel(reports):
             len(reports) if exploratory else len(qualified_reports(reports, "pull_requests", days))
         )
         export["Scope"] = "exploratory" if exploratory else "verified_source_windows"
+        export["UTC day status"] = export["Date"].map(
+            lambda date: "partial (today)" if date == now.date().isoformat() else "complete date"
+        )
         st.download_button(
             "Export displayed events (CSV)",
             data=export.to_csv(index=False).encode("utf-8"),
