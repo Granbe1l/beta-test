@@ -19,6 +19,37 @@ def _percentile(sorted_values: list[float], fraction: float) -> float:
                                   sorted_values[low]) * (index - low)
 
 
+def category_eligibility(rows: list[dict], metric: str, *,
+                         min_group: int = 4) -> list[dict]:
+    """Every category's measured eligible count; never a productivity score.
+
+    A verified zero is valid. A missing, withheld, invalid or non-finite value
+    is not. Source-limited exploratory counts cannot be peer benchmarks.
+    """
+    if min_group < 3:
+        raise ValueError("At least three eligible repositories per category")
+    if "exploratory" in metric.lower():
+        raise ValueError("Exploratory record totals cannot be peer benchmarks")
+    totals = defaultdict(int)
+    eligible = defaultdict(int)
+    for row in rows:
+        category = str(row.get("Category") or "Other")
+        totals[category] += 1
+        value = row.get(metric)
+        if (isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and isfinite(float(value)) and value >= 0):
+            eligible[category] += 1
+    return [{
+        "Category": category,
+        "Eligible values": eligible[category],
+        "Repositories in category": totals[category],
+        "Missing / withheld": totals[category] - eligible[category],
+        "Median shown": ("Yes" if eligible[category] >= min_group
+                         else f"No (n < {min_group})"),
+    } for category in sorted(totals)]
+
+
 def category_distributions(rows: list[dict], metric: str, *,
                            min_group: int = 4) -> list[dict]:
     """Return eligible n/denominator, median and IQR for fixed-category peers.
