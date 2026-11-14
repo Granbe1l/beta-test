@@ -4,6 +4,24 @@ An evidence-first, read-only analytics dashboard that helps nontechnical reviewe
 
 > **Curated-cohort change (14 November 2026):** An independent 28-day Issues/PR/CI audit found 56 jointly Verified repositories in the previous 75-project sample. Exactly 50 audited identities are pinned in [the reviewed manifest](data/curated_50_manifest.json) now published on `main`, with 25 original source reports archived. This dated selection is not a promise that 50/50 remain fresh indefinitely. GitHub Actions refresh and desktop/mobile UI screenshot tests exist. GitHub Actions collection is configured to run every four hours, but individual runs can be delayed or fail; never mistake a stored snapshot for real-time data. Hosted Streamlit Cloud deployment and managed PostgreSQL are separate, optional steps and are **not** claimed verified here. All figures are obtained from public GitHub records.
 
+## Reviewer quick start — what the evidence can and cannot answer
+
+**Purpose:** Identify public GitHub activity that merits source-level inspection.
+The name **Project Delivery Monitor** does **not** mean that this dataset
+contains client deadlines, milestone completion, budgets or SLAs.
+
+1. Open **Dashboard** for a 7-day activity summary and a direct GitHub evidence link.
+2. Read **Key findings** for inspectable, bounded next steps, not defect verdicts.
+3. Use **Explore repositories → Compare projects** for verified 7/28-day metrics;
+   inspect an external public GitHub URL separately from the fixed cohort.
+
+**Metrics policy:** The main PR merge-time and CI finding windows are 28 days
+when independently verified. A 90-day view is optional and can be withheld
+when the source does not cover all 90 days. CI success share counts successes
+over *all known completed outcomes*, including skipped/cancelled/neutral in
+the denominator; those outcomes are not classified as failures. The 30+ day
+Issue-age threshold describes age, not the event-history window.
+
 ## Start here — 60-second reviewer tour
 
 **Business question:** Which public software projects show observable work,

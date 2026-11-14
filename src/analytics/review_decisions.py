@@ -16,8 +16,10 @@ TRIGGERS = {
         "a large age share can merit review, but age is not a due date."
     ),
     "ci": (
-        "At least 10 completed checks with known outcomes and fewer than "
-        "80% successes in the verified observation period; not a service SLA."
+        "At least 10 completed checks with known outcomes, fewer than "
+        "80% recorded successes, and at least one failure/timeout when failure "
+        "breakdown is available. Skipped/other outcomes remain in the "
+        "known-outcome denominator but are not failures or a service SLA."
     ),
     "merge-duration": (
         "At least 5 merged code changes with a verified observation window; "
