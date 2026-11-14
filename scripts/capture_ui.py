@@ -140,14 +140,23 @@ try:
 
         desktop = browser.new_page(viewport={"width": 1440, "height": 960},
                                    device_scale_factor=1)
+        desktop_started = time.perf_counter()
         desktop.goto("http://127.0.0.1:8501", wait_until="domcontentloaded")
         desktop.locator(".d-hero").first.wait_for(timeout=45000)
         # Actual rendered reviewer summary must remain visible on desktop.
         desktop.get_by_text("What should we inspect?", exact=True).wait_for(timeout=30000)
         desktop.get_by_text("How complete is the evidence?", exact=True).wait_for(timeout=30000)
+        desktop.locator('[data-testid="stPlotlyChart"]').first.wait_for(
+            timeout=45000)
+        desktop_initial_chart_ms = round(
+            (time.perf_counter() - desktop_started) * 1000)
         time.sleep(2)
         assert_no_streamlit_exception(desktop, "Dashboard")
         browser_audit = {"desktop": reviewer_browser_metrics(desktop, "desktop")}
+        browser_audit["desktop"]["local_first_chart_ms"] = desktop_initial_chart_ms
+        browser_audit["desktop"]["timing_scope"] = (
+            "local GitHub Actions Chrome/Streamlit only, not hosted Cloud"
+        )
         desktop.screenshot(path=str(OUT / "desktop-overview.png"), full_page=True)
         desktop.get_by_text("Reading guide · 1 minute", exact=True).first.click(
             timeout=10000)
@@ -387,12 +396,21 @@ try:
         mobile = browser.new_page(viewport={"width": 390, "height": 844},
                                   device_scale_factor=1, is_mobile=True,
                                   has_touch=True)
+        mobile_started = time.perf_counter()
         mobile.goto("http://127.0.0.1:8501", wait_until="domcontentloaded")
         mobile.locator(".d-hero").first.wait_for(timeout=45000)
         mobile.get_by_text("How complete is the evidence?", exact=True).wait_for(timeout=30000)
+        mobile.locator('[data-testid="stPlotlyChart"]').first.wait_for(
+            timeout=45000)
+        mobile_initial_chart_ms = round(
+            (time.perf_counter() - mobile_started) * 1000)
         time.sleep(2)
         assert_no_streamlit_exception(mobile, "Mobile Dashboard")
         browser_audit["mobile"] = reviewer_browser_metrics(mobile, "mobile")
+        browser_audit["mobile"]["local_first_chart_ms"] = mobile_initial_chart_ms
+        browser_audit["mobile"]["timing_scope"] = (
+            "local GitHub Actions Chrome/Streamlit only, not hosted Cloud"
+        )
         (OUT / "recruiter-browser-audit.json").write_text(
             json.dumps(browser_audit, indent=2, sort_keys=True), encoding="utf-8")
         # Validate the actual mobile drawer. Previously navigation.png was

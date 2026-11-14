@@ -13,13 +13,30 @@ import streamlit as st
 
 from src.analytics.inspector_presenter import inspection_summary
 from src.analytics.inspection_export import inspection_csv
+from src.analytics.public_rate_limit import RollingInspectionBudget
 from src.analytics.on_demand import (
     PublicLookupError, inspect_public_repository, parse_public_repo,
 )
 
 
+@st.cache_resource(show_spinner=False)
+def _shared_inspection_budget():
+    # A Streamlit server process shares this across sessions, unlike the
+    # existing per-session retry cooldown. The cache below avoids charging
+    # an already-cached repository preview again.
+    return RollingInspectionBudget(limit=12, window_seconds=3600)
+
+
 @st.cache_data(ttl=300, show_spinner=False, max_entries=64)
 def _cached_public_preview(repository: str):
+    accepted, wait_seconds = _shared_inspection_budget().try_acquire()
+    if not accepted:
+        minutes = (wait_seconds + 59) // 60
+        raise PublicLookupError(
+            "Public GitHub inspection is temporarily at its shared "
+            f"server request budget. Retry in about {minutes} minute(s). "
+            "Cached tracked-project evidence remains available."
+        )
     return inspect_public_repository(repository)
 
 
