@@ -6,6 +6,7 @@ The underlying snapshots, collectors and metric formulas are unchanged.
 from __future__ import annotations
 
 import os
+from datetime import timedelta, timezone
 import streamlit as st
 
 from src.config.settings import Settings
@@ -175,13 +176,24 @@ if selected_scope.startswith("All tracked"):
     )
 
 if data_info["mode"] == "snapshot":
-    when = data_info["generated_at"].strftime("%d %b %Y · %H:%M UTC")
+    # Keep exact UTC stamp for independent public demo verification; include
+    # WIB for Indonesian reviewers. Snapshot age and source coverage differ.
+    when_utc = data_info["generated_at"].strftime("%d %b %Y · %H:%M UTC")
+    when_wib = data_info["generated_at"].astimezone(
+        timezone(timedelta(hours=7))
+    ).strftime("%d %b %Y · %H:%M WIB")
     st.caption(
-        f"**PUBLIC GITHUB SNAPSHOT:** Captured {when} · "
-        f"{'stale / refresh needed' if data_info['stale'] else 'recent'} · "
+        f"**PUBLIC GITHUB SNAPSHOT:** Captured {when_utc} ({when_wib}) · "
+        f"{'snapshot older than 12h — refresh needed' if data_info['stale'] else 'snapshot recent; check source verification below'} · "
         "read-only, not a live connection · "
         "[Data notes](https://github.com/Granbe1l/beta-test/blob/main/docs/REVIEWER_QUICK_GUIDE.md)"
     )
+    if data_info["stale"]:
+        st.warning(
+            "The stored snapshot is older than the 12-hour freshness limit. "
+            "Some previously Verified sources may no longer qualify. "
+            "Reload stored data only rereads the saved file; it does not collect from GitHub."
+        )
 else:
     st.caption(
         "**PERSISTENT DATA MODE** · PostgreSQL records · collection runs separately")
@@ -191,6 +203,9 @@ else:
 status = status_for(all_reports)
 counts = coverage_counts(all_reports)
 total = len(all_reports)
+complete_open = sum(
+    r.get("open_backlog_status") == "complete" for r in all_reports
+)
 source_status = {
     "complete": "Sources verified",
     "partial": "Partial source scans",
@@ -207,6 +222,7 @@ status_slot.markdown(
     f'<div class="side-health-small">Issues {counts["issues"]}/{total} · '
     f'PRs {counts["pull_requests"]}/{total} · '
     f'CI {counts["workflow_runs"]}/{total}</div>'
+    f'<div class="side-health-small">Full open-Issue inventory {complete_open}/{total}</div>'
     '</div>',
     unsafe_allow_html=True,
 )
