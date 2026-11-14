@@ -27,6 +27,8 @@ jobs:
           retention-days: 14
       - run: python -m compileall -q src scripts streamlit_app.py
       - run: python -m pytest -q
+      - name: Test independent Cloudflare watchdog without external credentials
+        run: node --test external_refresh/cloudflare/worker.test.mjs
       - name: Benchmark real curated snapshot (no fabricated data)
         run: python scripts/benchmark_snapshot.py
       - name: Audit real repository comparison readiness

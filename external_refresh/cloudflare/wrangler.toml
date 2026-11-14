@@ -1,0 +1,10 @@
+name = "project-delivery-monitor-rescue"
+main = "worker.mjs"
+compatibility_date = "2026-11-01"
+workers_dev = false
+
+[triggers]
+crons = ["7 * * * *"]
+
+[observability]
+enabled = true
