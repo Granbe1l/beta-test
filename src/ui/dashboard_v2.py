@@ -164,7 +164,7 @@ def _donut(labels, values, colors, total_label, height=245):
     _chart(fig, height=height, legend=True)
 
 
-def _ci_donut(rows, period=30):
+def _ci_donut(rows, period=28):
     """Known outcomes only, with the same numerator and denominator as KPI."""
     info = checks_in_period(rows, days=period)
     labels = [k for k in ("Success", "Failure / timeout", "Skipped", "Other outcomes")
@@ -223,7 +223,7 @@ def _duration_columns(buckets):
     _chart(fig, height=255)
 
 
-def _outcome_bars(rows, period=30):
+def _outcome_bars(rows, period=28):
     """Percentages and denominators share the same time window as the KPI."""
     info = checks_in_period(rows, days=period)
     labels = [k for k in ("Success", "Failure / timeout", "Skipped", "Other outcomes")
@@ -277,9 +277,9 @@ def _scope(reports, key):
         "Code pushed · last 7 days",
         "Issue or PR events · last 7 days",
         "No recent signal · last 7 days",
-        "Code pushed · last 30 days",
-        "Issue or PR events · last 30 days",
-        "No recent signal · last 30 days",
+        "Code pushed · last 28 days",
+        "Issue or PR events · last 28 days",
+        "No recent signal · last 28 days",
     ]
     # Verified-first is the global default. Preserve a valid custom filter,
     # but reset invalid stale Streamlit widgets when global scope changes.
@@ -296,7 +296,7 @@ def _scope(reports, key):
         mode = st.selectbox("Activity filter", options, index=default_index,
                             key=activity_key)
     chosen = []
-    period = 30 if "30 days" in mode else 7
+    period = 28 if "28 days" in mode else 7
     if mode.startswith("Verified all three sources"):
         days = 28 if "28 days" in mode else 7
         chosen = verified_joint_cohort(reports, days=days)
@@ -331,8 +331,8 @@ def _scope(reports, key):
             st.caption(
                 "**Within verified cohort:** the selected repositories still "
                 "come from the global evidence scope. Push/activity filters are "
-                "descriptive; a 30-day event filter does not certify a 30-day "
-                "source history when only 28 days were verified."
+                "descriptive; a 28-day activity filter requires its own verified "
+                "source window before interpreting missing events as inactivity."
             )
     names = [r["repository"]["full_name"] for r in chosen]
     with right_filter:

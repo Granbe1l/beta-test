@@ -62,7 +62,7 @@ existing graphs as the primary evidence.
 
 The bootstrap scans the exact 28-day analysis period first to reduce
 near-duplicate API requests. For CI/CD the **current UTC day is rechecked**
-on every run rather than trusting a six-hour-old day-level checkpoint.
+on every run rather than trusting a four-hour-old day-level checkpoint.
 Old stored records are retained when a GitHub API window is capped.
 
 The separate read-only SQL analysis in `scripts/sql_insights.py` uses
@@ -77,7 +77,7 @@ snapshot, not a live SQL query.
 - A new successful snapshot run must establish **actual** before/after 28-day
   source-coverage changes, not presumed gains from code optimizations.
 - A schedule audit must observe at least three genuine successful cron events
-  near the six-hour cadence before claiming scheduling reliability.
+  near the four-hour cadence before claiming scheduling reliability.
 - A real 3–5 participant test described in
   [the review protocol](REVIEWER_USABILITY_CHECK.md) remains to be
   conducted; automated screenshots do not prove human understanding.
@@ -144,7 +144,7 @@ browser tests does not establish a publicly hosted Streamlit URL.
 
 **Still open, outside code-review completion:**
 - Three genuinely successful scheduled collection events with acceptable
-  spacing have not been established as consistent six-hour operation.
+  spacing have not been established as consistent four-hour operation.
 - Streamlit Community Cloud deployment requires owner sign-in and real
   public URL verification; it must not be claimed successful before then.
 - A formal human nontechnical participant study has not been performed.

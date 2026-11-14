@@ -489,12 +489,12 @@ def cicd_activity(reports):
         ("Success share", f"{ci['success_percent']:.0f}%" if ci["success_percent"] is not None else "—",
          "Known conclusions denominator", "◉"),
     ])
-    section("Workflow results · recent 30 days", "Daily counts by workflow conclusion, not a software-quality score.")
+    section("Workflow results · recent 28 days", "Daily counts by workflow conclusion, not a software-quality score.")
     if ci["trend_valid"] or r["ci_rows"]:
         if not ci["trend_valid"]:
             st.caption("⚠️ Partial GitHub Actions coverage: timeline shows retrieved runs only.")
         now = datetime.now(timezone.utc)
-        since = now - timedelta(days=30)
+        since = now - timedelta(days=28)
         daily = Counter()
         for run in r["ci_rows"]:
             created = utc(run.get("created_at")) if run.get("created_at") else None
@@ -505,7 +505,7 @@ def cicd_activity(reports):
         start = since.date()
         points = [{"Day": (start + timedelta(days=i)).isoformat(), "Result": cat,
                    "Runs": daily[((start + timedelta(days=i)).isoformat(), cat)]}
-                  for i in range(31) for cat in ("Success", "Failure / timeout", "Other outcomes")]
+                  for i in range(29) for cat in ("Success", "Failure / timeout", "Other outcomes")]
         df = pd.DataFrame(points)
         fig = px.bar(df, x="Day", y="Runs", color="Result", barmode="stack",
                      color_discrete_map={"Success": PURPLE, "Failure / timeout": "#D77B90", "Other outcomes": "#CDB8EA"})

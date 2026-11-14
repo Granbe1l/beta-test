@@ -300,15 +300,21 @@ The suite covers bounded selection, deduplication, pagination, retry/rate handli
 - Complete historical issue counts are not claimed. Recent changed-record sampling differs from a full open-backlog scan.
 - This implementation is intended for analysis and due diligence, not contractual SLAs or causal performance assessment.
 
+## Current audit and consistent time windows (14 November 2026)
+
+- [Successful actual scheduled snapshot collection](https://github.com/Granbe1l/beta-test/actions/runs/43540739560) at **08:32 WIB**: **50/50 jointly Verified over 28 days** for Issue, PR and CI event sources; **41/50** separately verified full-open Issue inventories. The stored sample had **4,947 Issue**, **5,497 PR**, and **44,171 CI** observations. These counts are timestamped, not immutable promises.
+- **7 days** = recent activity; **28 days** = four-week analysis and activity filters; **90 days** = long-range view requiring independent source-coverage proof. **30+ days** is an open-Issue age threshold, *not* the analysis window. Some old historical sections further down document the original 75-project cohort only.
+- No publicly verified hosted Streamlit URL or human usability test is claimed. GitHub Actions cron runs are best-effort; three consecutive scheduled successes are required to demonstrate early cadence stability.
+
 ## Screenshot evidence
 
-**Actual screenshots: available as GitHub Actions artifacts.** The [successful desktop/mobile capture run](https://github.com/Granbe1l/beta-test/actions/runs/43338398246) contains rendered browser screenshots from the real 75-repo snapshot. These are not design mockups or public usability-test results.
+**Actual screenshots: available as GitHub Actions artifacts.** The [successful current desktop/mobile capture run](https://github.com/Granbe1l/beta-test/actions/runs/43540055607) contains rendered browser screenshots from the real 50-repo snapshot. These are not design mockups or public usability-test results.
 
 ## Repository destination
 
-Repository: <https://github.com/Granbe1l/beta-test> (branch `main`). Source changes have been reviewed and merged through PR #1; deployment to a live public Streamlit URL is not verified.
+Repository: <https://github.com/Granbe1l/beta-test> (branch `main`). Recent source changes have been merged through [PR #39](https://github.com/Granbe1l/beta-test/pull/39); deployment to a live public Streamlit URL is not verified.
 
-**GitHub Actions verification (2026-11-13):** main-branch CI passed **111 automated tests**, restored the real 75-repository public snapshot and executed the SQL audit; the [quality-check run](https://github.com/Granbe1l/beta-test/actions/runs/43338398122) is the baseline. Later review changes add regression tests; use the latest completed run rather than assuming an old count remains current.
+**GitHub Actions verification (14 November 2026):** main-branch CI passed **292 automated tests** with 50-repository real-snapshot SQL and KPI integrity audits in the [quality-check run](https://github.com/Granbe1l/beta-test/actions/runs/43540055584). Later review changes add regression tests; use the latest completed run rather than assuming an old count remains current.
 
 ## Data snapshot — deploy without PostgreSQL first
 
@@ -500,8 +506,7 @@ coverage gains.
 
 The prior 28 days of GitHub records can be inspected **now**; collecting
 for 28 new days is not a prerequisite. Some large repositories still
-reach REST pagination or scheduled API-request limits, so a complete
-28-day window is not available for all 75 projects.
+reach REST pagination or scheduled API-request limits, so the latest dated audit verified the 28-day event windows for all 50 tracked projects; future refreshes must be audited again.
 
 The overview includes **strict matching cohort** filters for seven or
 28 days: all selected repositories must have complete source coverage
@@ -545,7 +550,7 @@ also emits per-repository diagnostics through
 `scripts/coverage_triage.py`, distinguishing page limits, stale
 checkpoints and short windows.
 
-**Latest validated refresh (13 November 2026, 08:27 WIB):** 75 curated
+**Historical pre-migration refresh (13 November 2026, 08:27 WIB; not current):** 75 curated
 projects; 11,652 Issue records, 26,450 PR records, 87,122 CI runs;
 verified 28-day sources: Issues 40/75, PR 50/75, CI 35/75.
 [Audit and published snapshot](https://github.com/Granbe1l/beta-test/actions/runs/43342299579).
@@ -558,11 +563,11 @@ before its own real refresh audit confirms it.
 All **six Streamlit pages** now default to repositories with verified
 28-day Issues, PR and CI/CD history simultaneously, controlled through a
 single sidebar evidence-scope selector. A 7-day verified filter
-and the original 75-project exploratory view remain accessible. Missing
+and the fixed 50-project exploratory view remain accessible. Missing
 records are not silently excluded from storage, and 28-day coverage means
 historical records checked, **not waiting 28 calendar days**.
 
-The current validated 2026-11-13 09:10 WIB snapshot has:
+The archived 2026-11-13 09:10 WIB 75-project snapshot (not current) had:
 - 75 curated tracked projects, **35** with all three source types verified
   for the same 28-day period.
 - Independent 28-day source coverage: Issues **43/75**, PR **53/75**,
