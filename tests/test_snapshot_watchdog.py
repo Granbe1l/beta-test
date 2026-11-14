@@ -71,7 +71,20 @@ def test_workflow_cannot_falsely_count_manual_dispatch_as_schedule():
     root = Path(__file__).resolve().parents[1]
     workflow = (root/".github/workflows/snapshot-watchdog.yml").read_text()
     audit = (root/"scripts/schedule_reliability.py").read_text()
-    assert "cron: '41 * * * *'" in workflow
+    assert "cron: '47 * * * *'" in workflow
     assert "actions: write" in workflow
     assert "snapshot_watchdog.py" in workflow
     assert 'r.get("event") == "schedule"' in audit
+
+
+def test_main_push_quality_success_is_an_extra_non_cron_watchdog_entry():
+    workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/snapshot-watchdog.yml").read_text()
+    assert "workflow_run:" in workflow
+    assert "workflows: [Quality checks]" in workflow
+    assert "types: [completed]" in workflow
+    assert "github.event.workflow_run.event == 'push'" in workflow
+    assert "github.event.workflow_run.head_branch == 'main'" in workflow
+    assert "github.event.workflow_run.conclusion == 'success'" in workflow
+    # A rescue is still gated on committed snapshot age, not every push.
+    assert "run: python scripts/snapshot_watchdog.py" in workflow
+    assert watchdog_decision(NOW - timedelta(hours=1), NOW, [])["action"] == "skip"

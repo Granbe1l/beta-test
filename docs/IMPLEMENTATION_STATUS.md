@@ -26,7 +26,7 @@ quality checks before merging to `main`.
 | Per-repository source coverage diagnosis | Implemented; distinguishes page caps, stale scans and short fallback windows in workflow audit |
 | Nontechnical evidence-first Dashboard | Implemented: What happened → Why inspect → Next action → original source, plus separate 28-day and full-open inventory denominators; optional deep charts tested by [PR #46](https://github.com/Granbe1l/beta-test/pull/46) |
 | SQL CTE analysis and source verification flags | Implemented; real snapshot SQL audit passed on main [43338398122](https://github.com/Granbe1l/beta-test/actions/runs/43338398122) |
-| Four-hour scheduled refresh (beta PR) | Workflow configured for `17 1,5,9,13,17,21 * * *` UTC; scheduling remains best-effort |
+| Four-hour scheduled refresh (beta PR) | Workflow configured for `23 1,5,9,13,17,21 * * *` UTC; scheduling remains best-effort |
 | Measured schedule-reliability check | Implemented: only actual cron events count, with three successful successive runs needed to verify reliability |
 | Automated tests, snapshot benchmark and screenshot capture | Implemented; see [GitHub Actions](https://github.com/Granbe1l/beta-test/actions) for the latest passing test count |
 | Public hosted Streamlit URL | **Not verified** |
@@ -229,7 +229,7 @@ machine-readable evidence linked to an actual completed GitHub event.
 **What this does not fix:** GitHub's best-effort cron scheduling itself.
 GitHub states a scheduled workflow can be delayed or dropped under high
 load, including at the top of the hour. The current cron is already off
-the hour (`17 1,5,9,13,17,21 * * *` UTC). Shifting the minute has no proven ability
+the hour (`23 1,5,9,13,17,21 * * *` UTC). Shifting the minute has no proven ability
 to repair missing events, and the audit must not be relaxed to make gaps
 pass.
 
