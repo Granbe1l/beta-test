@@ -48,6 +48,8 @@ For implementation and caveats, use the technical sections below.
 [actual SQL optimization tests](https://github.com/Granbe1l/beta-test/pull/15) ·
 [CV-safe wording](docs/CV_EVIDENCE.md).
 
+**Refresh for a near-term demo:** [GitHub-only six-hour watchdog and manual pre-interview checklist](docs/GITHUB_ONLY_REFRESH_PLAYBOOK.md). A successful manual refresh is not evidence that the native four-hour cron is punctual.
+
 **Live demo:** **not yet publicly verified**. Use the
 [deployment and verification guide](docs/PUBLIC_DEPLOYMENT.md).
 Do not claim recruiters can open a hosted app before its public verification passes.
