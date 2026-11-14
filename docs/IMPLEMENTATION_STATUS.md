@@ -6,15 +6,20 @@ quality checks before merging to `main`.
 
 ## Most recent independently audited published 50-repository snapshot
 
+**14 November 2026, 17:54 WIB:** [post-capacity-fix actual collector](https://github.com/Granbe1l/beta-test/actions/runs/43587299217) verified **50/50** full 28-day Issues, PR and CI/CD sources **and separately 50/50 fresh fully exhausted open-Issue inventories** (zero stale, failed, partial or unavailable). The eight previously unvisited inventories were **8 attempted / 8 complete**, with **633 of 850 API attempts still available**. The published snapshot contains **5,086 Issue, 5,598 PR and 45,054 CI run records**. This was a **push**-triggered collector, not proof of reliable four-hour scheduled execution. Public Streamlit hosting and nontechnical human usability tests remain outside the verified scope.
+
+### Earlier dated audits (not the current snapshot)
+
 **Operational update, 14 November 2026, 17:46 WIB:** [actual post-merge
 collector](https://github.com/Granbe1l/beta-test/actions/runs/43586500756)
 published **50/50** verified 28-day Issues/PR/CI, with **5,086 Issue,
 5,596 PR and 45,032 CI records**. The separate fresh full-open Issue
 inventory was **42/50** at that timestamp: 33 pending, 25 completed,
 eight left stale solely by the configured scan-attempt cap; 573
-collection requests remained. A capacity catch-up change is proposed,
-not counted as successful until a later real collection audit. Both cron
-and watchdog still require actual observed scheduled cycles.
+collection requests remained. PR #62 subsequently corrected the
+production cap, and the real 17:54 WIB audit above verified all eight
+remaining inventories without changing the 850-request budget. Actual
+scheduled cycles still require independent observation.
 
 
 **14 November 2026, 09:39 WIB** · [actual post-fix GitHub collection](https://github.com/Granbe1l/beta-test/actions/runs/43547169286) · **50/50** repositories independently Verified for 28-day Issues/PR/CI events, and **50/50** separately verified fresh full-open Issue inventories. There were 5,023 observed Issue records, 5,512 PR records, and 44,226 CI records. The nine outstanding inventories from the 08:32 WIB baseline were scanned fully (9/9); [audit artifacts](https://github.com/Granbe1l/beta-test/actions/runs/43547169286/artifacts/14094830686) confirm zero gaps. These are **timestamped observations**, not permanent promises. That run was triggered by a code push, **not three consecutive successful scheduled intervals**. Public Streamlit Cloud deployment and human usability evaluation remain unverified.

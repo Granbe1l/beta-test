@@ -4,7 +4,11 @@
 a complete 28-day Issues/PR/Actions event history while its entire backlog
 of old, unchanged open Issues is still unknown.
 
-## Verified first live collection after the capacity fix
+## Latest verified recovery: 14 November 2026 at 17:54 WIB
+
+[Real source collector #43587299217](https://github.com/Granbe1l/beta-test/actions/runs/43587299217) completed successfully after production catch-up capacity was increased. Its independent audit shows **50/50** fresh, exhausted full-open Issue inventories (zero stale/partial/failed/unavailable), alongside **50/50** verified Issues/PR/CI events across the 28-day source window. The live collector logged **8 pending inventories, 8 attempted, 8 complete, 0 failed, 0 unvisited**, and **633 API requests remaining** within the unchanged 850 limit. Its newly published snapshot contains **5,086 Issue, 5,598 PR, and 45,054 CI/CD records**. This audit is timestamped: it proves the actual catch-up run, **not** that future cron events will always fire on time.
+
+## Earlier verified collection after the 8-to-25 capacity fix
 
 At **14 November 2026, 02:39:47 UTC (09:39:47 WIB)**, the first real
 [post-fix GitHub collection](https://github.com/Granbe1l/beta-test/actions/runs/43547169286)
