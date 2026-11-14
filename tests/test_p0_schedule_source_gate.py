@@ -8,17 +8,30 @@ from zipfile import ZipFile
 import pytest
 
 from scripts.schedule_source_gate import (read_receipt, validate_source_receipt,
-                                          evaluate_gate, fetch_run_receipt)
+                                          evaluate_gate, fetch_run_receipt, selected_cohort)
 
 
 def fixtures(n=50):
     sources = ("issues", "pull_requests", "workflow_runs")
+    at = "2026-11-14T12:00:00+00:00"
+    fresh = "2026-11-14T11:55:00+00:00"
+    window = "2026-10-16T12:00:00+00:00"  # Older than 28 days.
+    rows = [
+        {
+            "name": f"owner/repo-{i}",
+            "status": {s: "complete" for s in sources},
+            "open_backlog_status": "complete",
+            "source_details": {
+                **{s: {"status": "complete", "coverage_start": window,
+                       "last_success_at": fresh} for s in sources},
+                "open_backlog": {"status": "complete", "last_success_at": fresh},
+            },
+        }
+        for i in range(n)
+    ]
     return {
         "snapshot-audit.json": {
-            "repositories": [
-                {"name": f"owner/repo-{i}", "status": {s: "complete" for s in sources},
-                 "open_backlog_status": "complete"} for i in range(n)
-            ],
+            "repositories": rows,
             "coverage_summary": {
                 **{s: {"total_repositories": n, "complete": n,
                       "verified_28d": n, "partial": 0, "stale": 0,
@@ -27,8 +40,13 @@ def fixtures(n=50):
             },
         },
         "coverage-readiness.json": {
-            "tracked": n, "verified_joint_28d": n, "window_days": 28,
+            "as_of_utc": at, "tracked": n, "verified_joint_28d": n,
+            "not_joint_verified": 0, "window_days": 28,
             "stale_hours": 12, "source_verified_28d": {s: n for s in sources},
+            "per_repository": [
+                {"repository": row["name"], "verified_joint_28d": True,
+                 "unverified_sources": []} for row in rows
+            ],
         },
         "open-inventory-triage.json": {
             "total_selected_repositories": n, "fresh_full_open_inventories": n,
@@ -124,3 +142,58 @@ def test_fetch_is_scoped_to_actual_run_id_not_arbitrary_artifact():
         run_id=100, headers={"Authorization": "Bearer omitted"})
     assert result["full_open_inventories"] == 50
     assert "/actions/runs/100/artifacts" in session.calls[0][0]
+
+
+def test_manifest_must_match_selected_fixed_50_even_if_summary_says_50():
+    fields = fixtures()
+    names = {r["name"] for r in fields["snapshot-audit.json"]["repositories"]}
+    assert validate_source_receipt(fields, expected_names=names)["tracked"] == 50
+    # A new repo is not allowed to silently replace a curated repo.
+    fields["snapshot-audit.json"]["repositories"][0]["name"] = "unaudited/new-repo"
+    with pytest.raises(ValueError, match="cohort_does_not_match_manifest"):
+        validate_source_receipt(fields, expected_names=names)
+
+
+def test_selected_manifest_rejects_missing_or_duplicate_members(tmp_path):
+    file = tmp_path / "manifest.json"
+    file.write_text(json.dumps({"target_repositories": 50,
+                                "selected": ["same/repo"] * 50}))
+    with pytest.raises(ValueError, match="manifest_invalid"):
+        selected_cohort(file)
+
+
+def test_per_repository_readiness_must_not_disagree_with_green_summary():
+    fields = fixtures()
+    fields["coverage-readiness.json"]["per_repository"][3][
+        "verified_joint_28d"] = False
+    with pytest.raises(ValueError, match="per_repository_readiness"):
+        validate_source_receipt(fields)
+
+
+def test_source_checkpoint_must_cover_full_28_days_with_fresh_success():
+    fields = fixtures()
+    fields["snapshot-audit.json"]["repositories"][0]["source_details"][
+        "issues"]["coverage_start"] = "2026-11-13T00:00:00+00:00"
+    with pytest.raises(ValueError, match="window_short"):
+        validate_source_receipt(fields)
+    fields = fixtures()
+    fields["snapshot-audit.json"]["repositories"][0]["source_details"][
+        "pull_requests"]["last_success_at"] = "2026-11-13T00:00:00+00:00"
+    with pytest.raises(ValueError, match="checkpoint_not_fresh"):
+        validate_source_receipt(fields)
+
+
+def test_open_inventory_must_be_fresh_even_when_status_claims_complete():
+    fields = fixtures()
+    fields["snapshot-audit.json"]["repositories"][0]["source_details"][
+        "open_backlog"]["last_success_at"] = "2026-11-13T00:00:00+00:00"
+    with pytest.raises(ValueError, match="checkpoint_not_fresh"):
+        validate_source_receipt(fields)
+
+
+def test_missing_checkpoint_timestamp_cannot_be_certified():
+    fields = fixtures()
+    fields["snapshot-audit.json"]["repositories"][2]["source_details"][
+        "workflow_runs"].pop("last_success_at")
+    with pytest.raises(ValueError, match="checkpoint_not_verified"):
+        validate_source_receipt(fields)
