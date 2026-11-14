@@ -6,7 +6,7 @@ record. If a category is unavailable, it is omitted rather than fabricated.
 """
 from __future__ import annotations
 
-from src.analytics.findings import portfolio_findings
+from src.analytics.findings import findings_for_repo
 from src.ui.observed import verified_joint_cohort
 
 _CASES = {
@@ -45,34 +45,37 @@ def build_case_studies(reports: list[dict], *, limit: int = 3) -> list[dict]:
         return []
     eligible = verified_joint_cohort(reports, days=28)
     by_name = {r["repository"]["full_name"]: r for r in eligible}
-    findings = portfolio_findings(eligible, max_findings=max(12, len(eligible)))
-    by_type = {f["type"]: f for f in findings if f.get("type") in _CASES}
+    # Collect ALL qualifying candidate findings, not just the single
+    # portfolio-leading finding of each type; otherwise several examples
+    # might point to one large repo despite alternatives in the dataset.
+    pool = [f for r in eligible for f in findings_for_repo(r)
+            if f.get("type") in _CASES]
+    priority = {"Review first": 0, "Review next": 1, "Explore context": 2}
+    pool.sort(key=lambda f: (
+        priority.get(f.get("review_priority"), 3), f.get("scope", "")))
     cases = []
     used_repos = set()
     for kind, (title, next_check, conditional_decision) in _CASES.items():
-        finding = by_type.get(kind)
-        if finding is None:
-            continue
-        name = finding["scope"]
-        source = by_name.get(name)
-        if source is None:
-            continue
-        # Old open-work ratios require the separate *full* open inventory.
-        if kind == "issue-aging" and source.get("open_backlog_status") != "complete":
-            continue
-        examples = finding.get("examples") or []
-        if not examples:
-            continue
-        original = examples[0]
-        link = original["url"]
-        if not any(row.get("url") == link for row in source.get(_SOURCE[kind]) or []):
-            continue
-        # Avoid presenting three examples from the same source as independent
-        # breadth when other types already cover different repositories.
-        if name in used_repos:
-            continue
-        plan = finding.get("review_plan") or {}
-        cases.append({
+        candidates = [f for f in pool if f["type"] == kind]
+        for finding in candidates:
+            name = finding["scope"]
+            source = by_name.get(name)
+            if source is None or name in used_repos:
+                continue
+            # An aged Issue share is meaningful only with a verified
+            # independent complete current open-Issue inventory.
+            if kind == "issue-aging" and source.get("open_backlog_status") != "complete":
+                continue
+            examples = finding.get("examples") or []
+            if not examples:
+                continue
+            original = examples[0]
+            link = original["url"]
+            if not any(row.get("url") == link
+                       for row in source.get(_SOURCE[kind]) or []):
+                continue
+            plan = finding.get("review_plan") or {}
+            cases.append({
             "kind": kind,
             "title": title,
             "repository": name,
@@ -88,8 +91,9 @@ def build_case_studies(reports: list[dict], *, limit: int = 3) -> list[dict]:
             "conditional_decision": conditional_decision,
             "not_proven": plan.get("not_proven") or "An observation is not a delivery verdict.",
             "status": "Review example — not a confirmed issue or action taken",
-        })
-        used_repos.add(name)
+            })
+            used_repos.add(name)
+            break
         if len(cases) >= limit:
             break
     return cases
