@@ -312,7 +312,7 @@ try:
                     full_page=False)
                 # These are required interactions. Do not silently pass a
                 # screenshot workflow when the comparison page breaks.
-                tab = "Compare two projects"
+                tab = "Compare projects"
                 desktop.get_by_role("tab", name=tab).click(timeout=12000)
                 time.sleep(1.2)
                 assert desktop.get_by_text("First project", exact=True).count() >= 1
@@ -331,8 +331,12 @@ try:
                     time.sleep(1)
                     assert_no_streamlit_exception(desktop, "Explorer / " + tab)
                     if tab == "Compare projects":
-                        # A verified chart or explicitly labelled observed
-                        # source fallback must be rendered, not a blank tab.
+                        # One unified tab contains both two-project evidence
+                        # links and the cohort-wide verified chart/fallback.
+                        assert desktop.get_by_text(
+                            "Compare two selected repositories", exact=True).count()
+                        assert desktop.get_by_text(
+                            "Compare verified metrics across projects", exact=True).count()
                         has_comparison = (
                             desktop.get_by_text("Showing", exact=False).count() > 0
                             or desktop.get_by_text(
@@ -341,7 +345,7 @@ try:
                         )
                         assert has_comparison, (
                             "No source-qualified chart or labelled fallback "
-                            "in cross-project comparison")
+                            "in unified cross-project comparison")
                     desktop.screenshot(
                         path=str(OUT / (
                             "desktop-repositories-" + tab.lower().replace(" ", "-") + ".png")),
