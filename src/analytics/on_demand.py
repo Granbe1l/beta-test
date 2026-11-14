@@ -1,6 +1,6 @@
 """Read-only, bounded PUBLIC GitHub repository inspection.
 
-Does not join or mutate the 75 audited projects. All output is explicitly
+Does not join or mutate the fixed 50 audited projects. All output is explicitly
 exploratory: a single page never certifies 28-day source completeness.
 """
 from __future__ import annotations
@@ -180,5 +180,5 @@ def inspect_public_repository(value: str, *, get=None, now=None) -> dict:
         "observed_at": now.isoformat(),
         "provenance": "Public GitHub REST API; at most 30 latest records per source",
         "verified_28d": False,
-        "member_of_curated_75": False,
+        "member_of_curated_50": False,
     }

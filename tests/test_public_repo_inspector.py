@@ -98,7 +98,7 @@ def test_preview_makes_only_four_fixed_host_calls_and_never_claims_verified():
     assert report["sample_ci_completed"] == 2
     assert report["sample_merged_median_hours"] == 24
     assert report["verified_28d"] is False
-    assert report["member_of_curated_75"] is False
+    assert report["member_of_curated_50"] is False
 
 
 def test_private_repository_is_rejected_with_safe_message():
