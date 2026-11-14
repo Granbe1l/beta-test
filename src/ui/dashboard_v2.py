@@ -621,6 +621,9 @@ def overview(reports, selection, all_reports=None):
         st.info("Run the public GitHub snapshot workflow to display real measurements.")
         return
 
+    # Reserve the reviewer summary above controls, but render its data only
+    # after the selected verified/exploratory filters have been evaluated.
+    lead_position = st.container()
     chosen = _scope(reports, "v2_scope")
     if not chosen:
         return
@@ -640,74 +643,75 @@ def overview(reports, selection, all_reports=None):
 
     # A 30-second evidence-first path replaces the old dense sentence and
     # duplicated lower three-column readout. Keep one source-backed action.
-    with st.container(border=True):
-        st.caption(
-            f'Quick reading · {cohort["verified_28d"]}/{cohort["tracked"]} '
-            "tracked repositories have jointly Verified 28-day Issue/PR/CI "
-            f"source windows. This view contains {cohort['in_view']} projects."
-        )
-        st.caption("Public development signals, not client deadlines. "
-                   "No client-deadline or quality verdict is inferred from this data.")
-        activity_column, evidence_column = st.columns([1.65, 1], gap="medium")
-        with activity_column:
-            st.markdown("**What should we inspect?**")
-            if brief["finding"]:
-                lead = brief["finding"]
-                st.markdown(f'**First inspect: {lead["title"]}**')
-                st.metric(lead["metric_label"], lead["metric_value"],
-                          help=lead["scope"] + " · public GitHub source records")
-                st.caption("Project: " + lead["scope"])
-                st.markdown("**Next check:** " + brief["next_check"])
-                with st.expander("Why this finding merits a closer look"):
-                    if brief.get("why_review"):
-                        st.caption("Measured inspection trigger: " + brief["why_review"])
-                    if brief.get("not_proven"):
-                        st.caption("Not proven: " + brief["not_proven"])
-            else:
-                st.write("No source-backed finding passes the review thresholds.")
+    with lead_position:
+        with st.container(border=True):
+            st.caption(
+                f'Quick reading · {cohort["verified_28d"]}/{cohort["tracked"]} '
+                "tracked repositories have jointly Verified 28-day Issue/PR/CI "
+                f"source windows. This view contains {cohort['in_view']} projects."
+            )
+            st.caption("Public development signals, not client deadlines. "
+                       "No client-deadline or quality verdict is inferred from this data.")
+            activity_column, evidence_column = st.columns([1.65, 1], gap="medium")
+            with activity_column:
+                st.markdown("**What should we inspect?**")
+                if brief["finding"]:
+                    lead = brief["finding"]
+                    st.markdown(f'**First inspect: {lead["title"]}**')
+                    st.metric(lead["metric_label"], lead["metric_value"],
+                              help=lead["scope"] + " · public GitHub source records")
+                    st.caption("Project: " + lead["scope"])
+                    st.markdown("**Next check:** " + brief["next_check"])
+                    if finding_cards:
+                        action = evidence_action(finding_cards[0])
+                        if action["url"]:
+                            label = ("Open an original GitHub record"
+                                     if action["record_level"]
+                                     else "Open GitHub source listing")
+                            st.link_button(label, action["url"],
+                                           use_container_width=True)
+                            st.caption(action["disclosure"])
+                    with st.expander("Why this finding merits a closer look"):
+                        if brief.get("why_review"):
+                            st.caption("Measured inspection trigger: " + brief["why_review"])
+                        if brief.get("not_proven"):
+                            st.caption("Not proven: " + brief["not_proven"])
+                else:
+                    st.write("No source-backed finding passes the review thresholds.")
+                    st.caption(
+                        "This does not prove that all projects are healthy. "
+                        "Review original records and source completeness."
+                    )
+                st.markdown("**What happened in the last 7 days?**")
                 st.caption(
-                    "This does not prove that all projects are healthy. "
-                    "Review original records and source completeness."
+                    f'{brief["activity"]["recent_pushes"]:,}/{len(chosen):,} projects '
+                    "have a recent code push in GitHub metadata. "
+                    f'{brief["activity"]["opened_issues"]:,} Issues opened and '
+                    f'{brief["activity"]["merged_prs"]:,} PRs merged in retrieved records.'
                 )
-            st.markdown("**What happened in the last 7 days?**")
-            st.caption(
-                f'{brief["activity"]["recent_pushes"]:,}/{len(chosen):,} projects '
-                "have a recent code push in GitHub metadata. "
-                f'{brief["activity"]["opened_issues"]:,} Issues opened and '
-                f'{brief["activity"]["merged_prs"]:,} PRs merged in retrieved records.'
-            )
-            st.caption(
-                "Last seven UTC calendar dates, including today's incomplete day. "
-                "Missing records are not zero activity. A push is not proof of a release."
-            )
-        with evidence_column:
-            st.markdown("**How complete is the evidence?**")
-            verified = brief["coverage_28d"]
-            st.metric("Verified Issues · 28d",
-                      f'{verified["issues"]}/{len(chosen)}',
-                      help="Full last 28-day source scan, not full lifetime history.")
-            st.caption(
-                f'PRs {verified["pull_requests"]}/{len(chosen)} · '
-                f'CI {verified["workflow_runs"]}/{len(chosen)} jointly '
-                "verified for 28 days."
-            )
-            full_inventory = sum(
-                r.get("open_backlog_status") == "complete" for r in chosen
-            )
-            st.caption(
-                f'Full open-Issue inventory: {full_inventory}/{len(chosen)} '
-                "independently verified and fresh. This is not the same "
-                "as the 28-day event window."
-            )
-            if finding_cards:
-                action = evidence_action(finding_cards[0])
-                if action["url"]:
-                    label = ("Open an original GitHub record"
-                             if action["record_level"]
-                             else "Open GitHub source listing")
-                    st.link_button(label, action["url"],
-                                   use_container_width=True)
-                    st.caption(action["disclosure"])
+                st.caption(
+                    "Last seven UTC calendar dates, including today's incomplete day. "
+                    "Missing records are not zero activity. A push is not proof of a release."
+                )
+            with evidence_column:
+                st.markdown("**How complete is the evidence?**")
+                verified = brief["coverage_28d"]
+                st.metric("Verified Issues · 28d",
+                          f'{verified["issues"]}/{len(chosen)}',
+                          help="Full last 28-day source scan, not full lifetime history.")
+                st.caption(
+                    f'PRs {verified["pull_requests"]}/{len(chosen)} · '
+                    f'CI {verified["workflow_runs"]}/{len(chosen)} jointly '
+                    "verified for 28 days."
+                )
+                full_inventory = sum(
+                    r.get("open_backlog_status") == "complete" for r in chosen
+                )
+                st.caption(
+                    f'Full open-Issue inventory: {full_inventory}/{len(chosen)} '
+                    "independently verified and fresh. This is not the same "
+                    "as the 28-day event window."
+                )
 
     st.caption("Additional observed dataset totals · source-limited records")
     _kpis([

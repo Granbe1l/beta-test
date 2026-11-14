@@ -243,6 +243,19 @@ try:
             desktop.get_by_text(label, exact=False).first.click(timeout=10000)
             time.sleep(1.5)
             assert_no_streamlit_exception(desktop, label)
+            # Navigation can preserve the previous page scroll and hover
+            # tooltip. Every gallery preview must start at the actual heading.
+            desktop.evaluate("""() => {
+              window.scrollTo(0, 0);
+              for (const selector of ['[data-testid="stMain"]',
+                                      '[data-testid="stAppViewContainer"]',
+                                      'section.main']) {
+                const element = document.querySelector(selector);
+                if (element) element.scrollTop = 0;
+              }
+            }""")
+            desktop.mouse.move(1434, 48)
+            desktop.wait_for_timeout(140)
             desktop.screenshot(path=str(OUT / file), full_page=False)
             capture_scrolling_main(
                 desktop, OUT / file.replace(".png", "-full.png"))

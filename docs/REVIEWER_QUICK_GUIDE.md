@@ -7,9 +7,10 @@ milestones, SLAs, private team capacity or software quality.
 
 ## Find one credible insight
 
-1. **Dashboard (10 seconds):** Look at recorded activity over the last seven
-   days, and the number of projects with verified 28-day Issue, PR and CI
-   source coverage. Activity is not proof that a release was delivered.
+1. **Dashboard (10 seconds):** Start with **What should we inspect?** and its
+   original GitHub evidence link, now rendered above activity filters. Then
+   read seven-day activity and 28-day source coverage; the two periods are
+   different. Activity is not proof that a release was delivered.
 2. **What should we inspect? (20 seconds):** Read a measured observation,
    its relevant count/denominator and the suggested next check.
 3. **Original GitHub record (20 seconds):** Open the Issue, PR or Actions run.
