@@ -1,0 +1,38 @@
+name: Monitor GitHub snapshot repository growth
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [Refresh curated public GitHub snapshot]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  footprint:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Record approximate repo size without altering source dataset
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python scripts/repository_growth.py
+      - name: Save dated machine-readable diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-size-observation
+          path: repository-growth-audit.json
+          if-no-files-found: warn
+          retention-days: 30
