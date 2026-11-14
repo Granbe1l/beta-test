@@ -66,7 +66,7 @@ def comparison_rows(reports: list[dict], *, days: int = 28, now=None) -> list[di
             f"PRs merged · {days}d": len(merged) if pv else None,
             f"Completed CI checks · {days}d": len(completed) if cv else None,
             f"Median PR merge days · {days}d": (
-                round(median(durations), 2) if pv and len(durations) >= 5 else None
+                round(median(durations), 6) if pv and len(durations) >= 5 else None
             ),
             "Open issues aged 30+ (%) · full inventory": (
                 round(aged / aged_total * 100, 1)
@@ -160,3 +160,14 @@ def current_history_evidence(report: dict) -> dict:
         "verified": False,
         "measured_at": measured_at,
     }
+
+def format_merge_days(value: float | None) -> str:
+    """Adaptive units on the chart; numeric comparison stays in days."""
+    if value is None:
+        return "—"
+    minutes = value * 1440
+    if minutes < 60:
+        return f"{minutes:.0f} min" if minutes >= 1 else f"{minutes:.1f} min"
+    if minutes < 1440:
+        return f"{minutes / 60:.1f} hours"
+    return f"{value:.1f} days"

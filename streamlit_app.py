@@ -180,7 +180,7 @@ if data_info["mode"] == "snapshot":
         f"**PUBLIC GITHUB SNAPSHOT:** Captured {when} · "
         f"{'stale / refresh needed' if data_info['stale'] else 'recent'} · "
         "read-only, not a live connection · "
-        "[Data notes](https://github.com/Granbe1l/beta-test#data-snapshot)"
+        "[Data notes](https://github.com/Granbe1l/beta-test/blob/main/docs/REVIEWER_QUICK_GUIDE.md)"
     )
 else:
     st.caption(

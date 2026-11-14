@@ -45,3 +45,27 @@ def daily_event_series(reports: list[dict], days: int = 28, now=None) -> list[di
 def observed_event_totals(series: list[dict]) -> dict[str, int]:
     return {key: sum(day[key] for day in series)
             for key in ("Issues opened", "Issues closed", "PRs opened", "PRs merged")}
+
+def calendar_activity(reports: list[dict], days: int = 7, now=None) -> dict:
+    """Use the same UTC calendar dates as daily_event_series (today partial).
+
+    Unlike rolling N*24 hours, the first day begins at midnight UTC.
+    Push metadata is descriptive; no release or project outcome is inferred.
+    """
+    now = utc(now or datetime.now(timezone.utc))
+    totals = observed_event_totals(daily_event_series(reports, days=days, now=now))
+    first = now.date() - timedelta(days=days - 1)
+    pushes = 0
+    for report in reports:
+        pushed = utc((report.get("repository") or {}).get("pushed_at"))
+        if pushed is not None and first <= pushed.date() <= now.date() and pushed <= now:
+            pushes += 1
+    return {
+        "pushed_recently": pushes,
+        "new_issues": totals["Issues opened"],
+        "closed_issues": totals["Issues closed"],
+        "new_prs": totals["PRs opened"],
+        "merged_prs": totals["PRs merged"],
+        "utc_first_date": first.isoformat(),
+        "utc_last_date": now.date().isoformat(),
+    }

@@ -19,6 +19,6 @@ def test_dashboard_hero_clarifies_github_without_long_buzzwords():
     content = SOURCE.read_text(encoding="utf-8")
     intro = content.split("def overview(", 1)[1].split(
         "def project_details(", 1)[0]
-    assert "<h1>GitHub activity at a glance.</h1>" in intro
-    assert "original source links" in intro
+    assert "<h1>From GitHub activity to evidence.</h1>" in intro
+    assert "original record to check next" in intro
     assert "Public development signals, not client deadlines." in intro

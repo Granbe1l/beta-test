@@ -101,7 +101,7 @@ def test_six_view_navigation_and_purple_mobile_theme():
 
     # Default charts must not infer trends from incomplete source windows.
     assert '["Verified source windows", "All retrieved events (exploratory)"]' in trend
-    assert 'qualified_reports(reports, source, days)' in trend
+    assert 'qualified_reports(reports, source, days, now=now)' in trend
     assert 'Other projects are excluded from this graph' in trend
     assert 'not counted as inactive' in trend
     assert 'Show observed sample instead' in trend

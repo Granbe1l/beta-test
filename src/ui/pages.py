@@ -533,6 +533,7 @@ def comparison(reports, embedded=False):
     """
     from src.analytics.comparison_views import (
         comparison_rows, metric_options, preferred_metric, metric_disclosure,
+        format_merge_days,
     )
     if not embedded:
         page_header("Cross-repository comparison",
@@ -592,6 +593,9 @@ def comparison(reports, embedded=False):
             hover_data=["Category", "Event coverage", "Full open inventory"],
             text=metric)
         fig.update_traces(textposition="outside", cliponaxis=False)
+        if metric.startswith("Median PR merge days"):
+            fig.update_traces(text=[format_merge_days(v) for v in visible[metric]])
+            st.caption("Human-readable bar labels; numeric axis and CSV values remain in days.")
         st.plotly_chart(
             chart_style(fig, min(590, max(280, len(visible) * 42))),
             use_container_width=True,
