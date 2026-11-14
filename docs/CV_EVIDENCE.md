@@ -59,6 +59,18 @@ SQL query loader was tested at **6 SELECTs versus the previous 376 SELECTs**
 ([P2.1 CI evidence](https://github.com/Granbe1l/beta-test/pull/15)).
 Do not present that as a browser load-time improvement.
 
+## Optional evidence-first analytics bullet
+
+- Developed three **conditional source-backed case walkthroughs** using real
+  public GitHub Issue, Actions and PR records, verified source denominators,
+  and explicit inspection decisions; checked links and KPI integrity in CI.
+  [Dated examples and limits](EVIDENCE_CASE_STUDIES.md).
+
+This demonstrates analytical discipline and traceability. It does **not**
+prove that a repository missed deadlines or that a proposed action was
+implemented by its maintainers. Keep this bullet only if the interview
+allows enough time to explain the evidence.
+
 ## Optional technical-impact bullet for data / IT roles
 
 - Optimized SQL-based snapshot loading from **376 to 6 SELECT queries**

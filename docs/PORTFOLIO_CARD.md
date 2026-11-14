@@ -62,6 +62,7 @@ These examples do **not** certify missed deadlines, defects, client impact, or
 maintainer decisions. If fewer types qualify, fewer cases appear instead of
 synthetic examples. The reproducible CI receipt is
 `case-study-evidence-audit.json` and is stored as a workflow artifact.
+See [three dated public GitHub cases and their original records](EVIDENCE_CASE_STUDIES.md).
 
 ## How a nontechnical reviewer can explore it
 
