@@ -1256,6 +1256,31 @@ def risks_recommendations(reports, selection):
     _section("Priorities for a closer look",
              "Source-linked observations; inspection priority is not a project-quality ranking.")
     _findings_view(found)
+    from src.analytics.case_studies import build_case_studies
+    cases = build_case_studies(reports)
+    _section("Real GitHub evidence walkthroughs",
+             "Three types of inspection example when qualifying sources exist. "
+             "These are not completed business decisions or confirmed defects.")
+    if cases:
+        tabs = st.tabs([case["title"] for case in cases])
+        for tab, case in zip(tabs, cases):
+            with tab:
+                st.caption(f'{case["repository"]} · {case["evidence_scope"]}')
+                st.metric(case["metric_label"], case["metric_value"],
+                          help=case["metric_context"])
+                st.caption("Measured basis: " + case["metric_context"])
+                st.markdown("**Original record to inspect:** " + case["record_title"])
+                st.link_button("Open recorded GitHub evidence", case["record_url"])
+                with st.expander("Inspection question and decision boundary"):
+                    st.markdown("**Why review:** " + case["trigger"])
+                    st.markdown("**Inspect:** " + case["next_check"])
+                    st.markdown("**Decision only after inspection:** " +
+                                case["conditional_decision"])
+                    st.caption("Not proven: " + case["not_proven"])
+                st.caption(case["status"])
+    else:
+        st.info("No original-record examples meet the strict verified "
+                "source conditions. No business cases have been fabricated.")
     if found:
         from src.analytics.review_decisions import review_csv
         st.download_button(

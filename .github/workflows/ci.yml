@@ -55,6 +55,16 @@ jobs:
         run: python scripts/cv_evidence.py
       - name: Audit reviewer findings against real GitHub source records
         run: python scripts/audit_reviewer_evidence.py
+      - name: Audit three conditional real-record case studies
+        run: python scripts/audit_case_studies.py
+      - name: Preserve case-study evidence receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-backed-case-studies
+          path: case-study-evidence-audit.json
+          if-no-files-found: warn
+          retention-days: 14
       - name: Upload reviewer evidence audit
         if: always()
         uses: actions/upload-artifact@v4

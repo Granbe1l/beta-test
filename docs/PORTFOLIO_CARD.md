@@ -51,6 +51,18 @@ inspection questions**, not opaque project-health or productivity scores.
   from a fallback **repository listing**, and avoid calling either a proven
   delay, client issue, or engineering defect.
 
+## Three conditional evidence walkthroughs
+
+The **Key findings** screen now selects up to three *different* public GitHub
+inspection examples (older open Issues, CI results, merged PRs) **only** when
+the fixed, jointly Verified 28-day sample and individual stored GitHub links
+support them. Every walkthrough shows a measured basis, an original record,
+what to check, and an explicit conditional decision **that has not been made**.
+These examples do **not** certify missed deadlines, defects, client impact, or
+maintainer decisions. If fewer types qualify, fewer cases appear instead of
+synthetic examples. The reproducible CI receipt is
+`case-study-evidence-audit.json` and is stored as a workflow artifact.
+
 ## How a nontechnical reviewer can explore it
 
 1. **Dashboard:** read What happened → Why inspect → Next action → GitHub
