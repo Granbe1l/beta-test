@@ -116,13 +116,58 @@ jobs:
         if: steps.gate.outputs.publish == 'true'
         shell: bash
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/gallery/*.jpg docs/gallery/manifest.json
-          if git diff --cached --quiet; then
-            echo "No gallery changes to commit."
-            exit 0
-          fi
-          git commit -m "docs: publish verified Streamlit screenshot previews [skip ci]"
-          git pull --rebase origin main
-          git push origin HEAD:main
+          # Binary JPEGs cannot safely rebase over another gallery writer.
+          # Preserve ONLY the Playwright-verified artifact from this run.
+          mkdir -p /tmp/verified-gallery
+          cp docs/gallery/*.jpg docs/gallery/manifest.json /tmp/verified-gallery/
+          for attempt in 1 2 3; do
+            git fetch origin main
+
+            # Never let an older UI run replace a newer, materially different
+            # UI's captures. The newer push will run its own screenshot job.
+            if git diff --name-only "$GITHUB_SHA" origin/main -- \
+              src/ui/ streamlit_app.py scripts/capture_ui.py \
+              scripts/prepare_gallery.py .github/workflows/ui-screenshots.yml \
+              | grep -q .; then
+              echo "A newer UI revision exists; retain its gallery."
+              exit 0
+            fi
+
+            # Also reject out-of-order capture timestamps when unrelated
+            # source/data changes, or concurrent galleries, have landed.
+            if git show origin/main:docs/gallery/manifest.json \
+                > /tmp/current-gallery-manifest.json 2>/dev/null; then
+              if python - <<'PY'
+          import json
+          from pathlib import Path
+          older = json.loads(Path("/tmp/current-gallery-manifest.json").read_text())
+          candidate = json.loads(Path("/tmp/verified-gallery/manifest.json").read_text())
+          raise SystemExit(0 if older.get("captured_in_ci_at_utc", "") >=
+                            candidate.get("captured_in_ci_at_utc", "") else 1)
+          PY
+              then
+                echo "Existing gallery capture is as recent or newer; keep it."
+                exit 0
+              fi
+            fi
+
+            git reset --hard origin/main
+            cp /tmp/verified-gallery/*.jpg /tmp/verified-gallery/manifest.json docs/gallery/
+            git add docs/gallery/*.jpg docs/gallery/manifest.json
+            if git diff --cached --quiet; then
+              echo "No gallery changes to commit."
+              exit 0
+            fi
+            git commit -m "docs: publish verified Streamlit screenshot previews [skip ci]"
+            if git push origin HEAD:main; then
+              echo "Published verified gallery on attempt $attempt"
+              exit 0
+            fi
+            echo "Concurrent main push; retrying from current main ($attempt/3)"
+            sleep 2
+          done
+          echo "Unable to publish after three safe attempts."
+          exit 1

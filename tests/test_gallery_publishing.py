@@ -80,6 +80,13 @@ def test_workflow_does_not_write_to_repo_from_pull_requests():
     assert "needs.screenshot.result == 'success'" in yaml
     assert "contents: write" in yaml
     assert "git add docs/gallery/*.jpg docs/gallery/manifest.json" in yaml
+    # Previously a binary JPEG rebase could conflict after other UI merges.
+    assert "git pull --rebase origin main" not in yaml
+    assert "git reset --hard origin/main" in yaml
+    assert "for attempt in 1 2 3" in yaml
+    assert 'git diff --name-only "$GITHUB_SHA" origin/main' in yaml
+    assert 'captured_in_ci_at_utc' in yaml
+    assert "cp /tmp/verified-gallery/*.jpg" in yaml
     readme = (root/"README.md").read_text()
     for short_name in IMAGES:
         assert f"docs/gallery/{short_name}.jpg" in readme

@@ -16,7 +16,10 @@ UI/code changes on `main`, a separate job with limited
 `contents: write` permission commits the seven small JPEG previews and
 manifest. Pull-request screenshot jobs are strictly read-only; a snapshot
 refresh alone does not trigger a new permanent-gallery commit. This avoids
-inflating the Git history every six hours.
+inflating the Git history every six hours. Concurrent screenshot writers
+no longer rebase conflicting binary JPEGs: a job replays its verified
+previews onto the latest `main` with bounded retries, skips stale UI
+revisions, and never replaces a capture with an older timestamp.
 
 **Important caveats:** The previews are point-in-time images from the
 commit in the manifest. Exact figures naturally change when new snapshots
