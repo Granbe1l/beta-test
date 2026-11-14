@@ -33,7 +33,7 @@ def test_schedule_history_still_refuses_to_count_a_run_until_completion():
         }
 
     # The in-progress current run cannot certify a success before finishing.
-    rows = [run(0, status="in_progress", conclusion=None), run(6), run(12)]
+    rows = [run(0, status="in_progress", conclusion=None), run(4), run(8)]
     assert schedule_health(rows, now=now)["status"] == "needs_review"
 
     # The post-completion observer can evaluate the very same event as success.
