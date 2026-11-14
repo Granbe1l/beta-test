@@ -4,6 +4,34 @@
 a complete 28-day Issues/PR/Actions event history while its entire backlog
 of old, unchanged open Issues is still unknown.
 
+## Verified first live collection after the capacity fix
+
+At **14 November 2026, 02:39:47 UTC (09:39:47 WIB)**, the first real
+[post-fix GitHub collection](https://github.com/Granbe1l/beta-test/actions/runs/43547169286)
+exhausted the open-Issue inventory pages for all nine previously missing or
+stale repositories: **9 attempted, 9 complete, 0 partial/failed**.
+The complete source audit then reported:
+
+- **50/50 fresh complete full-open Issue inventories**, 0 stale, 0 partial,
+  0 failed and 0 unavailable; **50 distinct repository identities**.
+- Independently, **50/50 Verified event sources** for the 28-day Issues,
+  Pull Requests and CI/CD windows.
+- **277/850 API attempts used** across the run; **26** of them were for
+  independent inventory scans. New snapshot: 5,023 Issue records,
+  5,512 PR records and 44,226 CI/CD run records.
+- Actual [dated audit artifact](https://github.com/Granbe1l/beta-test/actions/runs/43547169286/artifacts/14094830686)
+  contains snapshot-audit.json, snapshot-audit-before.json,
+  open-inventory-triage.json (gaps = []), and the published snapshot.
+  The compressed snapshot's Git blob SHA is
+  bdb876fa89252d5b1b2c37ea39625594ab4af2d0 and matches the
+  data/github_public_snapshot.json.gz blob published on main.
+
+**This verifies one real successful snapshot at that time**, not
+continuous compliance. It was a push-triggered collection, so three
+consecutive real scheduled refreshes are still required to certify early
+four-hour cadence reliability. Never substitute a green test run for
+future source audits.
+
 ## Grounded baseline
 
 Actual [14 November 2026 scheduled collector run](https://github.com/Granbe1l/beta-test/actions/runs/43540739560):
