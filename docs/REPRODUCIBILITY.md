@@ -31,3 +31,16 @@ inventing a locked environment.
 against multiple Python/Linux environments before adopting it. Pinning
 unsourced versions today would only simulate reproducibility. Testing a
 deployment or a real user browser is a separate task.
+
+## Dependency compatibility and vulnerability audit
+
+The dedicated [security workflow](../.github/workflows/security-audit.yml)
+installs the current Python 3.12 `requirements.txt` environment, runs
+`pip check` and uses PyPA `pip-audit --local` against **actually installed
+versions**. It uploads machine-readable results and fails on known reported
+vulnerabilities. Passing this audit cannot establish absolute application
+security or reproduce identical installs on different dates.
+
+The project still lacks a full transitive, hash-verified lockfile. Do not
+claim otherwise. Introduce one only after reproducing the exact resolved
+runtime and validating that its packages and security audit pass together.

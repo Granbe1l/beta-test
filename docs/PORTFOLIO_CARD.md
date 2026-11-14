@@ -36,7 +36,7 @@ inspection questions**, not opaque project-health or productivity scores.
 ## Result / demonstrated engineering
 
 - **50 curated public repositories** were independently Verified on the
-  **14 November 2026 09:39 WIB** snapshot for 28-day Issues, PR and CI/CD
+  **14 November 2026 17:54 WIB** [source audit](https://github.com/Granbe1l/beta-test/actions/runs/43587299217) for 28-day Issues, PR and CI/CD
   source windows **and separately** 50/50 fresh complete open-Issue
   inventories. This is a timestamped validation, not a live guarantee.
   The curated sample is **not a representative random sample** of GitHub.
