@@ -184,13 +184,13 @@ if data_info["mode"] == "snapshot":
     ).strftime("%d %b %Y · %H:%M WIB")
     st.caption(
         f"**PUBLIC GITHUB SNAPSHOT:** Captured {when_utc} ({when_wib}) · "
-        f"{'snapshot older than 12h — refresh needed' if data_info['stale'] else 'snapshot recent; check source verification below'} · "
+        f"{'snapshot past freshness limit — refresh needed' if data_info['stale'] else 'snapshot recent; check source verification below'} · "
         "read-only, not a live connection · "
         "[Data notes](https://github.com/Granbe1l/beta-test/blob/main/docs/REVIEWER_QUICK_GUIDE.md)"
     )
     if data_info["stale"]:
         st.warning(
-            "The stored snapshot is older than the 12-hour freshness limit. "
+            f"The stored snapshot is older than the {settings.stale_hours}-hour freshness limit. "
             "Some previously Verified sources may no longer qualify. "
             "Reload stored data only rereads the saved file; it does not collect from GitHub."
         )
