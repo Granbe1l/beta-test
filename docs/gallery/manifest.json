@@ -1,5 +1,5 @@
 {
-  "captured_in_ci_at_utc": "2026-11-14T04:18:19.182545+00:00",
+  "captured_in_ci_at_utc": "2026-11-14T04:22:04.054078+00:00",
   "mobile_views_tested": 6,
   "not": "Synthetic UI, production deployment proof, or real HR participant result",
   "screenshots": [
@@ -11,9 +11,9 @@
     },
     {
       "original": "desktop-repositories.png",
-      "original_sha256": "f0701d7cee95cc8571e6fbbbfba3768afe24344fa9b78118459102414a17b148",
+      "original_sha256": "61ff17b7f304b532ba74e899f6744808841a942dc92e14409348ac3d89afad7e",
       "preview": "repositories.jpg",
-      "preview_bytes": 62879
+      "preview_bytes": 62866
     },
     {
       "original": "desktop-issues.png",
@@ -23,29 +23,29 @@
     },
     {
       "original": "desktop-pull-requests.png",
-      "original_sha256": "3c79716734b4a0c5e2557877ae79c57c4f798c4bd49b8c7e83a393b510cc052f",
+      "original_sha256": "64c1da096d8352f1bbfc1b55b4c335dfa371c9135970c89d1290102b6c85756e",
       "preview": "pull-requests.jpg",
-      "preview_bytes": 60338
+      "preview_bytes": 60309
     },
     {
       "original": "desktop-ci-cd.png",
-      "original_sha256": "4d6fb8ac4e497881e66195b4e73b91be6bb425750db9a3eb9e7ebf5b14ccbc61",
+      "original_sha256": "863745920fd8b815512ce02211a7525a56c195f451a4c7179df48de8e4a6d4a2",
       "preview": "ci-cd.jpg",
-      "preview_bytes": 71458
+      "preview_bytes": 71439
     },
     {
       "original": "desktop-findings.png",
-      "original_sha256": "39cd290f9743f9317a2a72b63e5f19ee90f506f7a89f07dccc6aae38bc24844f",
+      "original_sha256": "01bd86fe515b04f004614d7539efe0b87b4488892400f860539e0262319c1e7a",
       "preview": "findings.jpg",
-      "preview_bytes": 82973
+      "preview_bytes": 82955
     },
     {
       "original": "mobile-overview.png",
-      "original_sha256": "74f1b2a8b96d742f0a265fdda4d16a618d846c88d166646d5ecbc2357069b35e",
+      "original_sha256": "d44cdcd28e2479c3fdeda70884d1091f2f9cd88d1501deba26dac393c62fd21c",
       "preview": "mobile.jpg",
-      "preview_bytes": 52532
+      "preview_bytes": 52537
     }
   ],
   "source": "Actual Playwright screenshots from Streamlit app with checked-in real public GitHub snapshot",
-  "source_commit": "7a60f8b02cc35f00e329830ceb261698958219c4"
+  "source_commit": "8e337397d7f8f52ee6970d21fabaf44c9bf76909"
 }
