@@ -286,13 +286,32 @@ try:
                     desktop, "Inspector / URL submitted")
                 assert desktop.get_by_text("psf/requests", exact=True).count() > 0, (
                     "Inspector did not display fetched public repo name")
-                assert desktop.get_by_role("tab", name="Issues").count() >= 1, (
-                    "Result did not display source evidence tabs")
+                # Streamlit renders the lower tab controls after the
+                # headline on some browser runs; wait for them rather than
+                # treating a mid-render frame as missing source evidence.
+                desktop.get_by_role("tab", name="Issues").wait_for(
+                    state="attached", timeout=30000)
                 desktop.screenshot(
                     path=str(OUT / "desktop-inspector-submitted.png"),
                     full_page=False)
                 capture_scrolling_main(
                     desktop, OUT / "desktop-inspector-submitted-full.png")
+                # The actual browser export must preserve sampled source
+                # evidence and the explicitly external/NOT Verified scope.
+                with desktop.expect_download(timeout=20000) as export_info:
+                    desktop.get_by_role(
+                        "button", name="Download this inspection (CSV)").click(
+                            timeout=12000)
+                inspection = export_info.value
+                assert inspection.suggested_filename.endswith(".csv")
+                csv_file = OUT / "validated-inspection.csv"
+                inspection.save_as(csv_file)
+                csv_text = csv_file.read_text(encoding="utf-8-sig")
+                assert "psf/requests" in csv_text
+                assert "NOT a member of the 50 curated/Verified projects" in csv_text
+                assert "Observed at UTC" in csv_text
+                print("Validated inspector CSV export from real GitHub response",
+                      flush=True)
                 print("Captured actual GitHub URL submission with source evidence",
                       flush=True)
                 # Restore the audited tracked mode before running existing
@@ -312,7 +331,7 @@ try:
                     full_page=False)
                 # These are required interactions. Do not silently pass a
                 # screenshot workflow when the comparison page breaks.
-                tab = "Compare two projects"
+                tab = "Compare projects"
                 desktop.get_by_role("tab", name=tab).click(timeout=12000)
                 time.sleep(1.2)
                 assert desktop.get_by_text("First project", exact=True).count() >= 1
@@ -331,8 +350,12 @@ try:
                     time.sleep(1)
                     assert_no_streamlit_exception(desktop, "Explorer / " + tab)
                     if tab == "Compare projects":
-                        # A verified chart or explicitly labelled observed
-                        # source fallback must be rendered, not a blank tab.
+                        # One unified tab contains both two-project evidence
+                        # links and the cohort-wide verified chart/fallback.
+                        assert desktop.get_by_text(
+                            "Compare two selected repositories", exact=True).count()
+                        assert desktop.get_by_text(
+                            "Compare verified metrics across projects", exact=True).count()
                         has_comparison = (
                             desktop.get_by_text("Showing", exact=False).count() > 0
                             or desktop.get_by_text(
@@ -341,7 +364,7 @@ try:
                         )
                         assert has_comparison, (
                             "No source-qualified chart or labelled fallback "
-                            "in cross-project comparison")
+                            "in unified cross-project comparison")
                     desktop.screenshot(
                         path=str(OUT / (
                             "desktop-repositories-" + tab.lower().replace(" ", "-") + ".png")),

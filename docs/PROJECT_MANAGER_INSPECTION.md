@@ -38,6 +38,12 @@ proving managerial authority. A **private** project requires separate,
 permission-scoped OAuth or an approved organization installation; avoid
 a global server token that could expose private repositories to strangers.
 
+## Comparable metrics and exported evidence
+
+The Explore repositories view has one **Compare projects** tab. Its first section compares two tracked projects with verified 28-day Issue/PR/CI activity windows. The adjacent 30+ day open-Issue aging metric has a different eligibility gate: a separately verified complete open-Issue inventory. An em dash signifies missing or unqualified evidence, **not zero work**. Its second section compares eligible cohort metrics without ranking teams.
+
+On-demand public GitHub URL inspections also offer **Download this inspection (CSV)** with time, source links, review steps and explicit sample limits. The download never promotes an external project to the fixed curated 50-project cohort; spreadsheet formula-like text is escaped for safety.
+
 ## Insight update semantics
 
 Primary curated data collection is scheduled every four hours, but GitHub

@@ -155,9 +155,10 @@ html,body,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:v
   .d-kpi{min-height:97px!important;padding:9px 10px!important;}
   .d-kpi-value{font-size:1.26rem!important;}
   .d-kpi-label{font-size:.74rem!important;}
-  .d-kpi-note{font-size:.74rem!important;line-height:1.36!important;}
-  .d-chart-title{font-size:.82rem!important;}
-  .d-chart-sub{font-size:.74rem!important;}
+  .d-kpi-note{font-size:.79rem!important;line-height:1.42!important;}
+  .d-chart-title{font-size:.90rem!important;}
+  .d-chart-sub{font-size:.80rem!important;}
+  [data-testid="stTabs"] button{font-size:.86rem!important;}
   .d-trend-caveat{font-size:.74rem!important;padding:6px 8px!important;}
 }
 </style>

@@ -195,38 +195,53 @@ def coverage_progress(reports):
 
 
 def compare_two_repositories(reports):
-    """Simple side-by-side observed activity, not a developer ranking."""
+    """Two repositories, 28-day verified event windows and separate backlog."""
+    from src.analytics.comparison_views import comparison_rows
+
     if len(reports) < 2:
         st.info("At least two repositories are needed.")
         return
     names = [r["repository"]["full_name"] for r in reports]
     lcol, rcol = st.columns(2)
     with lcol:
-        a = st.selectbox("First project", names, key="v4_repo_first")
+        first = st.selectbox("First project", names, key="v4_repo_first")
     with rcol:
-        b = st.selectbox("Second project", names, index=1,
-                         key="v4_repo_second")
-    if a == b:
+        second = st.selectbox("Second project", names, index=1,
+                              key="v4_repo_second")
+    if first == second:
         st.info("Select two different projects.")
         return
-    chosen = [next(r for r in reports if r["repository"]["full_name"] == n)
-              for n in (a, b)]
-    scores = [summary([r]) for r in chosen]
+    chosen = [next(r for r in reports if r["repository"]["full_name"] == name)
+              for name in (first, second)]
+    results = {row["Repository"]: row for row in comparison_rows(chosen, days=28)}
     measures = (
-        ("Open issues (retrieved)", "open_issues"),
-        ("Open PRs (retrieved)", "open_changes"),
-        ("Merged PRs · 90 days (retrieved)", "merged_changes"),
-        ("Completed checks · 90 days (retrieved)", "completed_checks"),
+        ("Issues closed · 28-day verified window", "Issues closed · 28d"),
+        ("PRs merged · 28-day verified window", "PRs merged · 28d"),
+        ("Completed checks · 28-day verified window",
+         "Completed CI checks · 28d"),
+        ("Open Issues aged 30+ · full-inventory share",
+         "Open issues aged 30+ (%) · full inventory"),
     )
-    def display(v):
-        return "—" if v is None else f"{v:,}"
-    df = pd.DataFrame([{"Measure": label,
-                        a: display(scores[0][key]),
-                        b: display(scores[1][key])}
-                       for label, key in measures])
+
+    def display(value, percentage=False):
+        if value is None:
+            return "—"
+        return f"{value:.1f}%" if percentage else f"{int(value):,}"
+
+    df = pd.DataFrame([
+        {"Measure": label,
+         first: display(results[first][key], percentage="share" in label),
+         second: display(results[second][key], percentage="share" in label)}
+        for label, key in measures
+    ])
     st.dataframe(df, hide_index=True, use_container_width=True)
     for col, report in zip((lcol, rcol), chosen):
         with col:
             st.link_button("View original GitHub project", report["repository"]["url"])
-    st.caption("These are observed counts, not a comparison of performance. "
-               "Project sizes and source completeness can differ.")
+    st.caption(
+        "The three activity rows require independent, source-complete 28-day "
+        "windows for each project; '—' means the source or minimum sample is "
+        "not eligible, **not zero activity**. The 30+ day Issue-age share "
+        "requires a separately verified full-open inventory. "
+        "These differences do not rank project or developer performance."
+    )

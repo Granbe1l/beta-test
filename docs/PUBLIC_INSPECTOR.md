@@ -23,6 +23,10 @@ tokens are not accepted. The default mode remains **Tracked dataset**.
 - Issues, PR, CI/CD source tables (original link, short title and status) and
   definitions of terms in **Evidence limits**.
 
+## Shareable inspection evidence
+
+A read-only CSV download includes the repository name, UTC lookup time, sample-only Issues/PR/CI observations, source-specific availability or error labels, and evidence-linked next inspection steps. Missing API data is unknown rather than zero; the file states that this project is outside the fixed 50-Verified cohort. Formula-like source text is escaped before spreadsheet export. This file **does not** update the database or qualify the searched repository for 28-day verification.
+
 ## Strict scope / limitations
 
 The request is bounded to **four unauthenticated GET calls** to GitHub's fixed

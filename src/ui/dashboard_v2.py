@@ -872,8 +872,8 @@ def project_details(reports):
          "GitHub metadata timestamp", "↗"),
     ])
     st.caption("Counts describe retrieved records. Use Source details to inspect completeness.")
-    a, side_by_side, b, c = st.tabs(["Activity history", "Compare two projects",
-                                      "Compare projects", "Source details"])
+    a, compare_tab, c = st.tabs(["Activity history", "Compare projects",
+                                      "Source details"])
     with a:
         from src.analytics.comparison_views import current_history_evidence
         current = current_history_evidence(r)
@@ -949,9 +949,11 @@ def project_details(reports):
             else:
                 st.caption("No independently verified full-open inventory "
                            "observation has been recorded for this repository.")
-    with side_by_side:
+    with compare_tab:
+        st.markdown("**Compare two selected repositories**")
         compare_two_repositories(reports)
-    with b:
+        st.divider()
+        st.markdown("**Compare verified metrics across projects**")
         comparison(reports, embedded=True)
     with c:
         source_coverage(r)
