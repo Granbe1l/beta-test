@@ -91,10 +91,14 @@ jobs:
 
       - name: Capture baseline coverage before collection
         run: python scripts/audit.py > snapshot-audit-before.json
+      # After two missed cron slots, actual audit found 33 overdue inventories,
+      # a cap of 25 and 573 unused API attempts. Permit catch-up to 50 without
+      # weakening the shared 850-request cap, per-repository Search limit, or
+      # source-first maintenance order.
       - name: Maintain expiring Verified sources then repair within API budget
         shell: bash
         run: |
-          if python scripts/run_sync.py --expand --initial-batch 20 --max-requests 850 --audit-open-backlog --max-backlog-repos 25 --repair-coverage; then
+          if python scripts/run_sync.py --expand --initial-batch 20 --max-requests 850 --audit-open-backlog --max-backlog-repos 50 --repair-coverage; then
             echo "GitHub ingestion returned complete checkpoints for visited repositories."
           else
             echo "::warning::Some GitHub sources incomplete or budget-limited; historical records and checkpoint status preserved."
