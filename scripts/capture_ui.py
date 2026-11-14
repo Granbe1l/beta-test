@@ -293,6 +293,22 @@ try:
                     full_page=False)
                 capture_scrolling_main(
                     desktop, OUT / "desktop-inspector-submitted-full.png")
+                # The actual browser export must preserve sampled source
+                # evidence and the explicitly external/NOT Verified scope.
+                with desktop.expect_download(timeout=20000) as export_info:
+                    desktop.get_by_role(
+                        "button", name="Download this inspection (CSV)").click(
+                            timeout=12000)
+                inspection = export_info.value
+                assert inspection.suggested_filename.endswith(".csv")
+                csv_file = OUT / "validated-inspection.csv"
+                inspection.save_as(csv_file)
+                csv_text = csv_file.read_text(encoding="utf-8-sig")
+                assert "psf/requests" in csv_text
+                assert "NOT a member of the 50 curated/Verified projects" in csv_text
+                assert "Observed at UTC" in csv_text
+                print("Validated inspector CSV export from real GitHub response",
+                      flush=True)
                 print("Captured actual GitHub URL submission with source evidence",
                       flush=True)
                 # Restore the audited tracked mode before running existing

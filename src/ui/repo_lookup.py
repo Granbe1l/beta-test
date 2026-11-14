@@ -12,6 +12,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.analytics.inspector_presenter import inspection_summary
+from src.analytics.inspection_export import inspection_csv
 from src.analytics.on_demand import (
     PublicLookupError, inspect_public_repository, parse_public_repo,
 )
@@ -283,4 +284,13 @@ def render_public_inspector(reports: list[dict]):
             "or used to change portfolio-wide KPIs. Private repositories are "
             "not supported. GitHub API rate limits may apply."
         )
+    st.download_button(
+        "Download this inspection (CSV)",
+        data=inspection_csv(data, analysis),
+        file_name="github-public-inspection-" +
+                  repo_name.replace("/", "-").lower() + ".csv",
+        mime="text/csv",
+        help="Includes sampled data, UTC timestamp, evidence and limitations; "
+             "does not add this project to the 50 tracked repositories.",
+    )
     _retry_control(repo_name)
