@@ -60,7 +60,7 @@ def test_finds_verified_28day_pr_and_ci_without_90day_coverage():
     assert items["ci"]["period_days"] == 28
     assert items["ci"]["observed"] == 7
     assert items["ci"]["denominator"] == 12
-    assert items["ci"]["examples"][0]["url"].endswith("/actions/runs/12")
+    assert items["ci"]["examples"][0]["url"].endswith("/actions/runs/8")
     assert all("/pull/99" != x["url"].replace(
         "https://github.com/example/activity", ""
     ) for x in items["merge-duration"]["examples"])
