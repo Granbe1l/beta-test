@@ -684,10 +684,10 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
         partial_or_failed = 0
         request_start = getattr(client, "request_count", 0)
         stop_reason = "no_pending_inventory"
-        # Allocate up to 25 scans per four-hour run. Two successful slots can
-        # cover 50 repos within the unchanged 12-hour freshness limit, with
-        # one additional slot of scheduling headroom. This is capacity only:
-        # actual REST/Search exhaustion and live timestamps determine status.
+        # The default cap is 25; production can allow up to 50 attempts
+        # to catch up after missed cron slots. Source maintenance happens first.
+        # The unchanged per-run API reserve and actual REST/Search exhaustion
+        # determine how many inventories truly become fresh, never the cap.
         for repo in ordered:
             if processed >= max_backlog_repos:
                 stop_reason = "per_run_capacity"
