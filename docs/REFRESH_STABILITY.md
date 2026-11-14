@@ -67,8 +67,8 @@ Mitigation change: shift both cron expressions by six minutes to prompt
 schedule re-registration while preserving the four-hour collection cadence;
 also let a successful **main push** Quality Checks completion invoke the
 existing conditional watchdog (which still dispatches only if the committed
-snapshot is >8 hours old, no collector is underway, and the 90-minute
-backoff has elapsed). This extra trigger is **not** a replacement for a
+snapshot was >8 hours old at the time of that historical audit, no collector was underway, and the 90-minute
+backoff had elapsed). This extra trigger is **not** a replacement for a
 reliable independent scheduler, and neither the code change nor a manually
 triggered refresh counts as three successful scheduled runs.
 
@@ -148,3 +148,27 @@ The [independent Cloudflare fallback](../external_refresh/cloudflare/README.md)
 remains **not deployed**. Its narrow-scope token and owner-controlled
 Cloudflare Cron Trigger are required for an operationally independent backup;
 the GitHub hourly watchdog cannot be counted as an independent provider.
+
+
+## GitHub-only portfolio recovery: six-hour watchdog (14 November 2026)
+
+The collector retains its best-effort four-hour GitHub schedule. The
+same-provider watchdog now requests a rescue when the committed snapshot
+is **older than six hours**, replacing the previous eight-hour threshold.
+It continues to require readable GitHub workflow-run history, no active
+collector, and a **90-minute backoff** since the last collector attempt.
+Unexpected run-list shapes and non-204 dispatch responses fail closed.
+The watchdog checks up to 50 recent main-branch workflow runs.
+
+This change reduces the nominal recovery delay when the watchdog actually
+executes; it **does not** repair GitHub's missed cron events, guarantee a
+fresh 12-hour source window, or prove that a published snapshot has 50/50
+complete sources. The 850 API-attempt collection cap and 50 fixed repo
+identities remain unchanged. `workflow_dispatch` and `push` never count
+as native scheduled runs in the separate strict cadence/source audit.
+
+For an imminent CV or interview demo, the owner can manually run the
+existing collector and check its dated source artifacts and publication
+using [the GitHub-only refresh playbook](GITHUB_ONLY_REFRESH_PLAYBOOK.md).
+Automated checks and manual runbooks are not evidence of a working hosted
+Streamlit URL. No Cloudflare deployment is part of this change.

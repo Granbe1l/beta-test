@@ -25,6 +25,10 @@ https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app
 The GitHub code contributor cannot authorize Streamlit hosting on behalf
 of the repository owner. The owner must sign in to the hosting service.
 
+## Keep collection fresh before sharing the demo
+
+For GitHub-only operation, use the [manual refresh and source-proof checklist](GITHUB_ONLY_REFRESH_PLAYBOOK.md) before a recruiter demonstration. A dashboard reload does not invoke the GitHub API. The watchdog only rescues when its separate GitHub trigger executes and the stored snapshot exceeds six hours; this is not guaranteed four-hour availability.
+
 ## Mandatory P0-3 acceptance test
 
 After the hosted app exists:

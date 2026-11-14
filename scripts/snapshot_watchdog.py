@@ -18,7 +18,7 @@ import requests
 
 SNAPSHOT = Path("data/github_public_snapshot.json.gz")
 API_WORKFLOW = "public-snapshot.yml"
-MAX_AGE_HOURS = 8
+MAX_AGE_HOURS = 6
 BACKOFF_MINUTES = 90
 
 
@@ -84,13 +84,20 @@ def main():
     }
     base = f"https://api.github.com/repos/{repo}/actions/workflows/{API_WORKFLOW}"
     res = requests.get(base + "/runs", headers=headers,
-                       params={"branch": "main", "per_page": 15}, timeout=20)
+                       params={"branch": "main", "per_page": 50}, timeout=20)
     res.raise_for_status()
-    decision = watchdog_decision(generated_at, now, res.json().get("workflow_runs") or [])
+    payload = res.json()
+    # An API error or changed response shape must not be interpreted as
+    # "no collector is running": refuse dispatch until runs are verifiable.
+    if not isinstance(payload, dict) or not isinstance(payload.get("workflow_runs"), list):
+        raise RuntimeError("Cannot inspect current collector runs; refusing rescue dispatch")
+    decision = watchdog_decision(generated_at, now, payload["workflow_runs"])
     if decision["action"] == "dispatch":
         dispatched = requests.post(base + "/dispatches", headers=headers,
                                    json={"ref": "main"}, timeout=20)
         dispatched.raise_for_status()
+        if dispatched.status_code != 204:
+            raise RuntimeError("Collector workflow dispatch was not acknowledged with HTTP 204")
         decision["dispatched_by"] = "conditional_watchdog_workflow_dispatch"
         decision["github_http_status"] = dispatched.status_code
     output = Path("snapshot-watchdog-audit.json")
