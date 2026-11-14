@@ -2,7 +2,7 @@
 
 An evidence-first, read-only analytics dashboard that helps nontechnical reviewers understand observable issue, pull request, and GitHub Actions activity across an **audited, non-representative sample** of public GitHub repositories. Built with Python, Streamlit, Pandas, Plotly and SQLAlchemy; **SQLite** is the default collector database, with **PostgreSQL optional**. The public demo reads a compressed snapshot without needing a live SQL server. No React, FastAPI, chatbot, generative AI, or paid AI APIs.
 
-> **Curated-cohort change (14 November 2026):** An independent 28-day Issues/PR/CI audit found 56 jointly Verified repositories in the previous 75-project sample. Exactly 50 audited identities are pinned in [the reviewed manifest](data/curated_50_manifest.json) for the next published cutover, with 25 original source reports archived. This dated selection is not a promise that 50/50 remain fresh indefinitely. GitHub Actions refresh and desktop/mobile UI screenshot tests exist. GitHub Actions collection is configured to run every four hours, but individual runs can be delayed or fail; never mistake a stored snapshot for real-time data. Hosted Streamlit Cloud deployment and managed PostgreSQL are separate, optional steps and are **not** claimed verified here. All figures are obtained from public GitHub records.
+> **Curated-cohort change (14 November 2026):** An independent 28-day Issues/PR/CI audit found 56 jointly Verified repositories in the previous 75-project sample. Exactly 50 audited identities are pinned in [the reviewed manifest](data/curated_50_manifest.json) now published on `main`, with 25 original source reports archived. This dated selection is not a promise that 50/50 remain fresh indefinitely. GitHub Actions refresh and desktop/mobile UI screenshot tests exist. GitHub Actions collection is configured to run every four hours, but individual runs can be delayed or fail; never mistake a stored snapshot for real-time data. Hosted Streamlit Cloud deployment and managed PostgreSQL are separate, optional steps and are **not** claimed verified here. All figures are obtained from public GitHub records.
 
 ## Start here — 60-second reviewer tour
 
@@ -54,6 +54,15 @@ See [gallery limitations and provenance](docs/gallery/README.md).
 ## What SQL is used for
 
 This project **uses SQLite in the collector and for source-level checkpoints**, with optional PostgreSQL support. `src/analytics/read.py` retrieves tables through SQLAlchemy in **batched SELECTs** (measured on a restored real snapshot), while `scripts/sql_insights.py` runs **actual read-only SQL** with grouped CTEs and source-coverage safeguards. The default public Streamlit view reads a committed, compressed JSON snapshot and uses Python/Pandas for presentation; it does not run remote SQL on each visitor's request. See [schema and SQL usage](docs/SQL_DATABASE_USAGE.md) and [the measured performance gate](https://github.com/Granbe1l/beta-test/pull/15).
+
+## Inspect any public GitHub URL (no dataset mutation)
+
+Under **Explore repositories → Inspect public GitHub URL**, users can paste a
+public repository root, review bounded real GitHub Issues/PR/CI observations,
+examine sampled-outcome charts and inspect evidence-linked next checks.
+Results are clearly **external previews**, never members of the fixed
+50-project Verified cohort; missing records are not presented as zeros.
+See [inspector design, scope and testing](docs/PUBLIC_INSPECTOR.md).
 
 ## Public demo — deployment gate
 

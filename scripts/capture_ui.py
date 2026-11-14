@@ -280,7 +280,7 @@ try:
                     "What should the project manager inspect?",
                     exact=True).wait_for(timeout=40000)
                 desktop.get_by_text(
-                    "Live exploratory preview:", exact=False).wait_for(
+                    "External API observation:", exact=False).wait_for(
                         timeout=40000)
                 assert_no_streamlit_exception(
                     desktop, "Inspector / URL submitted")
@@ -481,6 +481,46 @@ try:
             capture_scrolling_main(
                 mobile, OUT / f"{filename}-full.png")
             if name == "Explore repositories":
+                # Browser-test the public URL Inspector on an actual mobile
+                # viewport, not just the regular tracked-repository Explorer.
+                mobile.get_by_text("Inspect public GitHub URL", exact=True).click(
+                    timeout=15000)
+                mobile.get_by_text(
+                    "Inspect a public GitHub project", exact=True).wait_for(
+                        timeout=15000)
+                url = mobile.get_by_role("textbox", name="GitHub repository URL")
+                assert url.input_value() == ""
+                assert_no_streamlit_exception(mobile, "Mobile Inspector / empty")
+                mobile.screenshot(
+                    path=str(OUT / "mobile-inspector-empty.png"), full_page=False)
+                url.fill("https://github.com/psf/requests")
+                mobile.get_by_role(
+                    "button", name="Inspect public project").click(timeout=15000)
+                mobile.get_by_text(
+                    "What should the project manager inspect?",
+                    exact=True).wait_for(timeout=45000)
+                mobile.get_by_text(
+                    "External API observation:", exact=False).wait_for(
+                        timeout=45000)
+                assert mobile.get_by_text(
+                    "psf/requests", exact=True).count() >= 1
+                assert_no_streamlit_exception(mobile, "Mobile Inspector / submitted")
+                size = mobile.evaluate("""() => ({
+                    viewport: window.innerWidth,
+                    document: document.documentElement.scrollWidth
+                })""")
+                assert size["document"] <= size["viewport"] + 8, (
+                    f"Mobile URL inspector horizontal overflow: {size}")
+                mobile.screenshot(
+                    path=str(OUT / "mobile-inspector-submitted.png"),
+                    full_page=False)
+                capture_scrolling_main(
+                    mobile, OUT / "mobile-inspector-submitted-full.png")
+                print("Validated real mobile GitHub URL inspector", flush=True)
+                mobile.get_by_text("Tracked dataset", exact=True).click(
+                    timeout=12000)
+                mobile.get_by_role(
+                    "tab", name="Activity history").wait_for(timeout=15000)
                 for tab, screenshot in (
                     ("Activity history", "mobile-repositories-history"),
                     ("Compare projects", "mobile-repositories-comparison"),
