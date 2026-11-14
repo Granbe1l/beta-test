@@ -49,9 +49,10 @@ def test_three_types_are_distinct_and_their_urls_are_real_rows():
     reports = [make_report(kind, n) for n, kind in enumerate(
         ("issue-aging", "ci", "merge-duration"), 1)]
     cases = build_case_studies(reports)
-    # The source-backed, diverse selector may choose fewer than three if
-    # a project/type is unavailable; it must never invent a third.
-    assert 1 <= len(cases) <= 3
+    # All three evidence types exist here across three real test-fixture
+    # repositories. Greedy single-repo reuse would wrongly hide two cases.
+    assert len(cases) == 3
+    assert len({c["repository"] for c in cases}) == 3
     assert len({c["kind"] for c in cases}) == len(cases)
     for c in cases:
         report = next(r for r in reports if r["repository"]["full_name"] == c["repository"])
