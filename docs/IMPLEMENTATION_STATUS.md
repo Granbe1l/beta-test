@@ -6,7 +6,7 @@ quality checks before merging to `main`.
 
 ## Most recent independently audited published 50-repository snapshot
 
-**14 November 2026, 08:32 WIB** · [actual scheduled collector run](https://github.com/Granbe1l/beta-test/actions/runs/43540739560) · 50/50 repositories with verified 28-day Issues, PR and GitHub Actions windows; 4,947 observed Issue records, 5,497 PR records, 44,171 CI runs. Separately, 41/50 independently verified full-open Issue inventories; four stale, five unavailable. These are observations at the stated instant, not promises of indefinitely stable coverage. The refresh was a real `schedule` event, but **three consecutive successful scheduled intervals have not yet been demonstrated**. Public Streamlit Cloud URL and actual nontechnical participant study are not yet verified.
+**14 November 2026, 09:39 WIB** · [actual post-fix GitHub collection](https://github.com/Granbe1l/beta-test/actions/runs/43547169286) · **50/50** repositories independently Verified for 28-day Issues/PR/CI events, and **50/50** separately verified fresh full-open Issue inventories. There were 5,023 observed Issue records, 5,512 PR records, and 44,226 CI records. The nine outstanding inventories from the 08:32 WIB baseline were scanned fully (9/9); [audit artifacts](https://github.com/Granbe1l/beta-test/actions/runs/43547169286/artifacts/14094830686) confirm zero gaps. These are **timestamped observations**, not permanent promises. That run was triggered by a code push, **not three consecutive successful scheduled intervals**. Public Streamlit Cloud deployment and human usability evaluation remain unverified.
 
 **Analysis-period policy:** 7 days = recent activity, 28 days = primary four-week comparison and activity filter, 90 days = long-term analysis only with verified coverage. **30+ days describes an Issue-age threshold**, not the activity observation period. Never compare an unverified 30-day event filter to the verified 28-day cohort.
 
@@ -24,7 +24,7 @@ quality checks before merging to `main`.
 | Separate oldest-first current open-Issue inventory | Implemented and regression-tested; scheduled refresh will use leftover API budget. A partial inventory never claims full backlog coverage |
 | Observation-method comparability | Legacy, updated-event sample and verified open-inventory snapshots are tagged; incomparable periods must not show false growth |
 | Per-repository source coverage diagnosis | Implemented; distinguishes page caps, stale scans and short fallback windows in workflow audit |
-| Nontechnical three-part executive readout | Implemented: activity, source-linked recommended inspection, confidence |
+| Nontechnical evidence-first Dashboard | Implemented: What happened → Why inspect → Next action → original source, plus separate 28-day and full-open inventory denominators; optional deep charts tested by [PR #46](https://github.com/Granbe1l/beta-test/pull/46) |
 | SQL CTE analysis and source verification flags | Implemented; real snapshot SQL audit passed on main [43338398122](https://github.com/Granbe1l/beta-test/actions/runs/43338398122) |
 | Four-hour scheduled refresh (beta PR) | Workflow configured for `17 1,5,9,13,17,21 * * *` UTC; scheduling remains best-effort |
 | Measured schedule-reliability check | Implemented: only actual cron events count, with three successful successive runs needed to verify reliability |
@@ -57,7 +57,7 @@ can be absent from recent-update API sampling.
 
 ## Work that is not yet proven
 
-1. **Data completeness:** 50/50 sources had a verified 28-day event window in the dated 14 November audit, while **41/50** independent full-open Issue inventories were verified. Four inventory states were stale and five unavailable. Do not confuse the two coverage types; these counts can change at future refreshes.
+1. **Data completeness:** In the 14 November 09:39 WIB real source audit, **50/50** event windows were verified for 28 days, **and independently 50/50** full-open Issue inventories were fresh. This supersedes the earlier 41/50 baseline but does not guarantee future uptime or ongoing completeness.
 2. **Scheduling:** accumulate at least three successful `schedule` events
    near the intended four-hour cadence. Green push/PR runs are not evidence
    of actual scheduled delivery.
