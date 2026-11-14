@@ -682,7 +682,7 @@ def overview(reports, selection, all_reports=None):
                 f'{brief["activity"]["recent_pushes"]:,}/{len(chosen):,} projects '
                 "have a recent code push in GitHub metadata. "
                 f'{brief["activity"]["opened_issues"]:,} Issues opened and '
-                f'{brief["activity"]["merged_prs"]:,} PRs merged in retrieved records."
+                f'{brief["activity"]["merged_prs"]:,} PRs merged in retrieved records.'
             )
             st.caption(
                 "Last seven UTC calendar dates, including today's incomplete day. "
