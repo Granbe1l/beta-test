@@ -26,7 +26,7 @@ confirmed product problems.** Snapshot generated **2026-11-14 02:39:47 UTC**.
 
 | Observation from the real snapshot | Original public record | What the analyst can responsibly say |
 | --- | --- | --- |
-| **HKUDS/RAG-Anything:** **92 of 94** complete-inventory open Issues were at least 30 days old (**98%**). | [Issue #6: CategoryType / content-type bug](https://github.com/HKUDS/RAG-Anything/issues/6) (open at external check). | This merits reviewing priorities and relevance; neither the high share nor Issue #6 proves a missed delivery deadline. |
+| **HKUDS/RAG-Anything:** **92 of 94** complete-inventory open Issues were at least 30 days old (**98%**). | [Issue #2: Excel files with embedded images](https://github.com/HKUDS/RAG-Anything/issues/2) (open at external check). | This merits reviewing priorities and relevance; neither the high share nor Issue #2 proves a missed delivery deadline. |
 | **Kronuz/Xapiand:** **311 of 628** completed CI runs with known outcomes succeeded (**about 50%**) in the verified 28-day window. | [Failed CI run 43478798335](https://github.com/Kronuz/Xapiand/actions/runs/43478798335). | Investigate the workflow/branch, failure logs and reruns. The other **317 outcomes cannot all be called failures**: skipped/other results remain in the denominator. A failed run does not prove a failed release. |
 | **Anionex/dsh-turn-rewind:** median creation-to-merge time was **4 minutes across seven merged PRs** in the verified 28-day window. | [Merged PR #34: Restore attachments in the draft](https://github.com/Anionex/dsh-turn-rewind/pull/34). | PR #34 is an individual example, **not the median PR**. The distribution and review context must be inspected before suggesting productivity or bottlenecks. |
 
