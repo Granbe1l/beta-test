@@ -438,12 +438,12 @@ def _findings_view(findings):
                     st.write(f["headline"])
                 _finding_visual(f)
                 if f["type"] == "ci":
-                    st.caption("CI success share includes skipped/other known outcomes "
-                               "in its denominator. These are not failures.")
+                    st.caption("CI denominator includes skipped/other results; "
+                               "those are not failures.")
                 st.caption(f'Next check: {f["review"]}')
                 plan = f.get("review_plan") or {}
-                if plan.get("trigger"):
-                    st.caption(f'Why inspect: {plan["trigger"]}')
+                # Keep full threshold evidence available on demand rather
+                # than repeating long explanations across three mobile cards.
                 from src.analytics.review_decisions import evidence_action
                 action = evidence_action(f)
                 if action["url"]:
@@ -453,6 +453,8 @@ def _findings_view(findings):
                 with st.expander("Evidence and limitations"):
                     st.caption(f.get("evidence_scope", "Observed GitHub records"))
                     plan = f.get("review_plan") or {}
+                    if plan.get("trigger"):
+                        st.caption("Why inspect: " + plan["trigger"])
                     if plan.get("steps"):
                         st.markdown("**A three-step evidence review**")
                         for step in plan["steps"]:
@@ -606,8 +608,8 @@ def overview(reports, selection, all_reports=None):
     from src.ui.observed import summary
     st.markdown(
         '<div class="d-hero d-hero-overview"><div><span class="d-eyebrow">PUBLIC GITHUB · ACTIVITY MONITOR</span>'
-        '<h1>Public engineering activity at a glance.</h1>'
-        '<p>Public GitHub issues, code changes and automated checks—not client milestones.</p>'
+        '<h1>GitHub activity at a glance.</h1>'
+        '<p>Issues, code changes and automated checks—with original source links.</p>'
         '</div><div class="d-mark">D / M</div></div>',
         unsafe_allow_html=True)
     if not reports:
