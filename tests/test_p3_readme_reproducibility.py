@@ -55,3 +55,10 @@ def test_missing_dependency_not_pretended_installed():
         raise metadata.PackageNotFoundError(name)
     with pytest.raises(RuntimeError, match="Missing installed dependency"):
         make_receipt("fake-package>=99\n", versions=missing)
+
+
+def test_readme_uses_supported_streamlit_cli_launch():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "python -m streamlit run streamlit_app.py" in readme
+    assert "python streamlit_app.py" not in readme
+    assert "running the\nentrypoint as an ordinary Python script" in readme
