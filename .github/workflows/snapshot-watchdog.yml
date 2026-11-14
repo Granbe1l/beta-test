@@ -1,7 +1,8 @@
 name: Rescue stale public GitHub snapshot
 on:
-  # Best-effort independent monitor. Hourly GitHub cron is not a guarantee,
-  # but reduces dependence on a single delayed four-hour schedule.
+  # Same-provider backup: its hourly GitHub cron is also best effort.
+  # This can rescue missed primary slots; it is NOT independent uptime proof.
+  # Rescue after >6h snapshot age, subject to active-run and 90m guards.
   schedule:
     # Shift minute to resync GitHub's best-effort scheduler.
     - cron: '47 * * * *'
