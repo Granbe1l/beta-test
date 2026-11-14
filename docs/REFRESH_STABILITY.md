@@ -102,3 +102,22 @@ merely because its files are present on main.** Owner account connection,
 narrow-scope token, real dispatch and successful subsequent audit are
 required before calling the fallback operational. The GitHub best-effort
 schedule remains the primary refresh until then.
+
+## Additional P0 gate: verify sources for EACH scheduled run (14 November 2026)
+
+The post-run read-only `schedule-audit.yml` observer now writes both
+`schedule-reliability.json` and `scheduled-source-proof.json`. The former
+requires three actual recent successful `schedule`-event runs with roughly
+four-hour spacing, excluding all push and manual success. The latter must
+download **three separately retained collector artifacts**, identify the
+specific run ID for each, and check 50 unique selected repository identities,
+full source-specific 28-day readiness and 12-hour checkpoint freshness,
+and 50 separately exhausted current-open Issue inventories.
+
+The combined gate only reports `verified_operational_cycles` if **both**
+tests pass. A green GitHub workflow without source-audit artifacts is not
+enough; missing/expired/invalid artifacts block certification. The observer
+is an audit workflow, not a new collector, and it cannot create missed cron
+runs, claim that Cloudflare has been deployed, or make a snapshot fresh.
+When the 3-schedule prerequisite is absent, it records
+`blocked_schedule` without inventing evidence.

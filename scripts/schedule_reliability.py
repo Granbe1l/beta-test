@@ -43,6 +43,7 @@ def schedule_health(runs: list[dict], required: int = 3, *,
             r.get("status") == "completed" and r.get("conclusion") == "success"
             for r in chosen),
         "links": [r.get("html_url") for r in chosen if r.get("html_url")],
+        "run_ids": [r["id"] for r in chosen if isinstance(r.get("id"), int)],
         "evaluated_at_utc": now.isoformat(),
     }
     if chosen:
