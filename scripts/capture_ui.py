@@ -254,8 +254,22 @@ try:
                 if (element) element.scrollTop = 0;
               }
             }""")
+            # Streamlit navigation buttons can retain keyboard focus
+            # after clicking, keeping their help tooltip visible even when
+            # the pointer has moved away. Blur it without hiding real UI.
+            desktop.evaluate("""() => {
+              const focused = document.activeElement;
+              if (focused && typeof focused.blur === 'function') focused.blur();
+            }""")
+            desktop.keyboard.press("Escape")
             desktop.mouse.move(1434, 48)
-            desktop.wait_for_timeout(140)
+            desktop.wait_for_timeout(850)
+            tooltip = desktop.locator(
+                '[role="tooltip"]:visible, [data-testid="stTooltipContent"]:visible'
+            )
+            assert tooltip.count() == 0, (
+                f"{label}: transient hover tooltip remained over gallery capture"
+            )
             desktop.screenshot(path=str(OUT / file), full_page=False)
             capture_scrolling_main(
                 desktop, OUT / file.replace(".png", "-full.png"))
