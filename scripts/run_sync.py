@@ -23,9 +23,14 @@ def main():
     parser.add_argument("--max-requests", type=int, default=0, help="Bound entire collection run to avoid rate-limit exhaustion")
     parser.add_argument("--audit-open-backlog", action="store_true",
                         help="Use spare API budget for independent full-open-Issue scans")
+    parser.add_argument("--max-backlog-repos", type=int, default=25,
+                        help="Maximum full-open Issue inventory scans per run; "
+                             "25 gives capacity for 50 over two four-hour slots")
     parser.add_argument("--repair-coverage", action="store_true",
                         help="Bounded 28d reattempt for up to four low-page Issue/PR sources with short checkpoints")
     args=parser.parse_args()
+    if args.max_backlog_repos < 1 or args.max_backlog_repos > 50:
+        parser.error("--max-backlog-repos must be between 1 and 50")
     cfg=Settings.from_env()
     client=GitHubClient(cfg.github_token,cfg.timeout_seconds,cfg.max_retries,
                         max_requests=args.max_requests or None)
@@ -57,6 +62,7 @@ def main():
             results=synchronize(session,client,cfg,reconcile=args.reconcile,
                                 initial_batch_size=args.initial_batch or None,
                                 audit_open_backlog=args.audit_open_backlog,
+                                max_backlog_repos=args.max_backlog_repos,
                                 repair_coverage=args.repair_coverage)
             for row in results: print(row)
             if not results:

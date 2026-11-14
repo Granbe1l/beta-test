@@ -606,8 +606,10 @@ def coverage_repair_targets(session: Session, repositories: list[Repository],
 
 def synchronize(session: Session, client: GitHubClient, settings: Settings, reconcile=False,
                 initial_batch_size: int | None = None, run_at=None,
-                audit_open_backlog=False, max_backlog_repos=8,
+                audit_open_backlog=False, max_backlog_repos=25,
                 repair_coverage=False, max_repair_repos=4) -> list[dict]:
+    if max_backlog_repos < 0:
+        raise ValueError("max_backlog_repos must be >= 0")
     result = []
     repos = list(session.scalars(select(Repository).where(Repository.selected.is_(True)).order_by(Repository.full_name)))
     if initial_batch_size is not None and initial_batch_size > 0:
@@ -652,7 +654,7 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
             print("Collector request budget reached: unvisited repositories retain prior checkpoints")
             break
         refresh_repo_metadata(session, client, repo, now=run_at or utcnow())
-        # Rotate source order per six-hour slot; a high-volume Actions
+        # Rotate source order per four-hour slot; a high-volume Actions
         # scan should not always be last and starved by Issues/PRs.
         slot = int((run_at or utcnow()).timestamp() // (4 * 3600))
         source_order = SOURCES[slot % len(SOURCES):] + SOURCES[:slot % len(SOURCES)]
@@ -678,17 +680,53 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
         ))
         ordered = backlog_priority_order(session, all_selected, settings, now)
         processed = 0
+        completed = 0
+        partial_or_failed = 0
+        request_start = getattr(client, "request_count", 0)
+        stop_reason = "no_pending_inventory"
+        # Allocate up to 25 scans per four-hour run. Two successful slots can
+        # cover 50 repos within the unchanged 12-hour freshness limit, with
+        # one additional slot of scheduling headroom. This is capacity only:
+        # actual REST/Search exhaustion and live timestamps determine status.
         for repo in ordered:
             if processed >= max_backlog_repos:
+                stop_reason = "per_run_capacity"
                 break
             budget = getattr(client, "max_requests", None)
+            # Do not start an expensive Search fallback with only enough
+            # quota for the initial REST pagination. Incomplete results
+            # never advance the verified inventory checkpoint.
+            search_limit = int(os.getenv("BACKLOG_SEARCH_MAX_CALLS", "20"))
+            reserve = settings.max_pages + min(30, search_limit) + 3
             if (budget is not None and
-                    budget - getattr(client, "request_count", 0) <
-                    settings.max_pages + 3):
+                    budget - getattr(client, "request_count", 0) < reserve):
+                stop_reason = "remaining_api_budget"
                 break
-            result.append(sync_open_backlog(
-                session, client, repo, settings, now=now))
+            observed = sync_open_backlog(
+                session, client, repo, settings, now=now)
+            result.append(observed)
             processed += 1
+            if observed.get("status") == "complete":
+                completed += 1
+            else:
+                partial_or_failed += 1
+        else:
+            stop_reason = "all_pending_attempted"
+        print("OPEN INVENTORY MAINTENANCE:", {
+            "selected_repositories": len(all_selected),
+            "pending_before": len(ordered),
+            "max_per_run": max_backlog_repos,
+            "attempted": processed,
+            "completed_attempts": completed,
+            "partial_or_failed_attempts": partial_or_failed,
+            "unvisited_pending": len(ordered) - processed,
+            "stop_reason": stop_reason,
+            "api_calls_for_inventory": (
+                getattr(client, "request_count", 0) - request_start),
+            "api_calls_remaining": (
+                None if getattr(client, "max_requests", None) is None
+                else client.max_requests - getattr(client, "request_count", 0)),
+        })
     if audit_open_backlog:
         # Measure AFTER inventory reconciliation; older observation samples
         # use a distinct basis and must not be compared to full inventories.
