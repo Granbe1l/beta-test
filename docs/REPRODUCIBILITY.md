@@ -2,7 +2,7 @@
 
 The project is tested with **Python 3.12** in GitHub Actions. The direct
 runtime requirements are declared in [requirements.txt](../requirements.txt)
-and pinned to broad compatible ranges; **there is no transitive lockfile**.
+and bounded by compatible version ranges; **there is no transitive lockfile**.
 Do not claim byte-for-byte identical dependencies on every future install.
 
 ## Verify locally
