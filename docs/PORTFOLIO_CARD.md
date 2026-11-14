@@ -67,7 +67,9 @@ synthetic examples. The reproducible CI receipt is
 
 1. **Dashboard:** read What happened → Why inspect → Next action → GitHub
    evidence; then inspect the activity chart. Optional detailed charts can
-   be expanded without overwhelming the first screen.
+   be expanded without overwhelming the first screen. The full evidence
+   checks are behind an explicitly labeled expandable section; the top
+   finding and original GitHub link remain directly visible.
    [60-second reviewer guide](REVIEWER_QUICK_GUIDE.md) explains the terminology.
 2. **Key findings:** open a measurable inspection opportunity and verify
    its source URL and suggested next check
