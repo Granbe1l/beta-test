@@ -80,3 +80,22 @@ def test_incomplete_open_inventory_does_not_create_issue_age_case():
     r = make_report("issue-aging", 10)
     r["open_backlog_status"] = "partial"
     assert all(c["kind"] != "issue-aging" for c in build_case_studies([r]))
+
+
+def test_oldest_evidence_uses_precise_timestamp_not_rounded_day_count():
+    from src.analytics.findings import evidence_examples
+
+    now = datetime(2026, 11, 14, 4, 10, tzinfo=timezone.utc)
+    base = "https://github.com/example/stable"
+    records = [
+        {"url": base + "/issues/2", "number": 2, "state": "open",
+         "created_at": now - timedelta(days=50, hours=11)},
+        {"url": base + "/issues/6", "number": 6, "state": "open",
+         "created_at": now - timedelta(days=50, hours=1)},
+    ]
+    report = {"repository": {"url": base}, "issue_rows": records}
+    first = evidence_examples(report, "issue-aging", now=now, limit=1)
+    later = evidence_examples(report, "issue-aging", now=now+timedelta(
+        hours=2), limit=1)
+    assert first[0]["url"] == base + "/issues/2"
+    assert later[0]["url"] == base + "/issues/2"
