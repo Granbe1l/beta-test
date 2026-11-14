@@ -32,7 +32,7 @@ def source_coverage_counts(reports):
     values=Counter(v for r in reports for v in r["status"].values())
     return {k:values.get(k,0) for k in ("complete","partial","stale","failed","unavailable")}
 
-def observed_outcomes(runs,now=None,days=30):
+def observed_outcomes(runs,now=None,days=28):
     now=utc(now or datetime.now(timezone.utc))
     counts={"Success":0,"Failure / timeout":0,"Skipped":0,"Other outcomes":0}
     for row in runs:

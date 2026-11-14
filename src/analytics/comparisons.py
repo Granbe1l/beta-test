@@ -62,7 +62,7 @@ def comparable_observation_pair(reports: list[dict]) -> dict | None:
     return None
 
 
-def checks_in_period(runs: list[dict], days: int = 30, now=None) -> dict:
+def checks_in_period(runs: list[dict], days: int = 28, now=None) -> dict:
     """One CI numerator/denominator/period for cards, daily bars and donut.
 
     Unknown conclusions are shown separately and excluded from percentages.

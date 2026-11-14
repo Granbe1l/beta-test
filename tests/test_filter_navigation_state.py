@@ -72,7 +72,7 @@ def test_dashboard_never_labels_global_verified_cohort_as_all_tracked():
     assert 'is_all_tracked = global_scope.startswith("All tracked")' in source
     assert 'else "All projects in verified cohort"' in source
     assert 'if (mode == all_label' in source
-    assert "a 30-day event filter does not certify a 30-day" in source
+    assert "a 28-day activity filter requires its own verified" in source
 
 
 def test_independent_open_backlog_coverage_never_crashes_or_claims_issue_scan():
