@@ -62,6 +62,17 @@ A no-work attempt or lost source records causes failure without replacing
 the previous published snapshot. A partially covered source remains
 labelled partial, even when the overall workflow has succeeded.
 
+## PR author-type metadata (separate from verified event coverage)
+
+When GitHub returns `pull_request.user.type`, the collector preserves its
+`Bot`, `User` or `Organization` account type. Old snapshot records
+without this field remain **Unknown** after the additive SQLite/PostgreSQL
+schema migration; they are not retroactively inferred. The Changes & reviews
+page exposes the source-reported PR account mix and its known denominator
+without changing verified 28-day coverage. `User` does **not** prove
+a human authored the change; all counts are observed metadata, not effort
+or productivity measurements.
+
 ## Proof and remaining limitations
 
 Inspect GitHub Actions run event, logs, before/after JSON artifacts,
