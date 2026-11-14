@@ -36,6 +36,9 @@ tracker, SLA monitor or employee-productivity ranking.
 | **Evidence-based findings** | A concrete count/denominator, next review step, and **direct original GitHub record** where retrieved; otherwise an explicitly labelled source listing |
 | **Reproducible engineering** | Read-only SQL snapshot integrity checks, browser screenshots, and measured reduction from 376 to 6 database SELECT queries for 75 repos (not a claimed browser speedup) |
 
+**Reader guide:** [60-second plain-language walkthrough](docs/REVIEWER_QUICK_GUIDE.md).
+For implementation and caveats, use the technical sections below.
+
 **Show the work:** [one-page case study](docs/PORTFOLIO_CARD.md) ·
 [full technical evidence](docs/PORTFOLIO_CASE_STUDY.md) ·
 [latest browser capture workflow](https://github.com/Granbe1l/beta-test/actions/workflows/ui-screenshots.yml) ·

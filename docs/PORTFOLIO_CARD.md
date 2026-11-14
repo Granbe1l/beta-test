@@ -29,7 +29,9 @@ inspection questions**, not opaque project-health or productivity scores.
   CI success share includes skipped/other known results in its denominator;
   those outcomes are not treated as verified build failures.
 - **Review:** headline measures, trends, filters, original GitHub record
-  links where available, three-step inspection actions and CSV evidence plan
+  links where available, three-step inspection actions and CSV evidence plan.
+  PR activity and merge-duration charts use the same chosen 28- or 90-day
+  period; an incomplete window is explicitly exploratory.
 
 ## Result / demonstrated engineering
 
@@ -54,6 +56,7 @@ inspection questions**, not opaque project-health or productivity scores.
 1. **Dashboard:** read What happened → Why inspect → Next action → GitHub
    evidence; then inspect the activity chart. Optional detailed charts can
    be expanded without overwhelming the first screen.
+   [60-second reviewer guide](REVIEWER_QUICK_GUIDE.md) explains the terminology.
 2. **Key findings:** open a measurable inspection opportunity and verify
    its source URL and suggested next check
 3. **Explore repositories:** compare two sources and switch Verified /
