@@ -286,8 +286,11 @@ try:
                     desktop, "Inspector / URL submitted")
                 assert desktop.get_by_text("psf/requests", exact=True).count() > 0, (
                     "Inspector did not display fetched public repo name")
-                assert desktop.get_by_role("tab", name="Issues").count() >= 1, (
-                    "Result did not display source evidence tabs")
+                # Streamlit renders the lower tab controls after the
+                # headline on some browser runs; wait for them rather than
+                # treating a mid-render frame as missing source evidence.
+                desktop.get_by_role("tab", name="Issues").wait_for(
+                    state="attached", timeout=30000)
                 desktop.screenshot(
                     path=str(OUT / "desktop-inspector-submitted.png"),
                     full_page=False)
