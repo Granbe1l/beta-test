@@ -43,7 +43,9 @@ def triage_inventory(audit: dict) -> dict:
             "pages_fetched_last_attempt": detail.get("pages_fetched"),
             "records_fetched_last_attempt": detail.get("records_fetched"),
             "last_error": detail.get("last_error"),
-            "source_event_verified_28d": all(
+            # This is deliberately not called Verified 28d: status alone
+            # does not prove the window duration or checkpoint freshness.
+            "three_source_statuses_complete": all(
                 ((report.get("source_details") or {}).get(source) or {})
                 .get("status") == "complete"
                 for source in ("issues", "pull_requests", "workflow_runs")
