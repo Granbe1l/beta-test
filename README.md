@@ -300,6 +300,19 @@ The suite covers bounded selection, deduplication, pagination, retry/rate handli
 - Complete historical issue counts are not claimed. Recent changed-record sampling differs from a full open-backlog scan.
 - This implementation is intended for analysis and due diligence, not contractual SLAs or causal performance assessment.
 
+## Full open-Issue inventory maintenance
+
+The independent current open-Issue inventory (which includes older, unchanged
+issues) is distinct from the 50-project Verified 28-day event cohort.
+The 14 November baseline was **41/50**, with four stale and five unavailable
+inventories. The bounded collector now allows up to **25 actual inventory
+attempts per four-hour cycle**, after protecting existing 28-day sources,
+with the same 12-hour freshness cutoff and 850-request budget. A dated
+JSON audit lists every remaining repository and reason. This is a
+**capacity improvement, not a claim of 50/50**.
+
+See [inventory evidence, operational limits and verification steps](docs/OPEN_ISSUE_INVENTORY_OPERATIONS.md).
+
 ## Current audit and consistent time windows (14 November 2026)
 
 - [Successful actual scheduled snapshot collection](https://github.com/Granbe1l/beta-test/actions/runs/43540739560) at **08:32 WIB**: **50/50 jointly Verified over 28 days** for Issue, PR and CI event sources; **41/50** separately verified full-open Issue inventories. The stored sample had **4,947 Issue**, **5,497 PR**, and **44,171 CI** observations. These counts are timestamped, not immutable promises.

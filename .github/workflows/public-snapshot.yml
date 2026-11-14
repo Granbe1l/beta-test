@@ -26,7 +26,7 @@ jobs:
       MAX_CANDIDATES: '320'
       SEARCH_PAGES_PER_QUERY: '1'
       MAX_PAGES_PER_SOURCE: '6'
-      BACKLOG_SEARCH_MAX_CALLS: '12'  # Bound secondary Search requests per repo
+      BACKLOG_SEARCH_MAX_CALLS: '12'  # Bounded, strict Search sharding for oversized inventories
       PER_PAGE: '100'
       BACKFILL_DAYS: '120' # Explicit reconciliations; bootstrap retries 28/7/1-day windows
       COMPARISON_DAYS: '90'
@@ -92,7 +92,7 @@ jobs:
       - name: Maintain expiring Verified sources then repair within API budget
         shell: bash
         run: |
-          if python scripts/run_sync.py --expand --initial-batch 20 --max-requests 850 --audit-open-backlog --repair-coverage; then
+          if python scripts/run_sync.py --expand --initial-batch 20 --max-requests 850 --audit-open-backlog --max-backlog-repos 25 --repair-coverage; then
             echo "GitHub ingestion returned complete checkpoints for visited repositories."
           else
             echo "::warning::Some GitHub sources incomplete or budget-limited; historical records and checkpoint status preserved."
@@ -109,6 +109,8 @@ jobs:
         run: python scripts/report_coverage_delta.py snapshot-audit-before.json snapshot-audit.json
       - name: Diagnose remaining source coverage gaps
         run: python scripts/coverage_triage.py snapshot-audit.json
+      - name: Diagnose every incomplete or stale full-open inventory
+        run: python scripts/triage_open_inventory.py snapshot-audit.json
       - name: Audit strict source-specific 28-day readiness and staleness
         run: python scripts/audit_coverage_readiness.py snapshot-audit.json
       - name: Preserve evidence and coverage audit
@@ -120,6 +122,7 @@ jobs:
             snapshot-audit.json
             snapshot-audit-before.json
             coverage-readiness.json
+            open-inventory-triage.json
             data/curated_50_transition_receipt.json
           if-no-files-found: error
           retention-days: 14
