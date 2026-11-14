@@ -45,7 +45,8 @@ def category_eligibility(rows: list[dict], metric: str, *,
         "Eligible values": eligible[category],
         "Repositories in category": totals[category],
         "Missing / withheld": totals[category] - eligible[category],
-        "Median shown": "Yes" if eligible[category] >= min_group else "No (n < 4)",
+        "Median shown": ("Yes" if eligible[category] >= min_group
+                         else f"No (n < {min_group})"),
     } for category in sorted(totals)]
 
 
