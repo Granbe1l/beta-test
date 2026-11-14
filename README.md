@@ -144,11 +144,11 @@ unverified live database on each page load.
 python -m venv .venv
 python -m pip install -r requirements.txt
 python -m pytest -q
-python streamlit_app.py
+python -m streamlit run streamlit_app.py
 ```
 
-For Streamlit's supported launch command, use
-`streamlit run streamlit_app.py` after installing dependencies.
+Use Streamlit's CLI to start the interactive application; running the
+entrypoint as an ordinary Python script is not a supported UI launch.
 Run `python scripts/audit_case_studies.py` and
 `python scripts/audit_comparison_readiness.py` to check the dated
 real-record source audit before reusing numerical claims.
