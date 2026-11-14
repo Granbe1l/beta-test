@@ -173,16 +173,19 @@ def test_production_catchup_still_stops_before_api_reserve(db, cfg, monkeypatch)
         ))
     db.commit()
     monkeypatch.setattr(sync, "refresh_repo_metadata", lambda *a, **k: False)
-    monkeypatch.setattr(sync, "sync_one", lambda session, client, repo, source,
-                        settings, **kw: {"repo": repo.full_name,
-                                         "source": source, "status": "complete"})
+    def simulated_source_scan(session, client, repo, source, settings, **kw):
+        # Model paid API attempts for real source scans before backlog phase.
+        client.request_count += 25
+        return {"repo": repo.full_name, "source": source, "status": "complete"}
+    monkeypatch.setattr(sync, "sync_one", simulated_source_scan)
     monkeypatch.setattr(sync, "record_observations", lambda *a, **k: False)
     client = EmptyButExhaustedOpenIssueClient()
-    # Within the source scan's own conservative headroom, but not enough for
-    # the independent REST+Search reserve: no inventory scan is performed.
-    client.max_requests = 25
+    # Main Issue/PR/CI source maintenance spends 75 of an 85-attempt
+    # run budget. Ten remaining are insufficient for the REST+Search
+    # reserve; no extra open-inventory scan is permitted.
+    client.max_requests = 85
     output = synchronize(db, client, cfg, run_at=NOW,
                          audit_open_backlog=True, max_backlog_repos=50)
     assert not any(r["source"] == "open_backlog" for r in output)
     assert db.get(SyncCheckpoint, (repo.id, "open_backlog")) is None
-    assert client.request_count == 0
+    assert client.request_count == 75
