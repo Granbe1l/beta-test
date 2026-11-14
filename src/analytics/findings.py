@@ -53,7 +53,11 @@ def evidence_examples(report: dict, kind: str, *, now=None, limit=3,
             if age < 30:
                 continue
             reason = f"Observed open for {age} days"
-            priority = (age, created)
+            # Use precise age, not rounded whole days: two old Issues can
+            # share the same integer age while having different timestamps.
+            # Picking by rounded age then newest-created reverses the true
+            # oldest-first order at UTC day boundaries.
+            priority = ((now - created).total_seconds(), created)
         elif kind == "merge-duration":
             created, merged = utc(row.get("created_at")), utc(row.get("merged_at"))
             if not created or not merged or not now - timedelta(days=period_days) <= merged <= now:
