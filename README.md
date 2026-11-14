@@ -304,18 +304,27 @@ The suite covers bounded selection, deduplication, pagination, retry/rate handli
 
 The independent current open-Issue inventory (which includes older, unchanged
 issues) is distinct from the 50-project Verified 28-day event cohort.
-The 14 November baseline was **41/50**, with four stale and five unavailable
-inventories. The bounded collector now allows up to **25 actual inventory
-attempts per four-hour cycle**, after protecting existing 28-day sources,
-with the same 12-hour freshness cutoff and 850-request budget. A dated
-JSON audit lists every remaining repository and reason. This is a
-**capacity improvement, not a claim of 50/50**.
+An earlier 14 November audit showed **41/50** (four stale, five
+unavailable). In the first actual post-fix GitHub API refresh on
+**14 November 2026, 09:39 WIB**, all nine were fully scanned and the
+independent source audit verified **50/50 fresh full-open inventories**,
+with **zero incomplete or stale**. That run completed **9/9** attempts
+using 277/850 API attempts across all sources. The snapshot was published
+to main and its Git blob matches the audit artifact.
+
+The bounded collector allows up to **25 inventory attempts per four-hour
+cycle**, after protecting existing 28-day sources, with the unchanged
+12-hour freshness cutoff and 850-request budget. This is a **dated verified
+result, not a guarantee that every future cycle or scheduled run succeeds**.
+See [the actual collection run](https://github.com/Granbe1l/beta-test/actions/runs/43547169286)
+and [its full source audit artifact](https://github.com/Granbe1l/beta-test/actions/runs/43547169286/artifacts/14094830686).
 
 See [inventory evidence, operational limits and verification steps](docs/OPEN_ISSUE_INVENTORY_OPERATIONS.md).
 
 ## Current audit and consistent time windows (14 November 2026)
 
-- [Successful actual scheduled snapshot collection](https://github.com/Granbe1l/beta-test/actions/runs/43540739560) at **08:32 WIB**: **50/50 jointly Verified over 28 days** for Issue, PR and CI event sources; **41/50** separately verified full-open Issue inventories. The stored sample had **4,947 Issue**, **5,497 PR**, and **44,171 CI** observations. These counts are timestamped, not immutable promises.
+- [Actual post-fix push-triggered refresh](https://github.com/Granbe1l/beta-test/actions/runs/43547169286) at **09:39 WIB**: **50/50** independently verified fresh full-open Issue inventories, while **50/50** Issue/PR/CI sources retained Verified 28-day event coverage. This was a real GitHub collection and published snapshot; it was **not** a scheduled-run reliability test.
+- [Earlier scheduled baseline](https://github.com/Granbe1l/beta-test/actions/runs/43540739560) at **08:32 WIB**: **50/50** Verified 28-day event sources, but only **41/50** full-open inventories. The archived sample had 4,947 Issue, 5,497 PR and 44,171 CI records. Both audits are timestamped; freshness must be revalidated at future refreshes.
 - **7 days** = recent activity; **28 days** = four-week analysis and activity filters; **90 days** = long-range view requiring independent source-coverage proof. **30+ days** is an open-Issue age threshold, *not* the analysis window. Some old historical sections further down document the original 75-project cohort only.
 - No publicly verified hosted Streamlit URL or human usability test is claimed. GitHub Actions cron runs are best-effort; three consecutive scheduled successes are required to demonstrate early cadence stability.
 
