@@ -38,9 +38,18 @@ def test_recruiter_facing_supporting_text_contrast():
 def test_mobile_recruiter_copy_is_not_shrunk_to_unreadable_size():
     # Test precisely the visible supporting copy, not all third-party
     # Streamlit/Plotly elements. The Playwright audit covers rendered views.
-    assert ".d-kpi-note{font-size:.74rem!important;" in CSS_V2
-    assert ".d-kpi-label{font-size:.74rem!important;" in CSS_V2
-    assert ".d-chart-sub{font-size:.74rem!important;" in CSS_V2
-    assert ".d-hero-overview p{font-size:.75rem!important;" in CSS_V2
+    import re
+    # Examine the last (most specific mobile) override rather than
+    # hard-coding one exact font size: improvements must not fail this test.
+    for selector, minimum_rem in (
+        (".d-kpi-note", 0.74),
+        (".d-kpi-label", 0.74),
+        (".d-chart-sub", 0.74),
+        (".d-hero-overview p", 0.75),
+    ):
+        pattern = re.escape(selector) + r"\\{font-size:([0-9.]+)rem!important;"
+        matches = re.findall(pattern, CSS_V2)
+        assert matches, selector
+        assert float(matches[-1]) >= minimum_rem, selector
     assert "color:#8C8499" not in CSS_V2
     assert "color:#827B90" not in CSS_V2
