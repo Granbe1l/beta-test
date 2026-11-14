@@ -572,6 +572,13 @@ def comparison(reports, embedded=False):
             help="Verified period measures need complete source coverage. "
                  "Exploratory totals explicitly describe retrieved records only.")
     st.caption(metric_disclosure(rows, metric, days))
+    if cat == "All" and len(categories) > 1:
+        st.caption(
+            f"Comparing {len(categories)} different project categories. "
+            "Raw event counts are not normalized for project size, "
+            "team capacity, complexity or workflow conventions. "
+            "Filter by category before interpreting differences."
+        )
     chart_rows = df.dropna(subset=[metric])
     if len(chart_rows) >= 2:
         ordered = chart_rows.sort_values(metric, ascending=False)
@@ -582,7 +589,7 @@ def comparison(reports, embedded=False):
         fig = px.bar(
             visible, x=metric, y="Repository", orientation="h",
             color_discrete_sequence=[PURPLE],
-            hover_data=["Event coverage", "Full open inventory"],
+            hover_data=["Category", "Event coverage", "Full open inventory"],
             text=metric)
         fig.update_traces(textposition="outside", cliponaxis=False)
         st.plotly_chart(
@@ -602,13 +609,24 @@ def comparison(reports, embedded=False):
         ]]
         st.dataframe(exploratory, hide_index=True, use_container_width=True)
     with st.expander("Within-category context · median and spread"):
-        from src.analytics.comparable_groups import category_distributions
+        from src.analytics.comparable_groups import (
+            category_distributions, category_eligibility,
+        )
         if "exploratory" in metric.lower():
             st.info(
                 "Sampled record counts cannot be used as comparable peer "
                 "benchmarks: pagination and source sizes vary."
             )
         else:
+            eligibility = category_eligibility(rows, metric, min_group=4)
+            st.markdown("**Data eligibility by category**")
+            st.caption(
+                "N qualifying / N tracked for the selected metric and period. "
+                "Missing, incomplete and ineligible values stay unknown—not "
+                "zero. A within-category median is shown only at n≥4."
+            )
+            st.dataframe(pd.DataFrame(eligibility), hide_index=True,
+                         use_container_width=True)
             peers = category_distributions(rows, metric, min_group=4)
             if peers:
                 st.caption(

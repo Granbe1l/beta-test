@@ -50,6 +50,16 @@ permission to access private repositories, or a guarantee against GitHub
 secondary rate limits. Missing API responses remain unknown rather than
 zero; rate-limited users see an actionable retry message.
 
+## P2.3b: Source-qualified peer eligibility in comparisons
+
+The Explore repositories comparison now shows **how many repositories in each
+category actually qualify for the chosen metric and time window**, including
+missing/withheld counts. Verified zero is still eligible. A median and
+interquartile range are shown only when at least four eligible source
+values exist for that category. Cross-category counts are **not normalized
+by project size or team capacity**, so the chart cannot rank quality or
+workers. The browser suite opens the disclosure and checks it renders.
+
 ## P2.3: Keyboard and assisted reading
 
 KPI groups include accessible label, value and context, while decorative

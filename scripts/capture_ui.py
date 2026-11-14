@@ -411,6 +411,17 @@ try:
                         assert has_comparison, (
                             "No source-qualified chart or labelled fallback "
                             "in unified cross-project comparison")
+                        peer = desktop.get_by_text(
+                            "Within-category context · median and spread",
+                            exact=True)
+                        peer.click(timeout=10000)
+                        desktop.get_by_text(
+                            "Data eligibility by category", exact=True).wait_for(
+                            timeout=12000)
+                        assert_no_streamlit_exception(
+                            desktop, "Explorer / peer eligibility")
+                        peer.click(timeout=10000)
+                        print("Verified real peer eligibility disclosure", flush=True)
                     desktop.screenshot(
                         path=str(OUT / (
                             "desktop-repositories-" + tab.lower().replace(" ", "-") + ".png")),
