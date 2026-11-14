@@ -37,7 +37,7 @@ def test_25_scans_per_slot_is_the_bounded_default_and_12h_policy_unchanged():
         encoding="utf-8")
     assert 'parser.add_argument("--max-backlog-repos"' in runner
     assert "max_backlog_repos=args.max_backlog_repos" in runner
-    assert "--audit-open-backlog --max-backlog-repos 25" in workflow
+    assert "--audit-open-backlog --max-backlog-repos 50" in workflow
     assert "STALE_HOURS: '12'" in workflow
     assert "--max-requests 850" in workflow
     assert "open-inventory-triage.json" in workflow
@@ -113,3 +113,79 @@ def test_client_partial_result_never_reaches_complete_inventory(db, cfg):
     cp = db.get(SyncCheckpoint, (101, "open_backlog"))
     assert cp.status == "partial"
     assert cp.last_success_at is None
+
+
+def test_production_catchup_scans_33_pending_without_exceeding_shared_budget(db, cfg, monkeypatch):
+    """A missed-schedule recovery may need >25 scans, but never weaker proof."""
+    from src.collectors import sync
+    first = db.get(Repository, 101)
+    for i in range(49):
+        rid = 50000 + i
+        db.add(Repository(
+            id=rid, full_name=f"catchup/repo-{i:02d}",
+            owner="catchup", name=f"repo-{i:02d}",
+            url=f"https://github.com/catchup/repo-{i:02d}",
+            stars=10, selected=True,
+        ))
+    db.flush()
+    selected = list(db.scalars(
+        select(Repository).where(Repository.selected.is_(True))))
+    assert len(selected) == 50
+    for repo in selected:
+        for source in ("issues", "pull_requests", "workflow_runs"):
+            db.add(SyncCheckpoint(
+                repo_id=repo.id, source=source, status="complete",
+                coverage_start=NOW - timedelta(days=32),
+                last_success_at=NOW,
+            ))
+    # 17 complete fresh inventories and 33 missing (a genuine checkpoint gap).
+    for repo in selected[:17]:
+        db.add(SyncCheckpoint(
+            repo_id=repo.id, source="open_backlog", status="complete",
+            coverage_start=NOW, last_success_at=NOW,
+        ))
+    db.commit()
+    assert len(backlog_priority_order(db, selected, cfg, NOW)) == 33
+    monkeypatch.setattr(sync, "refresh_repo_metadata", lambda *a, **k: False)
+    monkeypatch.setattr(sync, "sync_one", lambda session, client, repo, source,
+                        settings, **kw: {"repo": repo.full_name,
+                                         "source": source, "status": "complete"})
+    monkeypatch.setattr(sync, "record_observations", lambda *a, **k: False)
+    client = EmptyButExhaustedOpenIssueClient()
+    rows = synchronize(db, client, cfg, run_at=NOW,
+                       initial_batch_size=20, audit_open_backlog=True,
+                       max_backlog_repos=50)
+    inventory_rows = [r for r in rows if r["source"] == "open_backlog"]
+    assert len(inventory_rows) == 33
+    assert all(row["full_open_backlog_verified"] for row in inventory_rows)
+    assert client.request_count == 33 <= client.max_requests
+    assert len(backlog_priority_order(db, selected, cfg, NOW)) == 0
+
+
+def test_production_catchup_still_stops_before_api_reserve(db, cfg, monkeypatch):
+    """The higher cap never authorizes spending unavailable API budget."""
+    from src.collectors import sync
+    repo = db.get(Repository, 101)
+    for src in ("issues", "pull_requests", "workflow_runs"):
+        db.add(SyncCheckpoint(
+            repo_id=repo.id, source=src, status="complete",
+            coverage_start=NOW - timedelta(days=32), last_success_at=NOW,
+        ))
+    db.commit()
+    monkeypatch.setattr(sync, "refresh_repo_metadata", lambda *a, **k: False)
+    def simulated_source_scan(session, client, repo, source, settings, **kw):
+        # Model paid API attempts for real source scans before backlog phase.
+        client.request_count += 25
+        return {"repo": repo.full_name, "source": source, "status": "complete"}
+    monkeypatch.setattr(sync, "sync_one", simulated_source_scan)
+    monkeypatch.setattr(sync, "record_observations", lambda *a, **k: False)
+    client = EmptyButExhaustedOpenIssueClient()
+    # Main Issue/PR/CI source maintenance spends 75 of an 85-attempt
+    # run budget. Ten remaining are insufficient for the REST+Search
+    # reserve; no extra open-inventory scan is permitted.
+    client.max_requests = 85
+    output = synchronize(db, client, cfg, run_at=NOW,
+                         audit_open_backlog=True, max_backlog_repos=50)
+    assert not any(r["source"] == "open_backlog" for r in output)
+    assert db.get(SyncCheckpoint, (repo.id, "open_backlog")) is None
+    assert client.request_count == 75

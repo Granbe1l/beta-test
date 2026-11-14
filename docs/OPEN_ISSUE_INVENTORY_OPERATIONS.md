@@ -58,17 +58,23 @@ in the independently exhausted inventory.
 
 The four-hour scheduled collector keeps its **12-hour source freshness gate**
 and **850-request local attempt budget**. Its full-open inventory allowance
-is now **up to 25 repositories per run** instead of 8. This gives capacity
-for all 50 members across two four-hour slots (with a third slot of
-headroom) under ordinary conditions; real API failures, GitHub scheduling,
-page counts, request budgets and long pagination can reduce actual throughput.
+was raised from 8 to 25, which handles ordinary two-slot rotation. On 14
+November 2026 a missed-schedule catch-up run had **33 pending inventories**
+but hit the hard 25 cap, leaving **8 stale** with **573/850 API attempts
+unused**. The production workflow now permits **up to 50 pending scans per
+run**; the CLI and Python function retain a conservative 25 default.
+This is an attempt cap, **not** a success target or a higher API allowance.
+Actual rate limits, elapsed time, REST/Search exhaustion and scheduling can
+still prevent 50/50 freshness.
 
 Collector order is important:
 1. Preserve and refresh at-risk verified 28-day Issues, PR and CI sources.
 2. Use **remaining** request budget for eligible stale/missing full-open
    inventories; skip already fresh complete inventories.
-3. Allow no more than 25 inventory attempts per run. Maintain a conservative
-   request reserve for a full REST scan plus the bounded Search fallback.
+3. Allow at most 50 inventory attempts in the production recovery workflow
+   (the general-purpose CLI still defaults to 25). Retain the existing
+   conservative request reserve for REST scans and bounded Search fallback.
+   Never exceed the shared 850-request budget to achieve a target count.
 4. A complete inventory may be certified **only** when REST pages are
    exhausted, or every GitHub Search creation-time shard and page is exhausted,
    no incomplete-result flags appear, and the checkpoint is fresh.
@@ -99,3 +105,13 @@ inventory scans and the API budget remaining.
 The fixed 50-project cohort remains unchanged. This is a read-only GitHub
 ingestion and deterministic validation improvement, not a user-supplied
 dataset, a synthetic record generator or a guarantee of a future result.
+
+## 17:46 WIB recovery audit (14 November 2026)
+
+[Actual main-branch collector run](https://github.com/Granbe1l/beta-test/actions/runs/43586500756) published a 50/50 jointly Verified 28-day Issues/PR/CI snapshot,
+but independently complete **fresh open-Issue inventories were 42/50**:
+33 pending before inventory maintenance, 25 attempted, 25 complete, 8
+unvisited because of `per_run_capacity`. The workflow logged 40 requests
+used for those 25 inventories and 573 requests remaining. The next
+collection with an increased cap must be audited independently; a green
+CI check alone cannot establish that the remaining eight were refreshed.

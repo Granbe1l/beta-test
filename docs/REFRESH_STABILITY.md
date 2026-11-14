@@ -73,3 +73,14 @@ reliable independent scheduler, and neither the code change nor a manually
 triggered refresh counts as three successful scheduled runs.
 
 Source: https://docs.github.com/en/actions/how-tos/troubleshoot-workflows
+
+## Backlog catch-up capacity after missed cron slots
+
+The live 17:46 WIB run on 14 November retained all 50 Verified 28-day
+source windows, but its independent open-Issue inventory queue held 33
+pending repositories. The production cap of 25, not API exhaustion,
+left eight stale with 573 unused requests. Permit up to 50 inventory
+attempts on the production workflow only; retain the global 850-attempt
+limit, per-repository paging/Search caps, source-first order and strict
+freshness flags. This repairs capacity, **not** missing cron history;
+verify a new real run before claiming 50/50 fresh open inventories.

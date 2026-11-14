@@ -6,6 +6,17 @@ quality checks before merging to `main`.
 
 ## Most recent independently audited published 50-repository snapshot
 
+**Operational update, 14 November 2026, 17:46 WIB:** [actual post-merge
+collector](https://github.com/Granbe1l/beta-test/actions/runs/43586500756)
+published **50/50** verified 28-day Issues/PR/CI, with **5,086 Issue,
+5,596 PR and 45,032 CI records**. The separate fresh full-open Issue
+inventory was **42/50** at that timestamp: 33 pending, 25 completed,
+eight left stale solely by the configured scan-attempt cap; 573
+collection requests remained. A capacity catch-up change is proposed,
+not counted as successful until a later real collection audit. Both cron
+and watchdog still require actual observed scheduled cycles.
+
+
 **14 November 2026, 09:39 WIB** · [actual post-fix GitHub collection](https://github.com/Granbe1l/beta-test/actions/runs/43547169286) · **50/50** repositories independently Verified for 28-day Issues/PR/CI events, and **50/50** separately verified fresh full-open Issue inventories. There were 5,023 observed Issue records, 5,512 PR records, and 44,226 CI records. The nine outstanding inventories from the 08:32 WIB baseline were scanned fully (9/9); [audit artifacts](https://github.com/Granbe1l/beta-test/actions/runs/43547169286/artifacts/14094830686) confirm zero gaps. These are **timestamped observations**, not permanent promises. That run was triggered by a code push, **not three consecutive successful scheduled intervals**. Public Streamlit Cloud deployment and human usability evaluation remain unverified.
 
 **Analysis-period policy:** 7 days = recent activity, 28 days = primary four-week comparison and activity filter, 90 days = long-term analysis only with verified coverage. **30+ days describes an Issue-age threshold**, not the activity observation period. Never compare an unverified 30-day event filter to the verified 28-day cohort.
