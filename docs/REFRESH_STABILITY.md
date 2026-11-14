@@ -121,3 +121,30 @@ is an audit workflow, not a new collector, and it cannot create missed cron
 runs, claim that Cloudflare has been deployed, or make a snapshot fresh.
 When the 3-schedule prerequisite is absent, it records
 `blocked_schedule` without inventing evidence.
+
+
+## P0 scheduled-proof audit, 14 November 2026 at 18:42 WIB
+
+The [actual independent observer run](https://github.com/Granbe1l/beta-test/actions/runs/43591307743)
+reported three successful historical `schedule` events, but the last
+scheduled collector began at **08:27 WIB** (01:27 UTC), and its two observed
+intervals were **18.50 hours** and **10.81 hours**, not four-hour intervals.
+The run therefore recorded `needs_review` for cadence and
+`blocked_schedule` for combined source proof. This is an actual P0
+operational failure, not an unsuccessful pytest run; changing code cannot
+manufacture missing scheduled execution history.
+
+The fixed-cohort gate is also hardened to cross-check **each of the 50
+repository names** against the committed, curated manifest and to validate
+each repository's **actual source-specific 28-day window, 12-hour-success
+freshness, independent open-Issue inventory timestamp and per-repository
+readiness verdict**, in addition to aggregated counters. A forged-looking
+green summary or substituted repository cannot pass solely on 50/50 totals.
+The stronger checks need successful CI and genuine future scheduled
+collector artifacts; they do not declare the schedule operational by
+themselves.
+
+The [independent Cloudflare fallback](../external_refresh/cloudflare/README.md)
+remains **not deployed**. Its narrow-scope token and owner-controlled
+Cloudflare Cron Trigger are required for an operationally independent backup;
+the GitHub hourly watchdog cannot be counted as an independent provider.
