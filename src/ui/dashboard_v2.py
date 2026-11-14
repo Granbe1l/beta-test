@@ -738,8 +738,8 @@ def overview(reports, selection, all_reports=None):
         )
         st.caption(
             "The overview uses 7-day push and event metadata, the line uses "
-            "a selectable 7/28-day window, and the check outcome donut uses "
-            "the last 28 days. Different windows are always labelled."
+            "a selectable 7/28-day window. When supporting charts are opened, "
+            "CI outcomes use 28 days. Different windows are always labelled."
         )
 
     # Supporting visualizations remain available on demand but do not
