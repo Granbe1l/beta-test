@@ -1058,23 +1058,37 @@ def pull_request_review(reports):
     if not r:
         empty_state("No repository selected")
         return
-    info = r["prs"]
-    observed = summary([r])
+    from src.analytics.metrics import calculate_prs
     from src.ui.observed import qualified_reports
-    if not qualified_reports([r], "pull_requests", days=90):
-        st.caption(
-            "The 90-day PR view contains retrieved records and may be "
-            "incomplete. Its counts are observations, not the total "
-            "number of changes across all 90 days."
+    period = st.selectbox("Observation period", [28, 90],
+                          format_func=lambda d: f"Last {d} days",
+                          key="v3_pr_period")
+    now = datetime.now(timezone.utc)
+    verified = bool(qualified_reports([r], "pull_requests", days=period, now=now))
+    cp = (r.get("coverage") or {}).get("pull_requests") or {}
+    info = calculate_prs(
+        r["pr_rows"], now, observation_days=period, complete=verified,
+        coverage_start=cp.get("coverage_start"),
+    )
+    observed = summary([r], now=now, observation_days=period)
+    if not verified:
+        st.warning(
+            f"PR records for the selected {period}-day window are exploratory: "
+            "the source has not verified complete coverage. Merged counts "
+            "describe retrieved records only; missing records are unknown."
         )
     _kpis([
         ("Open changes retrieved", _number(observed["open_changes"]), "Includes draft pull requests", "⇄"),
         ("Draft changes", _number(observed["draft_changes"]), "Of observed open changes", "◈"),
-        ("Merged · 90 days", _number(observed["merged_changes"]), "Observed merge timestamps", "✓"),
+        (f"Merged · {period} days",
+         _number(info["merged_in_period"] if verified else observed["merged_changes"]),
+         "Verified period" if verified else "Retrieved sample, not complete history", "✓"),
         ("Median merge time", _duration(info.get("median_merge_days")),
-         "Only with sufficient verified coverage", "◷"),
+         f"Only {period}-day Verified history with at least 5 merges", "◷"),
     ])
-    st.caption("Counts describe retrieved PR records; the median is withheld without sufficient evidence.")
+    st.caption("Merged events and the distribution below use the same selected period. "
+               "Open changes are current retrieved records; merge duration is not a "
+               "measure of developer productivity or a delivery deadline.")
     with st.expander("PR author account types · observed metadata"):
         from src.analytics.pr_authors import pr_account_evidence
         account_evidence = pr_account_evidence(r["pr_rows"])
@@ -1099,12 +1113,13 @@ def pull_request_review(reports):
         st.caption(account_evidence["scope"])
     buckets = info.get("merge_distribution")
     if buckets is None:
-        buckets = observed_merge_times(r["pr_rows"])
+        buckets = observed_merge_times(r["pr_rows"], now=now, days=period)
     has_merges = sum(buckets.values()) > 0
     with st.container(border=True):
         if has_merges:
             _chart_title("Time from PR creation to merge",
-                         "Observed merged pull requests · last 90 days.")
+                         f"Observed merged pull requests · last {period} days · "
+                         + ("verified" if verified else "exploratory sample"))
             _duration_columns(buckets)
             merged_total = sum(buckets.values())
             first_bucket = next(iter(buckets.values()))
@@ -1115,7 +1130,7 @@ def pull_request_review(reports):
             )
         elif observed["open_changes"]:
             _chart_title("Open pull requests by status",
-                         "No merged pull requests were retrieved in this period.")
+                         "No merged pull requests were retrieved in the selected period.")
             draft_count = observed["draft_changes"] or 0
             ready_count = max(0, observed["open_changes"] - draft_count)
             _horizontal_bars(["Draft", "Ready for review"],
