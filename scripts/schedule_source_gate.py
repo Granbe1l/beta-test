@@ -11,6 +11,7 @@ from __future__ import annotations
 import io
 import json
 import os
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import zipfile
 
@@ -45,8 +46,34 @@ def read_receipt(zip_bytes: bytes) -> dict:
     return result
 
 
-def validate_source_receipt(files: dict, *, expected: int = EXPECTED) -> dict:
-    """Require 3 distinct-source completions AND independently full open Issues."""
+def parse_utc(value: str | None) -> datetime | None:
+    """Parse checkpoint times strictly; unparseable evidence must not pass."""
+    if not isinstance(value, str) or not value:
+        return None
+    value = value.replace("Z", "+00:00")
+    result = datetime.fromisoformat(value)
+    if result.tzinfo is None:
+        return None
+    return result.astimezone(timezone.utc)
+
+
+def selected_cohort(path: Path = Path("data/curated_50_manifest.json")) -> set[str]:
+    """Bind cron proof to the reviewed fixed cohort, not just any 50 names."""
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    names = manifest.get("selected")
+    if (manifest.get("target_repositories") != EXPECTED or
+        not isinstance(names, list) or len(names) != EXPECTED or
+        any(not isinstance(name, str) or not name for name in names) or
+        len(set(names)) != EXPECTED):
+        raise ValueError("curated_cohort_manifest_invalid")
+    return set(names)
+
+
+def validate_source_receipt(
+    files: dict, *, expected: int = EXPECTED,
+    expected_names: set[str] | None = None,
+) -> dict:
+    """Verify actual per-repository checkpoints, not only 50/50 summaries."""
     audit = files["snapshot-audit.json"]
     coverage = files["coverage-readiness.json"]
     inventory = files["open-inventory-triage.json"]
@@ -56,6 +83,11 @@ def validate_source_receipt(files: dict, *, expected: int = EXPECTED) -> dict:
     names = [r.get("name") for r in rows]
     if any(not isinstance(n, str) or not n for n in names) or len(set(names)) != expected:
         raise ValueError("source_repo_identity_missing_or_duplicate")
+    if expected_names is not None and set(names) != expected_names:
+        raise ValueError("source_repo_cohort_does_not_match_manifest")
+    as_of = parse_utc(coverage.get("as_of_utc"))
+    if as_of is None:
+        raise ValueError("coverage_audit_timestamp_missing_or_invalid")
     summary = audit.get("coverage_summary") or {}
     for source in SOURCES:
         stats = summary.get(source) or {}
@@ -68,8 +100,16 @@ def validate_source_receipt(files: dict, *, expected: int = EXPECTED) -> dict:
     if (coverage.get("tracked") != expected or
         coverage.get("verified_joint_28d") != expected or
         coverage.get("window_days") != 28 or
-        coverage.get("stale_hours") != 12):
+        coverage.get("stale_hours") != 12 or
+        coverage.get("not_joint_verified") != 0):
         raise ValueError("strict_joint_28d_not_verified")
+    per_repository = coverage.get("per_repository")
+    if (not isinstance(per_repository, list) or len(per_repository) != expected or
+        {r.get("repository") for r in per_repository if isinstance(r, dict)}
+        != set(names) or
+        not all(isinstance(r, dict) and r.get("verified_joint_28d") is True and
+                r.get("unverified_sources") == [] for r in per_repository)):
+        raise ValueError("per_repository_readiness_missing_or_incomplete")
     if (summary.get("open_backlog", {}).get("complete") != expected or
         summary.get("open_backlog", {}).get("total_repositories") != expected or
         inventory.get("total_selected_repositories") != expected or
@@ -82,11 +122,27 @@ def validate_source_receipt(files: dict, *, expected: int = EXPECTED) -> dict:
             raise ValueError("repository_open_inventory_not_complete")
         if any((row.get("status") or {}).get(s) != "complete" for s in SOURCES):
             raise ValueError("repository_source_not_complete")
+        checkpoints = row.get("source_details") or {}
+        for source in (*SOURCES, "open_backlog"):
+            checkpoint = checkpoints.get(source) or {}
+            completed_at = parse_utc(checkpoint.get("last_success_at"))
+            if checkpoint.get("status") != "complete" or completed_at is None:
+                raise ValueError("repository_checkpoint_not_verified:" + source)
+            # Independent source and inventory freshness at THIS audit,
+            # not a status inherited from some older healthy run.
+            if not (as_of - timedelta(hours=12) <= completed_at
+                    <= as_of + timedelta(minutes=15)):
+                raise ValueError("repository_checkpoint_not_fresh:" + source)
+            if source in SOURCES:
+                started_at = parse_utc(checkpoint.get("coverage_start"))
+                if started_at is None or started_at > as_of - timedelta(days=28):
+                    raise ValueError("repository_checkpoint_window_short:" + source)
     return {"tracked": expected, "joint_verified_28d": expected,
             "full_open_inventories": expected, "scope": "dated collector artifact, not live GitHub state"}
 
 
-def fetch_run_receipt(session, *, api_base: str, run_id: int, headers: dict) -> dict:
+def fetch_run_receipt(session, *, api_base: str, run_id: int, headers: dict,
+                      expected_names: set[str] | None = None) -> dict:
     """Observe one actual run's retained audit. Never infer from green status."""
     if type(run_id) is not int or run_id < 1:
         raise ValueError("invalid_run_id")
@@ -113,7 +169,8 @@ def fetch_run_receipt(session, *, api_base: str, run_id: int, headers: dict) -> 
             if used > MAX_ZIP_BYTES:
                 raise ValueError("source_audit_download_exceeds_limit")
             chunks.append(part)
-    return validate_source_receipt(read_receipt(b"".join(chunks)))
+    return validate_source_receipt(read_receipt(b"".join(chunks)),
+                                   expected_names=expected_names)
 
 
 def evaluate_gate(schedule: dict, receipts: list[dict]) -> dict:
@@ -142,6 +199,7 @@ def main() -> None:
     ids = schedule.get("run_ids") or []
     receipts = []
     if schedule.get("status") == "verified_recent_cycles" and len(ids) == 3:
+        cohort_names = selected_cohort()
         repo = os.environ.get("GITHUB_REPOSITORY", "Granbe1l/beta-test")
         token = os.environ.get("GITHUB_TOKEN")
         if not token:
@@ -154,7 +212,8 @@ def main() -> None:
             for run_id in ids:
                 try:
                     values = fetch_run_receipt(
-                        session, api_base=api, run_id=run_id, headers=headers)
+                        session, api_base=api, run_id=run_id, headers=headers,
+                        expected_names=cohort_names)
                     receipts.append({"run_id": run_id, "status": "verified", **values})
                 except (ValueError, KeyError, zipfile.BadZipFile,
                         requests.RequestException, json.JSONDecodeError):
