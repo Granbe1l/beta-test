@@ -94,9 +94,10 @@ distinguishes incomplete exploratory histories.
 
 ## What not to claim
 
-A [dated 14 November 2026 source audit](https://github.com/Granbe1l/beta-test/actions/runs/43547169286)
+A [dated 14 November 2026, 17:54 WIB source audit](https://github.com/Granbe1l/beta-test/actions/runs/43587299217)
 **did** verify 50/50 complete 28-day Issue/PR/CI sources and separately
-50/50 fresh full-open Issue inventories. You may state that **dated**
+50/50 fresh full-open Issue inventories; all eight previously stale open inventories
+were recovered using the same capped API budget. You may state that **dated**
 result with its verification link, but do **not** imply permanent
 50/50 coverage, continuous 24/7 uptime, live real-time data, employee
 productivity rankings, confirmed missed deadlines, customer SLAs,

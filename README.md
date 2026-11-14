@@ -39,6 +39,8 @@ tracker, SLA monitor or employee-productivity ranking.
 **Reader guide:** [60-second plain-language walkthrough](docs/REVIEWER_QUICK_GUIDE.md).
 For implementation and caveats, use the technical sections below.
 
+**Latest dated source proof:** [17:54 WIB, 14 November 2026 collector](https://github.com/Granbe1l/beta-test/actions/runs/43587299217) verified 50/50 matched 28-day source windows and 50/50 independently fresh full-open Issue inventories. This is a historical measurement, not uninterrupted coverage. The external rescue scheduler is [implemented but not deployed](external_refresh/cloudflare/README.md).
+
 **Show the work:** [one-page case study](docs/PORTFOLIO_CARD.md) ·
 [3 real GitHub record walkthroughs](docs/EVIDENCE_CASE_STUDIES.md) ·
 [full technical evidence](docs/PORTFOLIO_CASE_STUDY.md) ·
