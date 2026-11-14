@@ -67,8 +67,8 @@ def preview_review_plan(data: dict) -> list[dict]:
                 "title": "Check unavailable " + source + " data",
                 "explanation": (
                     source + " API observations are unavailable (" +
-                    str(data[key]) + "). Do not interpret missing records as "
-                    "zero activity; retry when the API permits."),
+                    str(data[key]) + "). Missing records are unknown, not zero activity; "
+                    "retry when the API permits."),
                 "url": None,
             })
     if not data.get("ci_error") and data.get("sample_ci_failed", 0):
