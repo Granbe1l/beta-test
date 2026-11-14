@@ -1,4 +1,4 @@
-name: Audit completed six-hour GitHub schedules
+name: Audit completed four-hour GitHub schedules
 on:
   # The ingestion job cannot audit itself while its schedule run is in progress.
   # This independent, read-only observer starts only AFTER a refresh ends.

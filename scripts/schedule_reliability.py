@@ -69,7 +69,8 @@ def schedule_health(runs: list[dict], required: int = 3, *,
         for i in range(required - 1)
     ]
     result["observed_intervals_hours"] = [round(v, 2) for v in spacing]
-    if not all(3 <= hours <= 6.5 for hours in spacing):
+    # A six-hour pattern must NOT pass a four-hour collection cadence audit.
+    if not all(2.5 <= hours <= 5.75 for hours in spacing):
         result["status"] = "needs_review"
     elif not result["latest_schedule_is_recent"]:
         result["status"] = "stale_schedule"
