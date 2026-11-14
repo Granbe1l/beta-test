@@ -20,7 +20,7 @@ def test_github_only_watchdog_does_not_pretend_to_be_external_scheduler():
     script = (ROOT / "scripts/snapshot_watchdog.py").read_text()
     assert "cron: '47 * * * *'" in workflow
     assert "workflow_dispatch:" in workflow
-    assert "not independent" not in workflow.lower() or "NOT independent" in workflow
+    assert "NOT independent uptime proof" in workflow
     assert "MAX_AGE_HOURS = 6" in script
     assert "BACKOFF_MINUTES = 90" in script
     assert 'run.get("status") in ("queued", "in_progress", "waiting", "requested", "pending")' in script
