@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.analytics.case_studies import build_case_studies
 from src.analytics.snapshot import read_snapshot
 from src.analytics.metrics import utc
+from src.analytics.ci_workflow import workflow_contributions
 from src.ui.observed import verified_joint_cohort
 
 _SOURCE = {"issue-aging": "issue_rows", "ci": "ci_rows", "merge-duration": "pr_rows"}
@@ -39,6 +40,13 @@ def audit() -> dict:
             assert row["state"] == "open"
         elif kind == "ci":
             assert row.get("conclusion") in ("failure", "timed_out")
+            context = case.get("ci_workflow_context")
+            assert context and context["days"] == 28
+            assert (context["known_total"] + context["unknown_total"]
+                    == context["completed_total"])
+            assert sum(x["Known results"] for x in context["rows"]) == context["known_total"]
+            assert sum(x["Unknown"] for x in context["rows"]) == context["unknown_total"]
+            assert "not independent defects" in context["disclaimer"]
         elif kind == "merge-duration":
             created = utc(row.get("created_at"))
             merged = utc(row.get("merged_at"))
@@ -53,7 +61,8 @@ def audit() -> dict:
         checks.append({key: case[key] for key in (
             "kind", "repository", "metric_value", "metric_context",
             "evidence_scope", "record_url", "status",
-            "example_duration_label", "example_selection")})
+            "example_duration_label", "example_selection",
+            "ci_workflow_context")})
     assert len(cases) <= 3
     # A separate test fixture asserts three types when available. On the
     # real dataset we report the actual number without inventing any type.

@@ -11,12 +11,21 @@ verified 28-day tracked cohort and selects up to one example of each:
 | Example | Measured signal | What can actually be checked | Action boundary |
 | --- | --- | --- | --- |
 | Older open Issues | Observed 30+ day open-Issue share from complete current inventory | Original issue status, labels, conversation | Aged ≠ late; only follow up if still relevant |
-| CI results | Known completed run success share and at least one genuine failed/timed-out run | Actual Actions logs, branch and adjacent reruns | Failed run ≠ failed release |
+| CI results | Known completed run success share and at least one genuine failed/timed-out run | Actual Actions logs, branch, adjacent reruns **and recorded workflow-name mix** | Failed run ≠ failed release; one busy workflow can dominate totals |
 | PR merge duration | Median creation-to-merge time over verified 28-day merged changes, n≥5 | Actual merged PR scope and review timeline | Median ≠ developer productivity |
 
 Each case is **conditional**, not an investigation already completed.
 The tool cannot validate private task importance, maintainers' intentions,
 release outcomes, business loss, developer hours or customer deadlines.
+
+**Workflow mix:** The CI walkthrough expands a table of completed known and
+unknown outcomes grouped by *recorded workflow name*, for the same verified
+28-day window. The table discloses each group's numerator, denominator,
+contribution to all known results, and success/failure/skipped/other counts.
+Multiple runs of one workflow are not independent failures; workflow display
+names may not uniquely identify the underlying definition. The top five names
+and an explicitly aggregated remainder preserve exact counts and do not imply
+comparative engineering quality.
 
 ## Snapshot-backed examples, 14 November 2026
 
