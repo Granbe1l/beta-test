@@ -7,6 +7,7 @@ record. If a category is unavailable, it is omitted rather than fabricated.
 from __future__ import annotations
 
 from src.analytics.findings import findings_for_repo
+from src.analytics.metrics import utc
 from src.ui.observed import verified_joint_cohort
 
 _CASES = {
@@ -75,6 +76,31 @@ def build_case_studies(reports: list[dict], *, limit: int = 3) -> list[dict]:
                        for row in source.get(_SOURCE[kind]) or []):
                 continue
             plan = finding.get("review_plan") or {}
+            # The example is deliberately selected for inspection (the
+            # longest merged PR), not because it represents the median.
+            # Derive its *individual* duration from the exact stored row.
+            example_duration_minutes = None
+            example_duration_label = None
+            example_selection = None
+            if kind == "merge-duration":
+                record = next(
+                    (row for row in source.get("pr_rows") or []
+                     if row.get("url") == link), None)
+                created = utc((record or {}).get("created_at"))
+                merged = utc((record or {}).get("merged_at"))
+                if created is None or merged is None or merged < created:
+                    continue
+                example_duration_minutes = (
+                    merged - created).total_seconds() / 60
+                if example_duration_minutes < 60:
+                    example_duration_label = f"{example_duration_minutes:.0f} min"
+                elif example_duration_minutes < 1440:
+                    example_duration_label = f"{example_duration_minutes / 60:.1f} hours"
+                else:
+                    example_duration_label = f"{example_duration_minutes / 1440:.2f} days"
+                example_selection = (
+                    "Longest observed merged PR from this verified window; "
+                    "an inspection example, not the median.")
             cases.append({
             "kind": kind,
             "title": title,
@@ -82,6 +108,9 @@ def build_case_studies(reports: list[dict], *, limit: int = 3) -> list[dict]:
             "record_title": original["label"],
             "record_url": link,
             "record_reason": original["reason"],
+            "example_duration_minutes": example_duration_minutes,
+            "example_duration_label": example_duration_label,
+            "example_selection": example_selection,
             "metric_label": finding["metric_label"],
             "metric_value": finding["metric_value"],
             "metric_context": finding["metric_context"],

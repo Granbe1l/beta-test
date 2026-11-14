@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from math import isclose
 from pathlib import Path
 import sys
 
@@ -9,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.analytics.case_studies import build_case_studies
 from src.analytics.snapshot import read_snapshot
+from src.analytics.metrics import utc
 from src.ui.observed import verified_joint_cohort
 
 _SOURCE = {"issue-aging": "issue_rows", "ci": "ci_rows", "merge-duration": "pr_rows"}
@@ -38,13 +40,23 @@ def audit() -> dict:
         elif kind == "ci":
             assert row.get("conclusion") in ("failure", "timed_out")
         elif kind == "merge-duration":
-            assert row.get("merged_at") is not None
+            created = utc(row.get("created_at"))
+            merged = utc(row.get("merged_at"))
+            assert created and merged and merged >= created
+            calculated = (merged - created).total_seconds() / 60
+            assert isclose(case["example_duration_minutes"], calculated,
+                           rel_tol=0, abs_tol=0.001)
+            assert case["example_duration_label"] and "not the median" in (
+                case["example_selection"] or "")
         types.add(kind)
         names.add(name)
         checks.append({key: case[key] for key in (
             "kind", "repository", "metric_value", "metric_context",
-            "evidence_scope", "record_url", "status")})
+            "evidence_scope", "record_url", "status",
+            "example_duration_label", "example_selection")})
     assert len(cases) <= 3
+    # A separate test fixture asserts three types when available. On the
+    # real dataset we report the actual number without inventing any type.
     return {
         "status": "passed",
         "audit_kind": "Real public GitHub records, not verified business outcomes",

@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta, timezone
 
 from src.analytics.case_studies import build_case_studies
+from src.analytics.metrics import utc
 
 
 def make_report(kind, number):
@@ -99,3 +100,35 @@ def test_oldest_evidence_uses_precise_timestamp_not_rounded_day_count():
         hours=2), limit=1)
     assert first[0]["url"] == base + "/issues/2"
     assert later[0]["url"] == base + "/issues/2"
+
+
+def test_longest_pr_example_duration_is_not_mislabelled_as_median():
+    now = datetime.now(timezone.utc)
+    reports = [make_report("x", n) for n in (1, 2, 3)]
+    r = reports[2]
+    base = r["repository"]["url"]
+    # The real project's shape: six very quick merges + one 85.4-hour PR.
+    prs = []
+    for i in range(6):
+        m = now - timedelta(days=i + 2)
+        prs.append({
+            "state": "closed", "draft": False,
+            "url": f"{base}/pull/{i + 1}",
+            "created_at": m - timedelta(minutes=4), "merged_at": m,
+        })
+    latest = now - timedelta(days=1)
+    prs.append({
+        "state": "closed", "draft": False, "url": f"{base}/pull/34",
+        "created_at": latest - timedelta(hours=85.4), "merged_at": latest,
+    })
+    r["pr_rows"] = prs
+    chosen = [c for c in build_case_studies(reports) if c["kind"] == "merge-duration"]
+    assert len(chosen) == 1
+    case = chosen[0]
+    assert case["repository"] == r["repository"]["full_name"]
+    assert case["metric_value"] == "4 min"
+    assert case["record_url"].endswith("/pull/34")
+    assert case["example_duration_label"] == "3.56 days"
+    assert case["example_duration_minutes"] > 5000
+    assert "not the median" in case["example_selection"]
+    assert case["metric_context"].startswith("7 observed")

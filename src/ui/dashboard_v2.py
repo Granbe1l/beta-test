@@ -1273,6 +1273,17 @@ def risks_recommendations(reports, selection):
                 st.caption("Measured basis: " + case["metric_context"])
                 st.markdown("**Original record to inspect:** " + case["record_title"])
                 st.link_button("Open recorded GitHub evidence", case["record_url"])
+                if case["kind"] == "merge-duration":
+                    st.caption(
+                        f'Individual linked PR: {case["example_duration_label"]}. '
+                        + case["example_selection"]
+                    )
+                    st.caption(
+                        "Median is calculated across all qualifying merged PRs; "
+                        "this particular long-running PR is not a representative median."
+                    )
+                else:
+                    st.caption("Why this record: " + case["record_reason"])
                 with st.expander("Inspection question and decision boundary"):
                     st.markdown("**Why review:** " + case["trigger"])
                     st.markdown("**Inspect:** " + case["next_check"])
