@@ -2,6 +2,11 @@ name: Monitor GitHub snapshot repository growth
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/repository-size-audit.yml'
+      - 'scripts/repository_growth.py'
   workflow_run:
     workflows: [Refresh curated public GitHub snapshot]
     types: [completed]
@@ -14,6 +19,7 @@ jobs:
   footprint:
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
       github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5
