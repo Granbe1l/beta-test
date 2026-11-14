@@ -9,6 +9,11 @@ def test_first_screen_has_one_decision_path_before_charts():
     overview = code.split("def overview(reports,", 1)[1].split(
         "def project_details(reports):", 1)[0]
     assert overview.index('Quick reading') < overview.index('trend_panel(chosen)')
+    # Recruiter-first on mobile: actual finding precedes descriptive KPI cards.
+    assert overview.index('What should we inspect?') < overview.index(
+        '("Projects in analysis"')
+    assert overview.index('("Projects pushed · 7d"') < overview.index(
+        'trend_panel(chosen)')
     assert overview.index('What should we inspect?') < overview.index(
         'What happened in the last 7 days?')
     assert overview.index('What should we inspect?') < overview.index(
