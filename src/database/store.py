@@ -28,6 +28,11 @@ def init_db(engine):
             conn.execute(text(
                 "ALTER TABLE sync_checkpoints ADD COLUMN verified_days JSON"
             ))
+        pr_columns = {c["name"] for c in inspect(conn).get_columns("pull_requests")}
+        if "author_type" not in pr_columns:
+            conn.execute(text(
+                "ALTER TABLE pull_requests ADD COLUMN author_type VARCHAR(24)"
+            ))
         observation_columns = {c["name"] for c in inspect(conn).get_columns("observations")}
         if "collection_basis" not in observation_columns:
             conn.execute(text(

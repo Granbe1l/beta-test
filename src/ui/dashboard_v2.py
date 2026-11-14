@@ -1047,6 +1047,28 @@ def pull_request_review(reports):
          "Only with sufficient verified coverage", "◷"),
     ])
     st.caption("Counts describe retrieved PR records; the median is withheld without sufficient evidence.")
+    with st.expander("PR author account types · observed metadata"):
+        from src.analytics.pr_authors import pr_account_evidence
+        account_evidence = pr_account_evidence(r["pr_rows"])
+        if account_evidence["known"]:
+            counts = account_evidence["counts"]
+            _horizontal_bars(
+                list(counts), list(counts.values()),
+                [GREEN, PURPLE, GOLD], height=240,
+                unit="Retrieved PR records",
+            )
+            st.caption(
+                f'{account_evidence["known"]:,} of '
+                f'{account_evidence["observed"]:,} retrieved PRs have '
+                'known GitHub User/Bot account type.'
+            )
+        else:
+            st.info(
+                "Account-type metadata is not yet present in the retrieved "
+                "PR records. Old snapshot rows remain Unknown until real "
+                "GitHub API responses supply their account type."
+            )
+        st.caption(account_evidence["scope"])
     buckets = info.get("merge_distribution")
     if buckets is None:
         buckets = observed_merge_times(r["pr_rows"])

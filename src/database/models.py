@@ -91,6 +91,8 @@ class PullRequest(Base):
     merged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     labels: Mapped[list] = mapped_column(JSON, default=list)
     review_comments: Mapped[int | None] = mapped_column(Integer)
+    # GitHub user.type is account metadata, not evidence of human identity.
+    author_type: Mapped[str | None] = mapped_column(String(24))
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     __table_args__ = (UniqueConstraint("repo_id", "number"), Index("ix_pr_repo_updated", "repo_id", "updated_at"))
 

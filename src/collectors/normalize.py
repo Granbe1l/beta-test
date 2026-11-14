@@ -33,12 +33,16 @@ def issue(raw: dict, repo_id: int) -> dict | None:
 
 
 def pull_request(raw: dict, repo_id: int) -> dict:
+    account = raw.get("user")
+    kind = account.get("type") if isinstance(account, dict) else None
+    author_type = kind if kind in {"User", "Bot", "Organization"} else None
     return dict(id=int(raw["id"]), repo_id=repo_id, number=int(raw["number"]),
                 url=source_url(raw, "/pull/"), title=raw.get("title") or "(untitled)",
                 state=raw["state"], draft=bool(raw.get("draft", False)),
                 created_at=dt(raw.get("created_at")), updated_at=dt(raw.get("updated_at")),
                 closed_at=dt(raw.get("closed_at"), False), merged_at=dt(raw.get("merged_at"), False),
-                labels=labels(raw), review_comments=raw.get("review_comments") if isinstance(raw.get("review_comments"), int) else None)
+                labels=labels(raw), author_type=author_type,
+                review_comments=raw.get("review_comments") if isinstance(raw.get("review_comments"), int) else None)
 
 
 def workflow_run(raw: dict, repo_id: int) -> dict:
