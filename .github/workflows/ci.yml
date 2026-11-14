@@ -15,6 +15,16 @@ jobs:
           python-version: '3.12'
           cache: pip
       - run: pip install -r requirements.txt
+      - name: Record tested Python and direct dependency versions
+        run: python scripts/record_runtime_environment.py
+      - name: Preserve installed-runtime audit receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tested-python-runtime
+          path: tested-runtime.json
+          if-no-files-found: warn
+          retention-days: 14
       - run: python -m compileall -q src scripts streamlit_app.py
       - run: python -m pytest -q
       - name: Benchmark real curated snapshot (no fabricated data)
