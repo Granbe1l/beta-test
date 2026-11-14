@@ -88,9 +88,10 @@ def test_six_view_navigation_and_purple_mobile_theme():
     # A visual-first dashboard cannot make its primary line chart wait below
     # summary paragraphs, coverage ribbons, or a long glossary.
     overview = v2[v2.index('def overview('):v2.index('def project_details(')]
-    assert overview.index('trend_panel(chosen)') < overview.index('Quick reading')
+    assert overview.index('Quick reading') < overview.index('trend_panel(chosen)')
     assert overview.index('trend_panel(chosen)') < overview.index('_coverage_banner(chosen)')
     assert overview.index('trend_panel(chosen)') < overview.index('_findings_view(')
+    assert 'Show supporting charts and source details' in overview
     assert '_finding_visual(f)' in v2
     assert 'Issues closed · two verified 28-day periods' in v2
     assert 'f["previous_count"]' in v2 and 'f["recent_count"]' in v2

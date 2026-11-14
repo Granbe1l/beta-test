@@ -186,9 +186,21 @@ try:
         desktop.screenshot(path=str(OUT / "desktop-line-prs.png"), full_page=False)
         desktop.get_by_role("tab", name="Issues · tasks & reports").click(timeout=10000)
         time.sleep(.8)
+        # The long supporting charts are deliberately lazy/closed by default.
+        deep = desktop.get_by_text(
+            "Show supporting charts and source details", exact=True)
+        deep.click(timeout=12000)
+        desktop.get_by_text(
+            "04 / Matched snapshot change", exact=True).wait_for(timeout=15000)
         desktop.get_by_text("04 / Matched snapshot change", exact=True).scroll_into_view_if_needed(timeout=10000)
         time.sleep(1.0)
         desktop.screenshot(path=str(OUT / "desktop-charts.png"), full_page=False)
+        desktop.get_by_text(
+            "Show supporting charts and source details", exact=True).click(
+                timeout=12000)
+        desktop.get_by_text(
+            "04 / Matched snapshot change", exact=True).wait_for(
+                state="detached", timeout=15000)
         desktop.evaluate("window.scrollTo(0, 0)")
         print("Captured line charts for issues and pull requests", flush=True)
         # Verify the actual CSV control works, not just that it is visible.
