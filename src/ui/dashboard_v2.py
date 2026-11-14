@@ -1284,6 +1284,19 @@ def risks_recommendations(reports, selection):
                     )
                 else:
                     st.caption("Why this record: " + case["record_reason"])
+                if case["kind"] == "ci" and case.get("ci_workflow_context"):
+                    context = case["ci_workflow_context"]
+                    with st.expander("Recorded workflow mix · 28 days"):
+                        st.caption(
+                            f'{context["known_total"]:,} completed checks with '
+                            f'known conclusions across {context["recorded_name_groups"]} '
+                            f'recorded workflow-name groups; '
+                            f'{context["unknown_total"]:,} unknown outcomes are '
+                            "excluded from the success denominator."
+                        )
+                        st.dataframe(pd.DataFrame(context["rows"]),
+                                     hide_index=True, use_container_width=True)
+                        st.caption(context["disclaimer"])
                 with st.expander("Inspection question and decision boundary"):
                     st.markdown("**Why review:** " + case["trigger"])
                     st.markdown("**Inspect:** " + case["next_check"])

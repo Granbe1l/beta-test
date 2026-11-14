@@ -251,19 +251,50 @@ try:
                 desktop.get_by_text(
                     "Real GitHub evidence walkthroughs", exact=True).wait_for(
                     timeout=15000)
-                case_tab = desktop.get_by_role("tab", name="Older open work")
-                if case_tab.count():
+                case_categories = [
+                    ("Older open work", "/issues/"),
+                    ("Automated check results", "/actions/runs/"),
+                    ("Time to merge code changes", "/pull/"),
+                ]
+                inspected = []
+                for case_name, expected_path in case_categories:
+                    case_tab = desktop.get_by_role("tab", name=case_name)
+                    if not case_tab.count():
+                        # The real dataset may legitimately provide fewer than
+                        # three examples; do not insert a simulated case.
+                        continue
                     case_tab.first.click(timeout=10000)
                     link = desktop.get_by_role(
                         "link", name="Open recorded GitHub evidence").first
                     link.wait_for(timeout=10000)
-                    assert (link.get_attribute("href") or "").startswith(
-                        "https://github.com/"), "Case source must be real GitHub"
-                    print("Verified record-linked case-study browser journey", flush=True)
-                else:
+                    href = link.get_attribute("href") or ""
+                    assert (href.startswith("https://github.com/")
+                            and expected_path in href), (
+                        f"{case_name}: wrong individual source: {href}")
+                    if case_name == "Time to merge code changes":
+                        desktop.get_by_text(
+                            "Individual linked PR:", exact=False).first.wait_for(
+                            timeout=12000)
+                        desktop.get_by_text(
+                            "not a representative median", exact=False
+                        ).first.wait_for(timeout=12000)
+                    if case_name == "Automated check results":
+                        exp = desktop.get_by_text(
+                            "Recorded workflow mix · 28 days", exact=True)
+                        exp.click(timeout=12000)
+                        desktop.get_by_text(
+                            "completed checks with known conclusions",
+                            exact=False).first.wait_for(timeout=12000)
+                        exp.click(timeout=12000)
+                    inspected.append(case_name)
+                    print(f"Verified real source tab: {case_name} / {href}",
+                          flush=True)
+                if not inspected:
                     assert desktop.get_by_text(
                         "No original-record examples meet", exact=False).count(), (
-                        "Missing verified case examples require truthful empty state")
+                        "Missing source cases need an honest empty state")
+                print("Verified all available source-backed case tabs",
+                      len(inspected), flush=True)
                 export_action = desktop.get_by_role(
                     "button", name="Export evidence review plan (CSV)")
                 if export_action.count():

@@ -7,6 +7,7 @@ record. If a category is unavailable, it is omitted rather than fabricated.
 from __future__ import annotations
 
 from src.analytics.findings import findings_for_repo
+from src.analytics.ci_workflow import workflow_contributions
 from src.analytics.metrics import utc
 from src.ui.observed import verified_joint_cohort
 
@@ -101,6 +102,11 @@ def build_case_studies(reports: list[dict], *, limit: int = 3) -> list[dict]:
                 example_selection = (
                     "Longest observed merged PR from this verified window; "
                     "an inspection example, not the median.")
+            ci_context = (
+                workflow_contributions(source.get("ci_rows") or [],
+                                       days=28)
+                if kind == "ci" else None
+            )
             cases.append({
             "kind": kind,
             "title": title,
@@ -111,6 +117,7 @@ def build_case_studies(reports: list[dict], *, limit: int = 3) -> list[dict]:
             "example_duration_minutes": example_duration_minutes,
             "example_duration_label": example_duration_label,
             "example_selection": example_selection,
+            "ci_workflow_context": ci_context,
             "metric_label": finding["metric_label"],
             "metric_value": finding["metric_value"],
             "metric_context": finding["metric_context"],
