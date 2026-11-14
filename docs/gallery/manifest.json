@@ -1,5 +1,5 @@
 {
-  "captured_in_ci_at_utc": "2026-11-14T02:01:15.551978+00:00",
+  "captured_in_ci_at_utc": "2026-11-14T02:07:30.672263+00:00",
   "mobile_views_tested": 6,
   "not": "Synthetic UI, production deployment proof, or real HR participant result",
   "screenshots": [
@@ -17,35 +17,35 @@
     },
     {
       "original": "desktop-issues.png",
-      "original_sha256": "d8228621b36a46e680d89159d4896b49fa2fe6de8cf21e7c893e12740b123103",
+      "original_sha256": "c8d7798847b282722c2ee16a271e57181c54717b7d991ac17b7ff4595ad5ddd9",
       "preview": "issues.jpg",
-      "preview_bytes": 62478
+      "preview_bytes": 62484
     },
     {
       "original": "desktop-pull-requests.png",
-      "original_sha256": "de4179107f4f08ea28dbb2e706b4158b344ec9e3b9aeadd6d5741c77e5774592",
+      "original_sha256": "5a67ec3c10997f61f2bc7316c545091b3edbd83600c156fce296267fd1403af5",
       "preview": "pull-requests.jpg",
-      "preview_bytes": 59105
+      "preview_bytes": 58780
     },
     {
       "original": "desktop-ci-cd.png",
-      "original_sha256": "f928060ea9f18ef6b271c8a026a7fcdc1a99e964e79babfd714fdb0b33b15147",
+      "original_sha256": "1272bf1519400ecb8670a6826795fb570876152d0750b4c72c03174cee6b338d",
       "preview": "ci-cd.jpg",
-      "preview_bytes": 71465
+      "preview_bytes": 71430
     },
     {
       "original": "desktop-findings.png",
-      "original_sha256": "6a59dad92773d8c9e964645debebf383d62f4ca4dfa8032c631cecc9d500f8b9",
+      "original_sha256": "108ae9a940a9727da53d121eb0f6f2e8df0fb43942e6e1a1046daadc51d2ca13",
       "preview": "findings.jpg",
-      "preview_bytes": 86940
+      "preview_bytes": 86956
     },
     {
       "original": "mobile-overview.png",
-      "original_sha256": "48d89a3c76e153cbf843d38b3046f085d5cb0567fd2f70e620a229ef57455bc0",
+      "original_sha256": "9a050bc648a50a4c09c6e7dd63d4aac7b45eb6a84859c73f2292e871b157069d",
       "preview": "mobile.jpg",
-      "preview_bytes": 55859
+      "preview_bytes": 55862
     }
   ],
   "source": "Actual Playwright screenshots from Streamlit app with checked-in real public GitHub snapshot",
-  "source_commit": "3f4fe1dba389846efa6d27b1e6e50c030cce52fc"
+  "source_commit": "b1cf2888904e935e5e68706bade6c3fc9cde3899"
 }
