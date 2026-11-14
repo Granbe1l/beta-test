@@ -51,7 +51,7 @@ inspection questions**, not opaque project-health or productivity scores.
 
 **Portfolio claim boundary:** The app does not monitor confidential client
 projects, deadlines, SLAs, developer productivity or code quality. The
-six-hour GitHub Actions schedule is best effort; full cadence reliability
+four-hour GitHub Actions schedule is best effort; full cadence reliability
 is not established by a successful manual run.
 
 ## Links to independently check

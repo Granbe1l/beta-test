@@ -8,8 +8,8 @@ protocol, **not** a claim that user testing has already taken place.
 ## Participants and setup
 
 Ask 3–5 people who have not built the app, ideally including at least
-two without GitHub or software-development experience. Use the existing
-real 75-repository snapshot. Record device type (desktop or mobile)
+two without GitHub or software-development experience. Use the current
+real 50-repository snapshot. Record device type (desktop or mobile)
 without collecting names, private accounts or personal data.
 
 Provide the dashboard without verbal coaching. Do not explain "PR", "CI/CD"

@@ -43,7 +43,7 @@ or additional data have been copied into the project.
 
 ## Publication evidence gate
 
-The six-hour UTC cron and manual dispatch remain. A pipeline-workflow-only
+The four-hour UTC cron and manual dispatch remain. A pipeline-workflow-only
 push trigger permits testing actual data collection after changing that
 workflow, without executing ingestion on every UI/code commit.
 
@@ -66,7 +66,7 @@ labelled partial, even when the overall workflow has succeeded.
 
 Inspect GitHub Actions run event, logs, before/after JSON artifacts,
 and the actual snapshot publication commit. Screenshots and green pytest
-alone cannot prove a successful six-hour scheduled ingestion. Multiple
+alone cannot prove a successful four-hour scheduled ingestion. Multiple
 scheduled runs are needed before claiming operational reliability.
 
 Very busy Issues/PRs may still reach the REST page cap even within
@@ -93,12 +93,12 @@ requested interval to be fully covered.
 
 The collector prioritizes stale previously-complete sources, keeps
 partials in the fair rotation, and rotates Issues/PR/CI ordering across
-six-hour slots. Existing SQLite/PostgreSQL installations receive an
+scheduled collection slots. Existing SQLite/PostgreSQL installations receive an
 additive JSON checkpoint-column migration.
 
 Historical 75-repository load/analysis benchmarks appear in GitHub Actions
 summaries, and screenshot browser checks are triggered after successfully
-published source refreshes. These checks do not prove exact six-hour
+published source refreshes. These checks do not prove exact four-hour
 punctuality, 100% lifetime data completeness, or public app uptime.
 
 ## Current collection efficiency and independent schedule evidence
@@ -161,7 +161,7 @@ from new code or test fixtures.
 ## P1 operational freshness of scheduled GitHub refresh
 
 A successful `push` or `workflow_dispatch` run shows that GitHub
-collection can execute. It does **not** prove that the six-hour cron
+collection can execute. It does **not** prove that the four-hour cron
 fires consistently. `scripts/schedule_reliability.py` requires all
 of the following independent observations:
 

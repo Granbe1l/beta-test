@@ -4,7 +4,7 @@
 
 Use **Explore repositories → Tracked dataset**. Search among the repositories
 in the chosen evidence scope by owner, name, language, or category. The
-original 75 curated identities, saved Issue/PR/CI rows, 28-day Verified gate,
+fixed 50 curated identities, saved Issue/PR/CI rows, 28-day Verified gate,
 source checkpoint timestamps, and published snapshot remain unchanged.
 
 A tracked repository missing from Verified mode must be viewed under
