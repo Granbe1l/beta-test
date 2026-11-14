@@ -628,23 +628,86 @@ def overview(reports, selection, all_reports=None):
          "GitHub last-push metadata, not feature releases", "↗"),
     ])
     from src.ui.observed import evidence_readiness
-    readiness = evidence_readiness(chosen)
     from src.ui.reviewer_cohort import decision_brief_cohort
+    from src.analytics.review_decisions import evidence_action
+
+    readiness = evidence_readiness(chosen)
     global_cohort = all_reports if all_reports is not None else reports
     cohort = decision_brief_cohort(global_cohort, chosen)
     initial_findings = _findings(chosen)
-    next_subject = (
-        initial_findings[0]["type"].replace("-", " ")
-        if initial_findings else "source coverage before drawing conclusions"
-    )
-    st.markdown(
-        f'**Decision brief:** {cohort["verified_28d"]}/{cohort["tracked"]} '
-        'total tracked repositories have 28-day verified Issue, PR and CI sources. '
-        f'This current filtered view contains {cohort["in_view"]} repositories. '
-        f'First inspect **{esc(next_subject)}**, open the original GitHub evidence, '
-        'then check source completeness. No client-deadline or quality verdict '
-        'is inferred from these records.'
-    )
+    finding_cards = initial_findings
+    brief = executive_brief(chosen, findings=finding_cards)
+
+    # A 30-second evidence-first path replaces the old dense sentence and
+    # duplicated lower three-column readout. Keep one source-backed action.
+    with st.container(border=True):
+        st.caption(
+            f'Quick reading · {cohort["verified_28d"]}/{cohort["tracked"]} '
+            "tracked repositories have jointly Verified 28-day Issue/PR/CI "
+            f"source windows. This view contains {cohort['in_view']} projects."
+        )
+        st.caption("Public development signals, not client deadlines. "
+                   "No client-deadline or quality verdict is inferred from this data.")
+        activity_column, evidence_column = st.columns([1.65, 1], gap="medium")
+        with activity_column:
+            st.markdown("**What happened in the last 7 days?**")
+            st.markdown(
+                f'{brief["activity"]["recent_pushes"]:,}/{len(chosen):,} '
+                "projects have a recent code push in GitHub metadata. "
+                f'{brief["activity"]["opened_issues"]:,} Issues opened and '
+                f'{brief["activity"]["merged_prs"]:,} PRs merged in '
+                "retrieved records."
+            )
+            st.caption("Missing records are not zero activity. A push is "
+                       "not proof that a feature or client milestone shipped.")
+            st.markdown("**What should we inspect?**")
+            if brief["finding"]:
+                lead = brief["finding"]
+                st.markdown(
+                    f'**First inspect: {lead["title"]}**'
+                )
+                st.caption(
+                    f'{lead["metric_label"]}: {lead["metric_value"]} '
+                    f'· {lead["scope"]}'
+                )
+                if brief.get("why_review"):
+                    st.caption("Why inspect: " + brief["why_review"])
+                st.caption("Next action: " + brief["next_check"])
+            else:
+                st.write("No source-backed finding passes the review thresholds.")
+                st.caption(
+                    "This does not prove that all projects are healthy. "
+                    "Review original records and source completeness."
+                )
+        with evidence_column:
+            st.markdown("**How complete is the evidence?**")
+            verified = brief["coverage_28d"]
+            st.metric("Verified Issues · 28d",
+                      f'{verified["issues"]}/{len(chosen)}',
+                      help="Full last 28-day source scan, not full lifetime history.")
+            st.caption(
+                f'PRs {verified["pull_requests"]}/{len(chosen)} · '
+                f'CI {verified["workflow_runs"]}/{len(chosen)} jointly '
+                "verified for 28 days."
+            )
+            full_inventory = sum(
+                r.get("open_backlog_status") == "complete" for r in chosen
+            )
+            st.caption(
+                f'Full open-Issue inventory: {full_inventory}/{len(chosen)} '
+                "independently verified and fresh. This is not the same "
+                "as the 28-day event window."
+            )
+            if finding_cards:
+                action = evidence_action(finding_cards[0])
+                if action["url"]:
+                    label = ("Open an original GitHub record"
+                             if action["record_level"]
+                             else "Open GitHub source listing")
+                    st.link_button(label, action["url"],
+                                   use_container_width=True)
+                    st.caption(action["disclosure"])
+
     with st.expander("Evidence coverage · verified vs exploratory"):
         st.caption(
             "Evidence-ready cohorts within this selection: "
@@ -659,53 +722,6 @@ def overview(reports, selection, all_reports=None):
     _section("01 / Activity over time",
              "Daily recorded events · 7 or 28 days · exploratory and verified scopes")
     trend_panel(chosen)
-
-    # Keep the first chart visual-first. Follow it with a small executive
-    # readout instead of a dense technical paragraph.
-    finding_cards = initial_findings
-    brief = executive_brief(chosen, findings=finding_cards)
-    with st.container(border=True):
-        st.caption("Quick reading · public development signals, not client deadlines")
-        recent, review, confidence = st.columns([1.0, 1.4, 1.1], gap="medium")
-        with recent:
-            st.markdown("**Activity · last 7 days**")
-            st.metric("Projects with a code push",
-                      f'{brief["activity"]["recent_pushes"]:,}/{len(chosen):,}',
-                      help="Repository last-push metadata. This does not prove a feature release.")
-            st.caption(
-                f'{brief["activity"]["opened_issues"]:,} issues opened · '
-                f'{brief["activity"]["merged_prs"]:,} PRs merged '
-                'in retrieved records. Missing records are not zero activity.'
-            )
-        with review:
-            st.markdown("**What should we inspect?**")
-            if brief["finding"]:
-                lead = brief["finding"]
-                st.markdown(f'**{lead["title"]}**')
-                st.caption(
-                    f'{lead["metric_label"]}: {lead["metric_value"]} '
-                    f'· {lead["scope"]}'
-                )
-                if brief.get("why_review"):
-                    st.caption("Why this deserves a look: " + brief["why_review"])
-                st.caption(f'Next check: {brief["next_check"]}')
-                if brief["source_url"]:
-                    st.link_button("Open an original GitHub record",
-                                   brief["source_url"], use_container_width=True)
-            else:
-                st.write("No source-backed finding passes the review thresholds.")
-                st.caption("This is not proof that all monitored projects are healthy.")
-        with confidence:
-            st.markdown("**How complete is the evidence?**")
-            verified = brief["coverage_28d"]
-            st.metric("Verified Issues · 28d",
-                      f'{verified["issues"]}/{len(chosen)}',
-                      help="Number of source scans verified for the full last 28 days.")
-            st.caption(
-                f'PRs {verified["pull_requests"]}/{len(chosen)} · '
-                f'CI checks {verified["workflow_runs"]}/{len(chosen)} verified '
-                'for 28 days. Incomplete sources remain excluded from verified trends.'
-            )
 
     _section("02 / Three evidence-backed checks",
              "Numbers, context and a direct next step—not unverified project-health scores")
@@ -722,92 +738,99 @@ def overview(reports, selection, all_reports=None):
         )
         st.caption(
             "The overview uses 7-day push and event metadata, the line uses "
-            "a selectable 7/28-day window, and the check outcome donut uses "
-            "the last 28 days. Different windows are always labelled."
+            "a selectable 7/28-day window. When supporting charts are opened, "
+            "CI outcomes use 28 days. Different windows are always labelled."
         )
 
-    _section("03 / Delivery activity", "What remains open, and how did automatic checks perform?")
-    left, right = st.columns([1.1, 1], gap="large")
-    with left, st.container(border=True):
-        _chart_title("Open issues by age", "Time since creation · not a deadline assessment.")
-        bands = observed_age_bands(info["issue_rows"])
-        _horizontal_bars(list(bands), list(bands.values()), BAR,
-                         height=250, unit="Observed open issues")
-    with right, st.container(border=True):
-        _chart_title("Automated check outcomes", "Share of known GitHub Actions results · last 28 days.")
-        _ci_donut(info["ci_rows"], period=28)
-
-    _section("04 / Matched snapshot change",
-             "A trend is shown only for projects with comparable validated observations on two different days.")
-    _matched_snapshot_chart(chosen)
-
-    _section("05 / Where are new changes happening?", "Recent activity is not a score of project quality or developer productivity.")
-    rows = []
-    for report, a in sample_activity(chosen, days=7)["items"]:
-        events = a["new_issues"] + a["closed_issues"] + a["new_prs"] + a["merged_prs"]
-        if events:
-            rows.append({
-                "Repository": report["repository"]["full_name"],
-                "Recent issue/PR events": events,
-                "Opened issues": a["new_issues"],
-                "Closed issues": a["closed_issues"],
-                "Opened PRs": a["new_prs"],
-                "Merged PRs": a["merged_prs"],
-                "GitHub": report["repository"]["url"],
-            })
-    if rows:
-        view = pd.DataFrame(rows).sort_values("Recent issue/PR events", ascending=False)
-        top = view.head(8).sort_values("Recent issue/PR events")
-        with st.container(border=True):
-            _chart_title("Where observed activity happened · 7 days",
-                         "Stacked by issue versus pull-request events; not a project-quality ranking.")
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                name="Issue events", orientation="h",
-                y=top["Repository"].tolist(),
-                x=(top["Opened issues"] + top["Closed issues"]).tolist(),
-                marker_color=PURPLE,
-                hovertemplate="%{y}<br>Issue events: %{x:,}<extra></extra>",
-            ))
-            fig.add_trace(go.Bar(
-                name="PR events", orientation="h",
-                y=top["Repository"].tolist(),
-                x=(top["Opened PRs"] + top["Merged PRs"]).tolist(),
-                marker_color=GREEN,
-                hovertemplate="%{y}<br>Pull-request events: %{x:,}<extra></extra>",
-            ))
-            fig.update_layout(barmode="stack", bargap=.33,
-                              xaxis_title="Observed events",
-                              yaxis_title=None, margin=dict(l=10, r=25, t=8, b=45))
-            _chart(fig, height=max(290, len(top) * 37), legend=True)
-            st.caption("The same change can generate multiple events. "
-                       "These counts describe captured GitHub activity, not effort or development quality.")
-        with st.expander("Inspect recent event counts and source links"):
-            st.dataframe(view, hide_index=True, use_container_width=True,
-                         column_config={"GitHub": st.column_config.LinkColumn(
-                             "Original repository", display_text="Open ↗")})
-    else:
-        st.info("No new issue or PR events are present in the retrieved 7-day window.")
-    with st.expander("About the curated sample · languages and categories"):
-        left, right = st.columns([1, 1])
-        from src.ui.charts import category_counts
-        with left:
-            cats = pd.DataFrame([{"Category": k, "Projects": v}
-                                 for k, v in category_counts(chosen).items()])
-            if not cats.empty:
-                fig = px.bar(cats.sort_values("Projects"), x="Projects", y="Category",
-                             orientation="h", color_discrete_sequence=[PURPLE])
-                _chart(fig, height=max(230, 33 * len(cats)))
-        with right:
-            counts = Counter(r["repository"].get("language") or "Not specified" for r in chosen)
-            langs = pd.DataFrame([{"Language": k, "Projects": v}
-                                  for k, v in counts.most_common(7)])
-            if not langs.empty:
-                fig = px.bar(langs.sort_values("Projects"), x="Projects", y="Language",
-                             orientation="h", color_discrete_sequence=[PURPLE_LIGHT])
-                _chart(fig, height=max(230, 33 * len(langs)))
-    _coverage_details(chosen)
-
+    # Supporting visualizations remain available on demand but do not
+    # generate Plotly figures on every Streamlit widget rerun.
+    if st.toggle(
+        "Show supporting charts and source details",
+        value=False, key="overview_supporting_charts",
+        help="Show Issue age, CI outcomes, matched observations and activity "
+             "breakdown only when you want a deeper review.",
+    ):
+        _section("03 / Delivery activity", "What remains open, and how did automatic checks perform?")
+        left, right = st.columns([1.1, 1], gap="large")
+        with left, st.container(border=True):
+            _chart_title("Open issues by age", "Time since creation · not a deadline assessment.")
+            bands = observed_age_bands(info["issue_rows"])
+            _horizontal_bars(list(bands), list(bands.values()), BAR,
+                             height=250, unit="Observed open issues")
+        with right, st.container(border=True):
+            _chart_title("Automated check outcomes", "Share of known GitHub Actions results · last 28 days.")
+            _ci_donut(info["ci_rows"], period=28)
+    
+        _section("04 / Matched snapshot change",
+                 "A trend is shown only for projects with comparable validated observations on two different days.")
+        _matched_snapshot_chart(chosen)
+    
+        _section("05 / Where are new changes happening?", "Recent activity is not a score of project quality or developer productivity.")
+        rows = []
+        for report, a in sample_activity(chosen, days=7)["items"]:
+            events = a["new_issues"] + a["closed_issues"] + a["new_prs"] + a["merged_prs"]
+            if events:
+                rows.append({
+                    "Repository": report["repository"]["full_name"],
+                    "Recent issue/PR events": events,
+                    "Opened issues": a["new_issues"],
+                    "Closed issues": a["closed_issues"],
+                    "Opened PRs": a["new_prs"],
+                    "Merged PRs": a["merged_prs"],
+                    "GitHub": report["repository"]["url"],
+                })
+        if rows:
+            view = pd.DataFrame(rows).sort_values("Recent issue/PR events", ascending=False)
+            top = view.head(8).sort_values("Recent issue/PR events")
+            with st.container(border=True):
+                _chart_title("Where observed activity happened · 7 days",
+                             "Stacked by issue versus pull-request events; not a project-quality ranking.")
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    name="Issue events", orientation="h",
+                    y=top["Repository"].tolist(),
+                    x=(top["Opened issues"] + top["Closed issues"]).tolist(),
+                    marker_color=PURPLE,
+                    hovertemplate="%{y}<br>Issue events: %{x:,}<extra></extra>",
+                ))
+                fig.add_trace(go.Bar(
+                    name="PR events", orientation="h",
+                    y=top["Repository"].tolist(),
+                    x=(top["Opened PRs"] + top["Merged PRs"]).tolist(),
+                    marker_color=GREEN,
+                    hovertemplate="%{y}<br>Pull-request events: %{x:,}<extra></extra>",
+                ))
+                fig.update_layout(barmode="stack", bargap=.33,
+                                  xaxis_title="Observed events",
+                                  yaxis_title=None, margin=dict(l=10, r=25, t=8, b=45))
+                _chart(fig, height=max(290, len(top) * 37), legend=True)
+                st.caption("The same change can generate multiple events. "
+                           "These counts describe captured GitHub activity, not effort or development quality.")
+            with st.expander("Inspect recent event counts and source links"):
+                st.dataframe(view, hide_index=True, use_container_width=True,
+                             column_config={"GitHub": st.column_config.LinkColumn(
+                                 "Original repository", display_text="Open ↗")})
+        else:
+            st.info("No new issue or PR events are present in the retrieved 7-day window.")
+        with st.expander("About the curated sample · languages and categories"):
+            left, right = st.columns([1, 1])
+            from src.ui.charts import category_counts
+            with left:
+                cats = pd.DataFrame([{"Category": k, "Projects": v}
+                                     for k, v in category_counts(chosen).items()])
+                if not cats.empty:
+                    fig = px.bar(cats.sort_values("Projects"), x="Projects", y="Category",
+                                 orientation="h", color_discrete_sequence=[PURPLE])
+                    _chart(fig, height=max(230, 33 * len(cats)))
+            with right:
+                counts = Counter(r["repository"].get("language") or "Not specified" for r in chosen)
+                langs = pd.DataFrame([{"Language": k, "Projects": v}
+                                      for k, v in counts.most_common(7)])
+                if not langs.empty:
+                    fig = px.bar(langs.sort_values("Projects"), x="Projects", y="Language",
+                                 orientation="h", color_discrete_sequence=[PURPLE_LIGHT])
+                    _chart(fig, height=max(230, 33 * len(langs)))
+        _coverage_details(chosen)
 
 def project_details(reports):
     _heading("REPOSITORY EXPLORER", "Explore a project",

@@ -46,5 +46,5 @@ def test_app_passes_original_population_to_overview():
     assert "global_cohort = all_reports if all_reports is not None else reports" in ui
     assert "cohort = decision_brief_cohort(global_cohort, chosen)" in ui
     assert 'cohort["verified_28d"]' in ui and 'cohort["tracked"]' in ui
-    assert "This current filtered view contains" in ui
+    assert "This view contains" in ui
     assert "entire = evidence_readiness(reports)" not in ui

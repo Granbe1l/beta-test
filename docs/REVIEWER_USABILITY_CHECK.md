@@ -130,3 +130,22 @@ project on a CV/portfolio.
 
 Only the principles are referenced; these audits inspect this project's
 own actual code, browser renderings and sourced records.
+
+
+## P1 reviewer-first flow improvement (automated, not a participant claim)
+
+The Dashboard now starts with one compact, factual reading path: **What
+happened during the past 7 days → What should we inspect? → Why inspect →
+Next action → Original GitHub evidence**. The confidence column separates
+verified 28-day events from the *independently* verified full open-Issue
+inventory. Incomplete sources remain unknown, not zero.
+
+Extra Issue-age, CI outcome, matched-history and sample-distribution charts
+are behind the optional **Show supporting charts and source details**
+toggle. The primary daily trend chart and the three evidence-backed checks
+remain directly visible. This reduces default mobile scroll length and
+avoids computing hidden Plotly charts on every rerun. Playwright tests
+must open the toggle to exercise those chart paths.
+
+This is a change to the UI, not evidence that any human participant understood
+it. The anonymous 3–5-person protocol above is still **not performed**.
