@@ -35,10 +35,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python scripts/schedule_reliability.py
+      - name: Require three separate real source-audit receipts, never just green schedules
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python scripts/schedule_source_gate.py
       - name: Preserve actual dated schedule proof (not simulated)
         uses: actions/upload-artifact@v4
         with:
           name: actual-github-schedule-reliability
-          path: schedule-reliability.json
+          path: |
+            schedule-reliability.json
+            scheduled-source-proof.json
           if-no-files-found: error
           retention-days: 30
