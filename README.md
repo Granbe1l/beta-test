@@ -40,6 +40,7 @@ tracker, SLA monitor or employee-productivity ranking.
 For implementation and caveats, use the technical sections below.
 
 **Show the work:** [one-page case study](docs/PORTFOLIO_CARD.md) ·
+[3 real GitHub record walkthroughs](docs/EVIDENCE_CASE_STUDIES.md) ·
 [full technical evidence](docs/PORTFOLIO_CASE_STUDY.md) ·
 [latest browser capture workflow](https://github.com/Granbe1l/beta-test/actions/workflows/ui-screenshots.yml) ·
 [actual SQL optimization tests](https://github.com/Granbe1l/beta-test/pull/15) ·
@@ -76,10 +77,13 @@ See [gallery limitations and provenance](docs/gallery/README.md).
 
 The P1 Dashboard uses a single brief **What happened → Why inspect →
 Next action → source record**, with optional deeper charts. Browser-captured
-full-page height decreased from **7,227 to 5,108 pixels** at 390px mobile
-width and from **4,298 to 2,680 pixels** on desktop (before/after identical
-local screenshot workflow conditions). This is a **layout-length comparison,
-not a public website speed or user-understanding claim**.
+full-page mobile height most recently decreased from **5,067 to 3,180 pixels**
+at 390px width (**37% shorter**) after retaining the main chart and source
+action while moving three supporting evidence cards behind an expander.
+The earlier baseline reduction (**7,227 to 5,108 pixels**) is historical;
+the prior desktop capture comparison was **4,298 to 2,680 pixels**.
+These are **measured layout lengths**, not website speed or a human comprehension score.
+[Mobile change and real-browser validation](https://github.com/Granbe1l/beta-test/pull/53).
 
 See [P2 source scope, accessibility, API throttling and local render
 measurement](docs/REVIEWER_P2_EVIDENCE.md). A real human usability study
@@ -151,6 +155,12 @@ partial; all aggregate charts say **retrieved** or **observed** records.
 The UI uses restrained purple/white cards, high-contrast navigation labels
 without radio bullets, and concise findings linked to GitHub evidence.
 Desktop/mobile rendering is verified by real-browser screenshot workflows.
+
+**Reviewer stopping point:** The sections above describe the product, real
+GitHub case examples, screenshots, SQL contribution and scope. Everything
+below is the **technical appendix**, including development history; older
+75-repository figures describe archived experiments and do not override
+the currently selected 50-repository dataset.
 
 ## Architecture
 
@@ -436,6 +446,11 @@ conservative analytical view.
 ## Portfolio case study
 
 Read [Project Delivery Monitor — portfolio case study](docs/PORTFOLIO_CASE_STUDY.md) for business context, evidence rules, limitations and interview notes.
+
+> **Historical engineering notes below.** Some examples and denominators
+> document the earlier 75-project cohort and must not be reused as current
+> 50-project results. The validated current case receipt and screenshots
+> linked near the top take precedence.
 
 ## Coverage gates and latest data-pipeline checks
 

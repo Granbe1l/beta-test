@@ -27,7 +27,7 @@ GitHub REST API → incremental, bounded API extraction → persistent SQLite ch
 
 Daily charts have separate **exploratory** and **verified source window** scopes. In verified mode, only repositories whose corresponding source covers the requested 7/28-day window are included. If there are no qualifying repositories, the UI shows a clear empty state instead of inventing a graph.
 
-The finding queue shows up to three diverse, evidence-backed review opportunities, with numerical facts, limits, recommended inspection and original GitHub links. Priority labels describe suggested order of inspection—not performance scores.
+The finding queue shows up to three diverse, evidence-backed review opportunities, with numerical facts, limits, recommended inspection and original GitHub links. Priority labels describe suggested order of inspection—not performance scores. Distinct source-backed inspection case studies on the Key findings page are conditional: they do not claim a real team has taken the suggested action.
 
 ## Validation
 
@@ -47,16 +47,20 @@ Inspect the latest GitHub Actions public-snapshot run and its audit summary. Con
 
 ## Nontechnical decision-first readout
 
-The first visual activity chart is followed by a **three-column Quick reading**:
-- **Recent observed activity:** latest seven-day repository pushes and captured
-  Issue/PR events (not proof of feature releases);
-- **Where to inspect next:** one evidence-backed finding, the observed
-  figure and a direct original-record link;
-- **Confidence in the evidence:** number of project-specific Issue, PR and
-  automated-check sources whose **entire 28-day** window is validated.
+The Dashboard opens with a **two-column Quick reading**, before the main
+observed activity chart:
+- **Activity and next inspection (left):** seven-day public push/Issue/PR
+  signals, one measurable finding and a direct GitHub source action.
+- **Data confidence (right):** how many repositories qualify for verified
+  28-day Issue, PR and Actions windows, independently from complete
+  current-open Issue inventories.
 
-This format deliberately avoids fake deadline/quality scores and keeps the
-existing graphs as the primary evidence.
+The main Issues/PR trend remains visible, while three detailed evidence
+cards are available in the clearly labelled expandable section. The
+**Key findings** page additionally provides three distinct, conditional,
+record-level walkthroughs from the real stored snapshot:
+[dated original GitHub examples](EVIDENCE_CASE_STUDIES.md).
+No client deadline, code-quality or productivity verdict is inferred.
 
 ## Collection and independent SQL contribution
 

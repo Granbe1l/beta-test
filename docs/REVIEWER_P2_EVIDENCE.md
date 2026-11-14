@@ -15,9 +15,12 @@ stacked cards on narrow screens. Deep
 Issue-age, CI, matched-history and activity charts sit behind an explicit
 toggle; expensive Plotly charts are not generated when the toggle is closed.
 
-Measured with the same local screenshot capture conditions:
-- 390px mobile full-page capture: **7,227 to 5,108 pixels** (29% shorter).
-- Desktop captured main page: **4,298 to 2,680 pixels** (38% shorter).
+Measured with local Playwright screenshot capture at fixed widths:
+- Latest 390px mobile overview: **5,067 to 3,180 pixels**, about **37%**
+  shorter after the supporting findings became explicitly expandable
+  ([PR #53](https://github.com/Granbe1l/beta-test/pull/53)).
+- Earlier historical 390px baseline: **7,227 to 5,108 pixels**, 29% shorter.
+- Earlier desktop main-page baseline: **4,298 to 2,680 pixels**, 38% shorter.
 
 Those are layout lengths, not speed, production availability or proof
 that human participants understand the information.
