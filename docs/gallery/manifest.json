@@ -1,5 +1,5 @@
 {
-  "captured_in_ci_at_utc": "2026-11-14T11:20:48.230100+00:00",
+  "captured_in_ci_at_utc": "2026-11-14T11:27:00.935261+00:00",
   "mobile_views_tested": 6,
   "not": "Synthetic UI, production deployment proof, or real HR participant result",
   "screenshots": [
@@ -17,9 +17,9 @@
     },
     {
       "original": "desktop-issues.png",
-      "original_sha256": "7b4f426cc0794d5d00c2d9cdd8ad02ded20038d44e78163fff3387eac30a9a24",
+      "original_sha256": "fdb7b9d575ea6f78c33e22701068bfa3a26a438a04b613770e15e9302d33fd0c",
       "preview": "issues.jpg",
-      "preview_bytes": 59461
+      "preview_bytes": 57605
     },
     {
       "original": "desktop-pull-requests.png",
@@ -29,9 +29,9 @@
     },
     {
       "original": "desktop-ci-cd.png",
-      "original_sha256": "92fb6e27d1e1f20a6eca9d05035b3d8e9214775d19cde1a28f90547306701a59",
+      "original_sha256": "8a43e36cda49dc86a5ad347296b4ed975b89ca0622b3c1e3c970d26fb637ab40",
       "preview": "ci-cd.jpg",
-      "preview_bytes": 71364
+      "preview_bytes": 71336
     },
     {
       "original": "desktop-findings.png",
@@ -47,5 +47,5 @@
     }
   ],
   "source": "Actual Playwright screenshots from Streamlit app with checked-in real public GitHub snapshot",
-  "source_commit": "ec617ce0ffdd0314657aa61fb9b45f8c2c5dbda8"
+  "source_commit": "35f226eb842cc92a884b07be6f565e1878781bc8"
 }
