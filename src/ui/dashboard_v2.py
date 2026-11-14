@@ -627,14 +627,6 @@ def overview(reports, selection, all_reports=None):
     info = summary(chosen)
     activity = calendar_activity(chosen, days=7)
     scope = "Selected project" if len(chosen) == 1 else "Curated public sample"
-    _kpis([
-        ("Projects in analysis", _number(info["repositories"]),
-         "Verified cohort or explicitly exploratory selection · tracked total shown in sidebar", "▣"),
-        ("Open tasks retrieved", _number(info["open_issues"]), "Observed GitHub issues · not the full backlog", "◷"),
-        ("Open code changes", _number(info["open_changes"]), "Observed PRs including drafts", "⇄"),
-        ("Projects pushed · 7d", _number(activity["pushed_recently"]),
-         "Last seven UTC calendar dates; a push is not a release", "↗"),
-    ])
     from src.ui.observed import evidence_readiness
     from src.ui.reviewer_cohort import decision_brief_cohort
     from src.analytics.review_decisions import evidence_action
@@ -716,6 +708,16 @@ def overview(reports, selection, all_reports=None):
                     st.link_button(label, action["url"],
                                    use_container_width=True)
                     st.caption(action["disclosure"])
+
+    st.caption("Additional observed dataset totals · source-limited records")
+    _kpis([
+        ("Projects in analysis", _number(info["repositories"]),
+         "Verified cohort or explicitly exploratory selection · tracked total shown in sidebar", "▣"),
+        ("Open tasks retrieved", _number(info["open_issues"]), "Observed GitHub issues · not the full backlog", "◷"),
+        ("Open code changes", _number(info["open_changes"]), "Observed PRs including drafts", "⇄"),
+        ("Projects pushed · 7d", _number(activity["pushed_recently"]),
+         "Last seven UTC calendar dates; a push is not a release", "↗"),
+    ])
 
     with st.expander("Evidence coverage · verified vs exploratory"):
         st.caption(
