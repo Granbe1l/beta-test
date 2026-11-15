@@ -37,7 +37,8 @@ async function request(path, token, fetcher, options = {}) {
       "User-Agent": "project-delivery-monitor-external-watchdog",
       ...(options.headers ?? {}),
     },
-    redirect: "error",
+    // Cloudflare Workers only supports manual/follow. Never forward the token across redirects.
+    redirect: "manual",
     signal: AbortSignal.timeout(15000),
   });
   if (!response.ok) throw new Error(`GitHub API HTTP ${response.status}`);
