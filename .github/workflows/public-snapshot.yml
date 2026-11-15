@@ -10,7 +10,8 @@ on:
     # Resync the GitHub scheduler after two absent 14 Nov 2026 cron events.
     # Keep four-hour intervals; GitHub scheduled events remain best-effort.
     - cron: '23 1,5,9,13,17,21 * * *'
-    # TEMPORARY BETA: three one-hour-spaced real collector schedule slots on 15 Nov 2026 only (14:41, 15:41, 16:41 WIB). The gate below expires at 17:00 WIB; the original 4-hour schedule remains unchanged.
+    # TEMPORARY BETA: only 15 Nov 2026, 14:41 / 15:41 / 16:41 WIB.
+    # The gate expires at 17:00 WIB; the original 4-hour schedule is unchanged.
     - cron: '41 7-9 15 11 *'
   workflow_dispatch:
 permissions:
