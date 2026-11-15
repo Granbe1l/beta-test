@@ -6,8 +6,10 @@ every four hours. If Github misses a cron slot, this Cloudflare Cron Trigger
 checks snapshot *publication commit age* hourly at UTC minute 07.
 
 **Fail-closed guardrails:** if the latest committed snapshot is <=6 hours old,
-no request is dispatched; if a collector run is active or a dispatched run
-was created within 90 minutes, no request is dispatched. If either GitHub
+no request is dispatched; if a collector is truly running, a pending run has activity within 2 hours,
+or a dispatched run was created within 90 minutes, no request is dispatched.
+Very old, unchanged GitHub `queued` entries (observed for >3 days) do
+not lock the watchdog permanently. Missing pending-run timestamps fail closed. If either GitHub
 API read fails, the watchdog raises an error rather than guessing.
 It dispatches only the pinned main workflow and does not modify data,
 coverage status, Verified denominator or issue inventories.
@@ -16,6 +18,27 @@ The age test uses the latest Git commit **that changes the snapshot path**,
 not a successful source-coverage audit. A successful HTTP 204 only means
 GitHub accepted a dispatch. Actual collector completion and source quality
 must be checked in GitHub Actions audit artifacts.
+
+## 15 Nov 2026: stale GitHub queue fix and production-version check
+
+Cloudflare logs at 08:00 WIB showed `skip_collector_active` after a snapshot age
+of 6.18h, while GitHub's latest connector query showed zero active executions
+and an abandoned collector `queued` since 12 Nov 03:31 WIB. This is strong
+evidence of *false-active* detection, but the deployed Cloudflare source
+must be checked directly: the observed log format and cron minute differ from
+this checked-in Worker version.
+
+This code ignores only pending GitHub runs with no status activity for >=2h.
+It still blocks while a job is in progress, while newer pending jobs exist,
+or while the 90-minute dispatch backoff applies. Workflow-level GitHub
+concurrency continues to protect the collector. To apply this fix, deploy
+the updated Worker from GitHub to the **existing** Cloudflare Worker and keep
+its configured secret in Cloudflare. Pushing a commit to GitHub does NOT
+update a Worker deployed independently through Cloudflare's dashboard.
+
+Proof requires a **real Cloudflare scheduled** invocation after deployment
+and the ensuing GitHub `workflow_dispatch` run with valid audit artifact
+and snapshot publication. The unit test alone is not proof of production.
 
 ## Deploy (requires repository owner's Cloudflare/GitHub accounts)
 
