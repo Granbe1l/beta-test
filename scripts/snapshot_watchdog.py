@@ -20,6 +20,8 @@ SNAPSHOT = Path("data/github_public_snapshot.json.gz")
 API_WORKFLOW = "public-snapshot.yml"
 MAX_AGE_HOURS = 6
 BACKOFF_MINUTES = 90
+STALE_PENDING_MINUTES = 120  # Match Cloudflare: ignore only abandoned, unchanged queues.
+PENDING_STATUSES = frozenset(("queued", "requested", "waiting", "pending"))
 
 
 def parse_time(value: str | None):
@@ -56,10 +58,27 @@ def watchdog_decision(generated_at, now, runs: list[dict], *,
             "evaluated_at_utc": now.isoformat()}
     if age <= max_age_hours:
         return {**data, "action": "skip", "reason": "snapshot_fresh"}
-    # Any queued/in-progress collector means the rescue run is already covered.
+    # In-progress work always blocks. Recent pending jobs block; an abandoned
+    # queue entry must not prevent recovery indefinitely (12-15 Nov incident).
+    # Missing/invalid pending timestamps fail closed rather than guessing.
+    ignored_stale_pending_ids = []
     for run in runs:
-        if run.get("head_branch") == "main" and run.get("status") in ("queued", "in_progress", "waiting", "requested", "pending"):
+        if run.get("head_branch") != "main":
+            continue
+        status = run.get("status")
+        if status == "in_progress":
             return {**data, "action": "skip", "reason": "collector_already_running"}
+        if status not in PENDING_STATUSES:
+            continue
+        raw_activity = run.get("updated_at") or run.get("created_at")
+        try:
+            last_activity = parse_time(raw_activity)
+        except (ValueError, TypeError, OverflowError):
+            last_activity = None
+        if last_activity is None or (now - last_activity).total_seconds() / 60 < STALE_PENDING_MINUTES:
+            return {**data, "action": "skip", "reason": "collector_already_running"}
+        if run.get("id") is not None:
+            ignored_stale_pending_ids.append(run["id"])
     # Do not start new rescue runs every hour when collection itself struggles.
     for run in runs:
         if run.get("head_branch") != "main":
@@ -67,7 +86,8 @@ def watchdog_decision(generated_at, now, runs: list[dict], *,
         started = parse_time(run.get("created_at"))
         if started and -0.25 <= (now-started).total_seconds()/60 < backoff_minutes:
             return {**data, "action": "skip", "reason": "recent_attempt_backoff"}
-    return {**data, "action": "dispatch", "reason": "snapshot_exceeds_age_threshold"}
+    return {**data, "action": "dispatch", "reason": "snapshot_exceeds_age_threshold",
+            "ignored_stale_pending_run_ids": ignored_stale_pending_ids}
 
 
 def main():
