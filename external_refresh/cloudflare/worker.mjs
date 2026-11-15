@@ -8,6 +8,23 @@ const WORKFLOW = "public-snapshot.yml";
 const SNAPSHOT_PATH = "data/github_public_snapshot.json.gz";
 const MAX_AGE_MS = 6 * 60 * 60 * 1000;
 const RETRY_BACKOFF_MS = 90 * 60 * 1000;
+const STALE_PENDING_MS = 2 * 60 * 60 * 1000;
+// GitHub may retain abandoned "queued" runs for days (observed 12–15 Nov).
+// Ignore only long-idle pending entries. Running jobs ALWAYS block dispatch;
+// pending jobs with missing timestamps block dispatch (fail closed).
+const PENDING_STATUSES = new Set(["queued", "requested", "waiting", "pending"]);
+
+function pendingLastActivityMs(run) {
+  return Date.parse(run.updated_at || run.created_at || "");
+}
+function blocksDispatch(run, nowMs) {
+  if (run.status === "in_progress") return true;
+  if (!PENDING_STATUSES.has(run.status)) return false;
+  const lastActivityMs = pendingLastActivityMs(run);
+  if (!Number.isFinite(lastActivityMs)) return true;
+  return nowMs - lastActivityMs < STALE_PENDING_MS;
+}
+
 const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
 
 async function request(path, token, fetcher, options = {}) {
@@ -55,12 +72,19 @@ export async function checkSnapshot({ token, fetcher = fetch, nowMs = Date.now()
   if (!Array.isArray(body?.workflow_runs)) {
     throw new Error("Workflow run history unavailable");
   }
-  const running = body.workflow_runs.some(
-    r => ["queued", "in_progress", "requested", "waiting", "pending"].includes(r.status)
-  );
-  if (running) {
-    return { action: "skip_active", age_minutes: Math.round(ageMs / 60000) };
+  const active = body.workflow_runs.find(r => blocksDispatch(r, nowMs));
+  if (active) {
+    return {
+      action: "skip_active",
+      age_minutes: Math.round(ageMs / 60000),
+      blocking_run: { id: active.id ?? null, status: active.status },
+    };
   }
+  const ignoredStalePendingIds = body.workflow_runs.filter(r =>
+    PENDING_STATUSES.has(r.status) &&
+    Number.isFinite(pendingLastActivityMs(r)) &&
+    nowMs - pendingLastActivityMs(r) >= STALE_PENDING_MS
+  ).map(r => r.id).filter(id => id !== undefined);
   const recentlyDispatched = body.workflow_runs.some(r =>
     r.event === "workflow_dispatch" &&
     Number.isFinite(Date.parse(r.created_at || "")) &&
@@ -84,7 +108,11 @@ export async function checkSnapshot({ token, fetcher = fetch, nowMs = Date.now()
   if (response.status !== 204) {
     throw new Error(`Unexpected dispatch status ${response.status}`);
   }
-  return { action: "dispatch_accepted", age_minutes: Math.round(ageMs / 60000) };
+  return {
+    action: "dispatch_accepted",
+    age_minutes: Math.round(ageMs / 60000),
+    ignored_stale_pending_run_ids: ignoredStalePendingIds,
+  };
 }
 
 export default {
