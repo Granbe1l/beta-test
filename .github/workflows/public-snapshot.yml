@@ -10,6 +10,9 @@ on:
     # Resync the GitHub scheduler after two absent 14 Nov 2026 cron events.
     # Keep four-hour intervals; GitHub scheduled events remain best-effort.
     - cron: '23 1,5,9,13,17,21 * * *'
+    # TEMPORARY BETA: only 15 Nov 2026, 14:41 / 15:41 / 16:41 WIB.
+    # The gate expires at 17:00 WIB; the original 4-hour schedule is unchanged.
+    - cron: '41 7-9 15 11 *'
   workflow_dispatch:
 permissions:
   contents: write
@@ -18,7 +21,32 @@ concurrency:
   group: public-snapshot-main
   cancel-in-progress: false
 jobs:
+  beta-cron-gate:
+    runs-on: ubuntu-latest
+    outputs:
+      collect: ${{ steps.window.outputs.collect }}
+    steps:
+      - id: window
+        name: Stop temporary beta schedule after its 15 Nov 2026 test window
+        shell: bash
+        env:
+          CRON_EXPRESSION: ${{ github.event.schedule }}
+        run: |
+          # Only the three temporary slots are gated. Original four-hour cron,
+          # workflow_dispatch and authorized push keep their normal behavior.
+          if [[ "$GITHUB_EVENT_NAME" == "schedule" && "$CRON_EXPRESSION" == "41 7-9 15 11 *" ]]; then
+            now=$(date -u +%s)
+            expires=$(date -u -d '2026-11-15T10:00:00Z' +%s)
+            if (( now > expires )); then
+              echo 'collect=false' >> "$GITHUB_OUTPUT"
+              echo 'Temporary beta 1-hour schedule expired; no collector dispatched'
+              exit 0
+            fi
+          fi
+          echo 'collect=true' >> "$GITHUB_OUTPUT"
   refresh:
+    needs: beta-cron-gate
+    if: needs.beta-cron-gate.outputs.collect == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
