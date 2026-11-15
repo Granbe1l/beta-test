@@ -25,14 +25,33 @@ def timestamp(value):
     return x.replace(tzinfo=timezone.utc) if x.tzinfo is None else x.astimezone(timezone.utc)
 
 
-def verify_progress(before: dict, after: dict, expected_repositories=50) -> dict:
+def curated_cohort_names(manifest_path: Path, expected_repositories: int) -> set[str]:
+    """Read the reviewed fixed cohort. Never silently accept new identities."""
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    names = manifest.get("selected")
+    if (manifest.get("target_repositories") != expected_repositories or
+        not isinstance(names, list) or len(names) != expected_repositories or
+        any(not isinstance(name, str) or not name.strip() for name in names) or
+        len(set(names)) != expected_repositories):
+        raise ValueError("Invalid curated repository manifest; refusing publication")
+    return set(names)
+
+
+def verify_progress(before: dict, after: dict, expected_repositories=50, *,
+                    expected_names: set[str] | None = None) -> dict:
     rows = after.get("repositories") or []
     if len(rows) != expected_repositories:
         raise ValueError(
             f"Expected {expected_repositories} selected repositories; got {len(rows)}")
-    repo_ids = [r["name"] for r in rows]
+    repo_ids = [r.get("name") if isinstance(r, dict) else None for r in rows]
+    if any(not isinstance(name, str) or not name.strip() for name in repo_ids):
+        raise ValueError("Missing repository identity in snapshot audit")
     if len(set(repo_ids)) != len(repo_ids):
         raise ValueError("Duplicate repository entries in snapshot audit")
+    if expected_names is not None and (
+        len(expected_names) != expected_repositories or set(repo_ids) != expected_names
+    ):
+        raise ValueError("Snapshot repository identities differ from curated manifest")
 
     counts_before = before.get("counts") or {}
     counts_after = after.get("counts") or {}
@@ -91,7 +110,13 @@ def main():
     after = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
     import os
     expected = int(os.getenv("MAX_REPOS", "50"))
-    result = verify_progress(before, after, expected_repositories=expected)
+    names = curated_cohort_names(
+        Path(__file__).resolve().parents[1] / "data" / "curated_50_manifest.json",
+        expected,
+    )
+    result = verify_progress(
+        before, after, expected_repositories=expected, expected_names=names
+    )
     print("COLLECTION VALIDATION:", json.dumps(result, sort_keys=True), flush=True)
     summary_path = __import__("os").environ.get("GITHUB_STEP_SUMMARY")
     if summary_path:

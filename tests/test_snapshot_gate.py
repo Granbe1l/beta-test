@@ -1,7 +1,9 @@
 """Guardrails for published source snapshots on scheduled and manual runs."""
 from datetime import datetime, timedelta, timezone
 import pytest
-from scripts.verify_collection import verify_progress
+from pathlib import Path
+import json
+from scripts.verify_collection import verify_progress, curated_cohort_names
 
 NOW = datetime(2026, 11, 13, 0, tzinfo=timezone.utc)
 
@@ -62,3 +64,39 @@ def test_28d_window_cannot_exceed_completed_scans():
     after["coverage_summary"]["issues"]["verified_28d"] = 2
     with pytest.raises(ValueError, match="inconsistent"):
         verify_progress(before, after, expected_repositories=3)
+
+
+def test_publication_refuses_wrong_identity_even_with_valid_denominators():
+    before = audit()
+    after = audit(records=40)
+    with pytest.raises(ValueError, match="curated manifest"):
+        verify_progress(before, after, expected_repositories=3,
+                        expected_names={"org/repo0", "org/repo1", "other/repo2"})
+
+
+def test_publication_accepts_exact_fixed_manifest_with_true_progress():
+    result = verify_progress(
+        audit(), audit(records=40), expected_repositories=3,
+        expected_names={"org/repo0", "org/repo1", "org/repo2"},
+    )
+    assert result["repositories"] == 3
+
+
+def test_publication_rejects_missing_repository_name():
+    before, after = audit(), audit(records=40)
+    del after["repositories"][0]["name"]
+    with pytest.raises(ValueError, match="Missing repository identity"):
+        verify_progress(before, after, expected_repositories=3)
+
+
+def test_curated_manifest_identity_validation(tmp_path: Path):
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps({
+        "target_repositories": 3, "selected": ["org/a", "org/b", "org/c"]
+    }), encoding="utf-8")
+    assert curated_cohort_names(path, 3) == {"org/a", "org/b", "org/c"}
+    path.write_text(json.dumps({
+        "target_repositories": 3, "selected": ["org/a", "org/a", "org/c"]
+    }), encoding="utf-8")
+    with pytest.raises(ValueError, match="Invalid curated"):
+        curated_cohort_names(path, 3)

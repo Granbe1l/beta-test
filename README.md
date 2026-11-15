@@ -39,7 +39,7 @@ tracker, SLA monitor or employee-productivity ranking.
 **Reader guide:** [60-second plain-language walkthrough](docs/REVIEWER_QUICK_GUIDE.md).
 For implementation and caveats, use the technical sections below.
 
-**Latest dated source proof:** [17:54 WIB, 14 November 2026 collector](https://github.com/Granbe1l/beta-test/actions/runs/43587299217) verified 50/50 matched 28-day source windows and 50/50 independently fresh full-open Issue inventories. This is a historical measurement, not uninterrupted coverage. The external rescue scheduler is [implemented but not deployed](external_refresh/cloudflare/README.md).
+**Latest dated source proof:** [17:54 WIB, 14 November 2026 collector](https://github.com/Granbe1l/beta-test/actions/runs/43587299217) verified 50/50 matched 28-day source windows and 50/50 independently fresh full-open Issue inventories. This is a historical measurement, not uninterrupted coverage. Owner screenshots on 15 November 2026 confirm the [Cloudflare watchdog is deployed and its hourly `scheduled` invocations succeed](external_refresh/cloudflare/README.md). The exact initiator of the 21:01 WIB GitHub dispatch remains unproven without a matching application log; native GitHub four-hour schedule punctuality also remains unverified.
 
 **Show the work:** [one-page case study](docs/PORTFOLIO_CARD.md) ·
 [3 real GitHub record walkthroughs](docs/EVIDENCE_CASE_STUDIES.md) ·

@@ -1,9 +1,21 @@
-# Independent refresh watchdog — optional deployment, NOT ACTIVE
+# Independent refresh watchdog — deployed cron observed on 15 Nov 2026
 
 This is a second scheduler outside GitHub, not a replacement collector.
 The existing main-branch `public-snapshot.yml` GitHub schedule remains
 every four hours. If Github misses a cron slot, this Cloudflare Cron Trigger
-checks snapshot *publication commit age* hourly at UTC minute 07.
+checks snapshot *publication commit age* hourly at UTC minute 00.
+
+**Production evidence, 15 Nov 2026:** owner screenshots show this Worker
+deployed with a Cron Trigger every hour, an encrypted
+`GITHUB_DISPATCH_TOKEN` secret, and successful real `scheduled`
+invocations near 21:01 and 22:01 WIB with no reported errors.
+This proves invocation execution, **not** the watchdog decision or which
+actor initiated the separate 21:01 WIB GitHub `workflow_dispatch`.
+The GitHub collector subsequently published a validated 50/50 snapshot
+at 21:05 WIB. These adjacent times are consistent with a Cloudflare
+rescue but require a matching `dispatch_accepted` application log for
+conclusive attribution. No deployment or secret change is required
+just to reconcile documentation.
 
 **Fail-closed guardrails:** if the latest committed snapshot is <=6 hours old,
 no request is dispatched; if a collector is truly running, a pending run has activity within 2 hours,
@@ -72,9 +84,15 @@ and snapshot publication. The unit test alone is not proof of production.
 6. After deployment, review Cloudflare usage and alerts and revoke the
    token immediately if the Worker is discontinued.
 
-The Cloudflare job is optional. Without a connected Cloudflare account
-and a securely provisioned token, this repository only contains tested
-configuration and implementation, not a running external scheduler.
+The source files in this repository remain **optional for other installations**.
+For this project, the owner's Cloudflare screenshots dated 15 November
+2026 demonstrate that production is deployed and scheduled event
+invocations are succeeding. The token name is visible in encrypted
+settings, but its actual scope/expiry and the result of a specific
+stale-rescue request still require account-side validation.
+Merging GitHub code does **not** redeploy the existing Worker.
+The checked-in Wrangler cron now matches the observed production
+minute 00; do not redeploy solely to reconcile this file.
 Running Node tests does not touch GitHub or Cloudflare:
 
 ```sh
