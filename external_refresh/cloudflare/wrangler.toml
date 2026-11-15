@@ -4,7 +4,8 @@ compatibility_date = "2026-11-01"
 workers_dev = false
 
 [triggers]
-crons = ["7 * * * *"]
+# Matches the owner-verified production cron on 15 Nov 2026 (UTC minute 00).
+crons = ["0 * * * *"]
 
 [observability]
 enabled = true
