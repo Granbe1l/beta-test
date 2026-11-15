@@ -23,7 +23,13 @@ def test_github_only_watchdog_does_not_pretend_to_be_external_scheduler():
     assert "NOT independent uptime proof" in workflow
     assert "MAX_AGE_HOURS = 6" in script
     assert "BACKOFF_MINUTES = 90" in script
-    assert 'run.get("status") in ("queued", "in_progress", "waiting", "requested", "pending")' in script
+    # Long-idle queued runs must not permanently disable backup refresh.
+    # Genuine in-progress work and uncertain pending timestamps still block.
+    assert "STALE_PENDING_MINUTES = 120" in script
+    assert "PENDING_STATUSES" in script
+    assert 'if status == "in_progress":' in script
+    assert "last_activity is None" in script
+    assert "ignored_stale_pending_run_ids" in script
 
 
 def test_public_dashboard_keeps_utc_demo_proof_and_wib_reader_context():
