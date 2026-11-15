@@ -12,7 +12,7 @@ function mock({ hoursOld = 7, runs = [], commitStatus = 200,
   const calls = [];
   const fetcher = async (url, options) => {
     calls.push({ url, method: options.method || "GET", body: options.body,
-      headers: options.headers });
+      headers: options.headers, redirect: options.redirect });
     if (url.includes("/commits?")) return reply(
       [{ commit: { committer: {
         date: new Date(NOW - hoursOld * 3600000).toISOString()
@@ -119,4 +119,26 @@ test("in-progress job always blocks even if timestamp is old", async () => {
   assert.equal((await checkSnapshot({ token: "test", fetcher: m.fetcher,
     nowMs: NOW })).action, "skip_active");
   assert.equal(m.calls.length, 2);
+});
+
+test("Cloudflare Workers compatible redirect mode: manual on every request", async () => {
+  const m = mock();
+  const result = await checkSnapshot({ token: "test", fetcher: m.fetcher,
+    nowMs: NOW });
+  assert.equal(result.action, "dispatch_accepted");
+  assert.equal(m.calls.length, 3);
+  assert.ok(m.calls.every(call => call.redirect === "manual"));
+});
+test("redirect response is rejected rather than followed with secret", async () => {
+  const requests = [];
+  const fetcher = async (url, options) => {
+    requests.push({ url, redirect: options.redirect });
+    return reply(undefined, 302);
+  };
+  await assert.rejects(
+    checkSnapshot({ token: "test", fetcher, nowMs: NOW }),
+    /GitHub API HTTP 302/
+  );
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].redirect, "manual");
 });

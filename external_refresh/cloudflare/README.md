@@ -19,6 +19,17 @@ not a successful source-coverage audit. A successful HTTP 204 only means
 GitHub accepted a dispatch. Actual collector completion and source quality
 must be checked in GitHub Actions audit artifacts.
 
+## 15 Nov 2026: Cloudflare runtime compatibility (09:00 WIB)
+
+A real scheduled Cloudflare run failed with `TypeError: Invalid redirect value`.
+Cloudflare Workers supports only `redirect: "follow"` or `redirect: "manual"`;
+unlike Node, the Workers runtime rejects `redirect: "error"` before sending
+the request. Use `redirect: "manual"` to avoid forwarding the GitHub bearer
+token to redirect destinations, and let the existing `!response.ok` check
+reject 3xx. Regression tests assert manual mode for each API request and
+reject a 302 response. After merge, deploy the updated GitHub Worker to
+the existing Cloudflare Worker and check **scheduled** logs.
+
 ## 15 Nov 2026: stale GitHub queue fix and production-version check
 
 Cloudflare logs at 08:00 WIB showed `skip_collector_active` after a snapshot age
