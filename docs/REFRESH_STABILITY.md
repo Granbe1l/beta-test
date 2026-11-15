@@ -89,7 +89,7 @@ verify a new real run before claiming 50/50 fresh open inventories.
 
 [The actual post-change collector](https://github.com/Granbe1l/beta-test/actions/runs/43587299217) reported 8 remaining full-open inventory gaps prior to maintenance and exhausted all eight: **50/50 fresh full-open Issue inventories** and independently **50/50 jointly Verified 28-day Issues, PR and CI sources**, with 633 API attempts remaining under the 850 limit. The run passed validation and published the snapshot. This proves that bounded catch-up capacity worked for one real run, not that every future refresh is timely. Three consecutive actual scheduled runs are still needed for schedule-reliability proof.
 
-## External scheduler fallback prepared (not active by repository commit alone)
+## Independent Cloudflare fallback (production invocation observed 15 November)
 
 A separately tested Cloudflare Cron Trigger example is available at
 [external_refresh/cloudflare](../external_refresh/cloudflare/README.md). It
@@ -97,10 +97,16 @@ checks the most recent committed snapshot publication each hour, dispatches
 `public-snapshot.yml` when more than six hours old and only when no
 collector is active and no recent workflow dispatch is present. It fails
 closed when the GitHub API is unavailable and never upgrades incomplete
-data to Verified. **This Cloudflare service is not deployed or credentialed
-merely because its files are present on main.** Owner account connection,
-narrow-scope token, real dispatch and successful subsequent audit are
-required before calling the fallback operational. The GitHub best-effort
+data to Verified. GitHub repository files alone do **not** deploy or credential Cloudflare.
+However, on 15 November 2026 the owner supplied real Cloudflare
+production screenshots: the Worker is deployed with an encrypted token
+secret name and hourly scheduled invocations succeeded near 21:01 and
+22:01 WIB with no errors. Production uses UTC minute 00, not the
+previously checked-in minute 07. A GitHub `workflow_dispatch` at 21:01
+published a 50/50 audit at 21:05 WIB. Without a matching Cloudflare
+`dispatch_accepted` console log its initiator is not conclusively
+attributed. Keep external rescue proof separate from native GitHub
+schedule reliability. The GitHub best-effort
 schedule remains the primary refresh until then.
 
 ## Additional P0 gate: verify sources for EACH scheduled run (14 November 2026)
@@ -145,8 +151,9 @@ collector artifacts; they do not declare the schedule operational by
 themselves.
 
 The [independent Cloudflare fallback](../external_refresh/cloudflare/README.md)
-remains **not deployed**. Its narrow-scope token and owner-controlled
-Cloudflare Cron Trigger are required for an operationally independent backup;
+was **observed deployed and running scheduled invocations** on
+15 November 2026. Its owner-managed narrow-scope token and Cloudflare
+Cron Trigger are required for an operationally independent backup;
 the GitHub hourly watchdog cannot be counted as an independent provider.
 
 
