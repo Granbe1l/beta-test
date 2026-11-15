@@ -57,11 +57,54 @@ def test_stale_snapshot_dispatches_once_if_no_collector_recently_attempted():
 
 
 def test_in_progress_stale_collector_prevents_parallel_rescue():
-    for status in ("queued", "in_progress", "waiting", "requested"):
-        result = watchdog_decision(NOW-timedelta(hours=11), NOW,
-                                   [_run(200, status)])
-        assert result["reason"] == "collector_already_running"
-        assert result["action"] == "skip"
+    # Even very old in-progress jobs block; never launch a competing collector.
+    result = watchdog_decision(NOW-timedelta(hours=11), NOW,
+                               [_run(200, "in_progress")])
+    assert result["reason"] == "collector_already_running"
+    assert result["action"] == "skip"
+
+
+@pytest.mark.parametrize("status", ("queued", "requested", "waiting", "pending"))
+def test_recent_pending_collector_blocks_rescue(status):
+    result = watchdog_decision(NOW-timedelta(hours=11), NOW, [_run(20, status)])
+    assert result["action"] == "skip"
+    assert result["reason"] == "collector_already_running"
+
+
+def test_abandoned_queued_collector_no_longer_blocks_rescue():
+    old = _run(200, "queued")
+    old["id"] = 43096556666
+    result = watchdog_decision(NOW-timedelta(hours=11), NOW, [old])
+    assert result["action"] == "dispatch"
+    assert result["ignored_stale_pending_run_ids"] == [43096556666]
+
+
+def test_updated_pending_collector_still_blocks_rescue():
+    old = _run(200, "queued")
+    old["updated_at"] = (NOW-timedelta(minutes=3)).isoformat()
+    result = watchdog_decision(NOW-timedelta(hours=11), NOW, [old])
+    assert result["action"] == "skip"
+    assert result["reason"] == "collector_already_running"
+
+
+def test_missing_pending_timestamp_fails_closed():
+    old = _run(200, "queued")
+    old.pop("created_at")
+    result = watchdog_decision(NOW-timedelta(hours=11), NOW, [old])
+    assert result["action"] == "skip"
+
+
+def test_invalid_pending_timestamp_fails_closed():
+    old = _run(200, "queued")
+    old["updated_at"] = "broken"
+    result = watchdog_decision(NOW-timedelta(hours=11), NOW, [old])
+    assert result["action"] == "skip"
+
+
+def test_exact_two_hour_pending_boundary_can_be_ignored():
+    pending = _run(120, "waiting")
+    result = watchdog_decision(NOW-timedelta(hours=11), NOW, [pending])
+    assert result["action"] == "dispatch"
 
 
 def test_backoff_prevents_hourly_dispatch_storm_after_real_attempt():
