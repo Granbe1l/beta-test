@@ -70,3 +70,53 @@ test("403 dispatch cannot be reported as successful", async () => {
   await assert.rejects(checkSnapshot({ token: "test", fetcher: m.fetcher,
     nowMs: NOW }), /HTTP 403/);
 });
+
+test("stale queued collector from days ago must not block recovery forever", async () => {
+  const m = mock({ runs: [{
+    id: 43096556666, status: "queued", event: "push",
+    created_at: new Date(NOW - 3 * 86400000).toISOString(),
+    updated_at: new Date(NOW - 3 * 86400000).toISOString(),
+  }] });
+  const result = await checkSnapshot({ token: "test", fetcher: m.fetcher,
+    nowMs: NOW });
+  assert.equal(result.action, "dispatch_accepted");
+  assert.deepEqual(result.ignored_stale_pending_run_ids, [43096556666]);
+  assert.equal(m.calls.filter(x => x.method === "POST").length, 1);
+});
+test("recent queued collector blocks a duplicate dispatch", async () => {
+  const m = mock({ runs: [{
+    id: 2, status: "queued",
+    created_at: new Date(NOW - 20 * 60000).toISOString(),
+    updated_at: new Date(NOW - 20 * 60000).toISOString(),
+  }] });
+  const result = await checkSnapshot({ token: "test", fetcher: m.fetcher, nowMs: NOW });
+  assert.equal(result.action, "skip_active");
+  assert.deepEqual(result.blocking_run, { id: 2, status: "queued" });
+  assert.equal(m.calls.length, 2);
+});
+test("queued activity updated recently remains protected even if originally old", async () => {
+  const m = mock({ runs: [{
+    status: "queued",
+    created_at: new Date(NOW - 3 * 86400000).toISOString(),
+    updated_at: new Date(NOW - 10 * 60000).toISOString(),
+  }] });
+  assert.equal((await checkSnapshot({ token: "test", fetcher: m.fetcher,
+    nowMs: NOW })).action, "skip_active");
+  assert.equal(m.calls.length, 2);
+});
+test("queued with unknown timing fails closed", async () => {
+  const m = mock({ runs: [{ id: 4, status: "queued" }] });
+  assert.equal((await checkSnapshot({ token: "test", fetcher: m.fetcher,
+    nowMs: NOW })).action, "skip_active");
+  assert.equal(m.calls.length, 2);
+});
+test("in-progress job always blocks even if timestamp is old", async () => {
+  const m = mock({ runs: [{
+    status: "in_progress",
+    created_at: new Date(NOW - 4 * 86400000).toISOString(),
+    updated_at: new Date(NOW - 4 * 86400000).toISOString(),
+  }] });
+  assert.equal((await checkSnapshot({ token: "test", fetcher: m.fetcher,
+    nowMs: NOW })).action, "skip_active");
+  assert.equal(m.calls.length, 2);
+});
