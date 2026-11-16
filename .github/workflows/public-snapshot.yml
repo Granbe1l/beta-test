@@ -44,6 +44,10 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: pip install -r requirements.txt
+      # Read-only evidence of GitHub dispatch -> job creation -> runner start.
+      # Failed telemetry is written as unavailable and never blocks collection.
+      - name: Record actual collector queue latency before ingestion
+        run: python scripts/audit_collector_queue.py
       - name: Fetch pinned pre-curation snapshot commit for archival recovery
         shell: bash
         run: |
@@ -129,6 +133,7 @@ jobs:
             snapshot-audit-before.json
             coverage-readiness.json
             open-inventory-triage.json
+            collector-queue-audit.json
             data/curated_50_transition_receipt.json
           if-no-files-found: error
           retention-days: 14
