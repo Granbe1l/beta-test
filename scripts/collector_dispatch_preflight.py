@@ -106,7 +106,7 @@ def main() -> None:
     if summary:
         with open(summary, "a", encoding="utf-8") as f:
             f.write("### P0 collector dispatch preflight\n\n")
-            f.write(f"Event: \`{event}\`. Decision: **{decision['reason']}**. "
+            f.write(f"Event: `{event}`. Decision: **{decision['reason']}**. "
                     f"Heavy collection: **{decision['should_collect']}**.\n\n")
             f.write("Dispatch skips never count as native scheduled scans or source verification.\n")
 
