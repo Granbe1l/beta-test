@@ -80,6 +80,155 @@ def schedule_health(runs: list[dict], required: int = 3, *,
     return result
 
 
+
+# Scheduled-run spacing is necessary but not sufficient: successful runs can
+# happen on the WRONG four-hour slots while other slots never fire. Evaluate
+# real UTC cron slots separately, with an explicit grace window.
+from pathlib import Path
+import re
+from datetime import timedelta
+
+SLOT_REPORT_HOURS = 24
+SLOT_GRACE_MINUTES = 60
+REQUIRED_SLOT_CYCLES = 3
+WORKFLOW_PATH = Path(__file__).resolve().parents[1] / ".github/workflows/public-snapshot.yml"
+
+
+def configured_four_hour_cron(path: Path = WORKFLOW_PATH) -> str:
+    """Read, never overwrite, the actual primary workflow schedule from Git."""
+    lines = re.findall(
+        r"""(?m)^\s*-\s*cron:\s*['"]([^'"]+)['"]\s*$""",
+        path.read_text(encoding="utf-8"),
+    )
+    if len(lines) != 1:
+        raise ValueError("primary_workflow_must_have_one_explicit_cron")
+    minute, hours = parse_four_hour_cron(lines[0])
+    assert 0 <= minute <= 59 and len(hours) == 6
+    return lines[0]
+
+
+def parse_four_hour_cron(expression: str) -> tuple[int, tuple[int, ...]]:
+    """Fail closed if the configured UTC cron no longer expresses every 4h."""
+    fields = expression.split()
+    if len(fields) != 5 or fields[2:] != ["*", "*", "*"]:
+        raise ValueError("unsupported_primary_cron_expression")
+    try:
+        minute = int(fields[0])
+        hours = tuple(int(part) for part in fields[1].split(","))
+    except ValueError as exc:
+        raise ValueError("invalid_primary_cron_time") from exc
+    if not 0 <= minute <= 59 or hours != tuple(range(hours[0], 24, 4)) or (
+        len(hours) != 6 or hours[0] not in (0, 1, 2, 3)
+    ):
+        raise ValueError("primary_cron_is_not_six_four_hour_slots")
+    return minute, hours
+
+
+def slot_delivery_report(
+    runs: list[dict], *, cron: str, now: datetime,
+    lookback_hours: int = SLOT_REPORT_HOURS,
+    grace_minutes: int = SLOT_GRACE_MINUTES,
+    required: int = REQUIRED_SLOT_CYCLES,
+) -> dict:
+    """Compare each *matured* expected UTC slot to only real scheduled runs.
+
+    A rescue, manual dispatch, push, or green unrelated workflow never fills
+    a missed native cron slot. One slot accepts at most one run. Maturity
+    delay prevents declaring a still-pending event missed too early.
+    """
+    minute, hours = parse_four_hour_cron(cron)
+    if not 0 < grace_minutes < 240 or lookback_hours < 4 or required < 2:
+        raise ValueError("invalid_slot_audit_window")
+    now = parsed(now) if isinstance(now, str) else now
+    if now.tzinfo is None:
+        raise ValueError("slot_audit_requires_timezone_aware_now")
+    now = now.astimezone(timezone.utc)
+    window_start = now - timedelta(hours=lookback_hours)
+    midnight = window_start.replace(hour=0, minute=0, second=0, microsecond=0)
+    expected = []
+    while midnight <= now:
+        for hour in hours:
+            slot = midnight.replace(hour=hour, minute=minute)
+            if window_start <= slot and slot + timedelta(minutes=grace_minutes) <= now:
+                expected.append(slot)
+        midnight += timedelta(days=1)
+
+    scheduled = []
+    for run in runs:
+        if run.get("event") != "schedule" or run.get("head_branch") != "main":
+            continue
+        raw = run.get("created_at")
+        if not raw:
+            continue
+        try:
+            when = parsed(raw)
+        except (TypeError, ValueError):
+            continue  # Bad evidence cannot pass any slot.
+        if window_start <= when <= now:
+            scheduled.append((when, run))
+
+    slots = []
+    matched = set()
+    for slot in sorted(expected):
+        choices = sorted(
+            ((when, run) for when, run in scheduled
+             if slot <= when <= slot + timedelta(minutes=grace_minutes)),
+            key=lambda pair: pair[0],
+        )
+        matched.update(id(run) for _, run in choices)
+        if not choices:
+            slots.append({"slot_utc": slot.isoformat(), "status": "missing"})
+            continue
+        when, run = choices[0]
+        status = ("duplicate" if len(choices) > 1 else
+                  "success" if run.get("status") == "completed" and
+                  run.get("conclusion") == "success" else
+                  "pending" if run.get("status") != "completed" else "failed")
+        slots.append({
+            "slot_utc": slot.isoformat(), "status": status,
+            "run_id": run.get("id"),
+            "run_created_at_utc": when.isoformat(),
+            "delay_minutes": round((when - slot).total_seconds() / 60, 2),
+            "matched_run_count": len(choices),
+        })
+    successes = sum(item["status"] == "success" for item in slots)
+    recent = slots[-required:]
+    return {
+        "cron_utc": cron, "lookback_hours": lookback_hours,
+        "slot_grace_minutes": grace_minutes,
+        "evaluated_at_utc": now.isoformat(),
+        "eligible_slots": len(slots), "successful_slots": successes,
+        "slot_success_percent": round(100 * successes / len(slots), 1) if slots else None,
+        "recent_required_slots": required,
+        "recent_required_slots_passed": (
+            len(recent) == required and
+            all(item["status"] == "success" for item in recent)
+        ),
+        "missing_slots": [item["slot_utc"] for item in slots
+                          if item["status"] == "missing"],
+        "slots": slots,
+        "unmatched_schedule_runs": [
+            {"run_id": run.get("id"), "created_at_utc": when.isoformat()}
+            for when, run in scheduled if id(run) not in matched
+        ],
+        "note": "Slot-level evidence for actual native cron only; one-hour "
+                "grace is an audit tolerance, not a change to the four-hour cron.",
+    }
+
+
+def schedule_health_with_slots(runs: list[dict], *, now: datetime,
+                               cron: str) -> dict:
+    """Preserve original spacing/source gate but require matching cron slots."""
+    result = schedule_health(runs, now=now)
+    slot_report = slot_delivery_report(runs, cron=cron, now=now)
+    result["slot_delivery"] = slot_report
+    if (result["status"] == "verified_recent_cycles" and
+            not slot_report["recent_required_slots_passed"]):
+        result["status"] = "needs_review"
+        result["slot_gate_reason"] = "real_expected_slots_not_verified"
+    return result
+
+
 def main():
     repo = os.getenv("GITHUB_REPOSITORY", "Granbe1l/beta-test")
     token = os.getenv("GITHUB_TOKEN")
@@ -93,7 +242,10 @@ def main():
                        params={"event": "schedule", "branch": "main",
                                "per_page": 20})
     res.raise_for_status()
-    output = schedule_health(res.json().get("workflow_runs") or [])
+    output = schedule_health_with_slots(
+        res.json().get("workflow_runs") or [],
+        now=datetime.now(timezone.utc), cron=configured_four_hour_cron(),
+    )
     # A dated, machine-readable proof from only actual 'schedule' events.
     # This does not modify GitHub data or create synthetic green runs.
     from pathlib import Path
@@ -119,6 +271,17 @@ def main():
                 handle.write("Observed run intervals (hours): " +
                              ", ".join(map(str, output["observed_intervals_hours"])) +
                              "\n\n")
+            slot = output["slot_delivery"]
+            handle.write(
+                f"Expected UTC slots (last {slot['lookback_hours']}h): "
+                f"**{slot['successful_slots']}/{slot['eligible_slots']}** "
+                f"within {slot['slot_grace_minutes']} minutes; "
+                f"recent {slot['recent_required_slots']} slots passed: "
+                f"**{slot['recent_required_slots_passed']}**.\n\n"
+            )
+            if slot["missing_slots"]:
+                handle.write("Missing eligible UTC slots: " +
+                             ", ".join(slot["missing_slots"]) + "\n\n")
             handle.write("Only `schedule` events count. Push/manual runs "
                          "cannot satisfy this gate.\n")
 
