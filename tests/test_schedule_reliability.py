@@ -80,3 +80,116 @@ def test_six_hour_cycle_is_not_proof_of_four_hour_cadence():
     assert result["successful_scheduled_runs"] == 3
     assert result["observed_intervals_hours"] == [6, 6]
     assert result["status"] == "needs_review"
+
+
+
+# Strict slot audit: spacing alone can conceal a missing official cron slot.
+from scripts.schedule_reliability import (
+    configured_four_hour_cron, parse_four_hour_cron,
+    slot_delivery_report, schedule_health_with_slots,
+)
+
+FOUR_HOUR_CRON = "23 1,5,9,13,17,21 * * *"
+SLOT_NOW = datetime(2026, 11, 16, 7, 30, tzinfo=timezone.utc)
+
+
+def slot_run(at, *, event="schedule", status="completed",
+             conclusion="success", branch="main", run_id=100):
+    return {
+        "id": run_id, "event": event, "status": status,
+        "conclusion": conclusion, "head_branch": branch,
+        "created_at": at, "html_url": "https://github.com/example/actions/runs/100",
+    }
+
+
+def test_slots_use_the_checked_in_four_hour_utc_workflow_cron():
+    assert configured_four_hour_cron() == FOUR_HOUR_CRON
+    assert parse_four_hour_cron(FOUR_HOUR_CRON) == (23, (1, 5, 9, 13, 17, 21))
+
+
+def test_actual_three_consecutive_expected_slots_can_pass():
+    rows = [
+        slot_run("2026-11-15T21:53:00Z", run_id=11),
+        slot_run("2026-11-16T01:32:00Z", run_id=12),
+        slot_run("2026-11-16T05:35:00Z", run_id=13),
+    ]
+    report = slot_delivery_report(rows, cron=FOUR_HOUR_CRON, now=SLOT_NOW,
+                                  lookback_hours=13)
+    assert report["eligible_slots"] == 3
+    assert report["successful_slots"] == 3
+    assert report["slot_success_percent"] == 100
+    assert report["recent_required_slots_passed"]
+    assert report["slots"][-1]["delay_minutes"] == 12
+
+
+def test_manual_dispatch_and_push_never_fill_missing_native_schedule_slots():
+    rows = [
+        slot_run("2026-11-15T21:25:00Z", run_id=10),
+        slot_run("2026-11-16T01:25:00Z", run_id=11),
+        slot_run("2026-11-16T05:25:00Z", event="workflow_dispatch", run_id=12),
+        slot_run("2026-11-16T05:29:00Z", event="push", run_id=13),
+        slot_run("2026-11-16T05:31:00Z", branch="feature", run_id=14),
+    ]
+    result = slot_delivery_report(rows, cron=FOUR_HOUR_CRON, now=SLOT_NOW,
+                                  lookback_hours=13)
+    assert result["successful_slots"] == 2
+    assert result["missing_slots"] == ["2026-11-16T05:23:00+00:00"]
+    assert not result["recent_required_slots_passed"]
+
+
+def test_three_spaced_runs_at_wrong_clock_phase_cannot_pass_merged_audit():
+    rows = [
+        slot_run("2026-11-15T22:59:00Z", run_id=11),
+        slot_run("2026-11-16T02:59:00Z", run_id=12),
+        slot_run("2026-11-16T06:59:00Z", run_id=13),
+    ]
+    assert schedule_health(rows, now=SLOT_NOW)["status"] == "verified_recent_cycles"
+    strict = schedule_health_with_slots(rows, now=SLOT_NOW, cron=FOUR_HOUR_CRON)
+    assert strict["status"] == "needs_review"
+    assert strict["slot_gate_reason"] == "real_expected_slots_not_verified"
+    assert not strict["slot_delivery"]["recent_required_slots_passed"]
+
+
+def test_delayed_schedule_run_is_reported_not_falsely_matched_to_next_slot():
+    rows = [
+        slot_run("2026-11-15T21:25:00Z", run_id=11),
+        slot_run("2026-11-16T01:25:00Z", run_id=12),
+        slot_run("2026-11-16T06:53:00Z", run_id=13),
+    ]
+    report = slot_delivery_report(rows, cron=FOUR_HOUR_CRON,
+                                  now=datetime(2026, 11, 16, 7, 55, tzinfo=timezone.utc),
+                                  lookback_hours=13)
+    assert report["missing_slots"] == ["2026-11-16T05:23:00+00:00"]
+    assert report["unmatched_schedule_runs"] == [
+        {"run_id": 13, "created_at_utc": "2026-11-16T06:53:00+00:00"}
+    ]
+
+
+def test_maturity_grace_does_not_prematurely_fail_a_current_slot():
+    report = slot_delivery_report([], cron=FOUR_HOUR_CRON,
+                                  now=datetime(2026, 11, 16, 6, 0, tzinfo=timezone.utc),
+                                  lookback_hours=13)
+    assert "2026-11-16T05:23:00+00:00" not in report["missing_slots"]
+
+
+def test_duplicate_or_failed_slot_is_not_accepted_as_success():
+    rows = [
+        slot_run("2026-11-15T21:25:00Z", run_id=11),
+        slot_run("2026-11-16T01:25:00Z", run_id=12, conclusion="failure"),
+        slot_run("2026-11-16T05:25:00Z", run_id=13),
+        slot_run("2026-11-16T05:29:00Z", run_id=14),
+    ]
+    report = slot_delivery_report(rows, cron=FOUR_HOUR_CRON,
+                                  now=SLOT_NOW, lookback_hours=13)
+    assert [s["status"] for s in report["slots"]] == [
+        "success", "failed", "duplicate"
+    ]
+    assert not report["recent_required_slots_passed"]
+
+
+def test_unknown_or_non_four_hour_cron_fails_closed():
+    import pytest
+    for cron in ["0 * * * *", "23 1,5,9 * * *", "23 1,5,9,13,17,21 * * 1",
+                 "23 1,5,9,13,17,22 * * *", "@hourly"]:
+        with pytest.raises(ValueError):
+            parse_four_hour_cron(cron)
