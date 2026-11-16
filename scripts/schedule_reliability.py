@@ -145,7 +145,7 @@ def slot_delivery_report(
     while midnight <= now:
         for hour in hours:
             slot = midnight.replace(hour=hour, minute=minute)
-            if window_start <= slot and slot + timedelta(minutes=grace_minutes) <= now:
+            if window_start <= slot <= now:
                 expected.append(slot)
         midnight += timedelta(days=1)
 
@@ -173,7 +173,11 @@ def slot_delivery_report(
         )
         matched.update(id(run) for _, run in choices)
         if not choices:
-            slots.append({"slot_utc": slot.isoformat(), "status": "missing"})
+            # Do not call an unexpired slot missed. A real successful run,
+            # however, may count immediately even before grace has elapsed.
+            state = ("awaiting_window" if now < slot + timedelta(minutes=grace_minutes)
+                     else "missing")
+            slots.append({"slot_utc": slot.isoformat(), "status": state})
             continue
         when, run = choices[0]
         status = ("duplicate" if len(choices) > 1 else
@@ -187,14 +191,16 @@ def slot_delivery_report(
             "delay_minutes": round((when - slot).total_seconds() / 60, 2),
             "matched_run_count": len(choices),
         })
-    successes = sum(item["status"] == "success" for item in slots)
-    recent = slots[-required:]
+    eligible = [item for item in slots if item["status"] != "awaiting_window"]
+    successes = sum(item["status"] == "success" for item in eligible)
+    recent = eligible[-required:]
     return {
         "cron_utc": cron, "lookback_hours": lookback_hours,
         "slot_grace_minutes": grace_minutes,
         "evaluated_at_utc": now.isoformat(),
-        "eligible_slots": len(slots), "successful_slots": successes,
-        "slot_success_percent": round(100 * successes / len(slots), 1) if slots else None,
+        "eligible_slots": len(eligible), "successful_slots": successes,
+        "slot_success_percent": (round(100 * successes / len(eligible), 1)
+                                  if eligible else None),
         "recent_required_slots": required,
         "recent_required_slots_passed": (
             len(recent) == required and
@@ -220,8 +226,10 @@ def schedule_health_with_slots(runs: list[dict], *, now: datetime,
     result["slot_delivery"] = slot_report
     # The downstream per-run source gate must audit THESE same three slots.
     # A green but unrelated fourth schedule event cannot substitute its ID.
+    finalized_slots = [item for item in slot_report["slots"]
+                       if item["status"] != "awaiting_window"]
     matched_slot_run_ids = [item.get("run_id") for item in reversed(
-        slot_report["slots"][-REQUIRED_SLOT_CYCLES:]
+        finalized_slots[-REQUIRED_SLOT_CYCLES:]
     )]
     if (result["status"] == "verified_recent_cycles" and
             (not slot_report["recent_required_slots_passed"] or
