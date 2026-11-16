@@ -103,11 +103,17 @@ production screenshots: the Worker is deployed with an encrypted token
 secret name and hourly scheduled invocations succeeded near 21:01 and
 22:01 WIB with no errors. Production uses UTC minute 00, not the
 previously checked-in minute 07. A GitHub `workflow_dispatch` at 21:01
-published a 50/50 audit at 21:05 WIB. Without a matching Cloudflare
-`dispatch_accepted` console log its initiator is not conclusively
-attributed. Keep external rescue proof separate from native GitHub
-schedule reliability. The GitHub best-effort
-schedule remains the primary refresh until then.
+published a 50/50 audit at 21:05 WIB, but its exact initiator was not
+conclusively attributed at the time. **On 16 November at 11:01 WIB** the
+owner subsequently supplied a *matching real Cloudflare Worker application
+log* (`{"age_minutes":362,"action":"dispatch_accepted"}`). The real GitHub
+`workflow_dispatch` run #43801500002 began at 11:01 WIB, published the
+snapshot at 11:05 WIB, and its audit proved 50/50 Issues/PR/CI 28-day
+coverage plus 50/50 independent full-open inventories. This **does**
+establish end-to-end Cloudflare rescue for that incident, not guaranteed
+future reliability or native GitHub four-hour punctuality. GitHub best-effort
+schedule remains the primary refresh while production Cloudflare stays a
+working hourly six-hour fallback.
 
 ## Additional P0 gate: verify sources for EACH scheduled run (14 November 2026)
 
@@ -127,6 +133,33 @@ is an audit workflow, not a new collector, and it cannot create missed cron
 runs, claim that Cloudflare has been deployed, or make a snapshot fresh.
 When the 3-schedule prerequisite is absent, it records
 `blocked_schedule` without inventing evidence.
+
+### P0 slot-aligned schedule audit (16 November 2026)
+
+A gap of approximately four hours between three `schedule` runs does **not**
+prove any official UTC cron slots actually fired. The read-only observer now
+also derives six daily UTC slots from the **checked-in collector workflow**
+(cron `23 1,5,9,13,17,21 * * *`) and checks the last 24 hours. Each
+slot is allowed an **explicit 60-minute observation window**;
+a slot without a run stays `awaiting_window` until its window closes,
+and is excluded from the success-rate denominator. A real successfully
+completed scheduled run counts immediately, even inside that window.
+
+The `slot_delivery` part of `schedule-reliability.json` reports each due
+`slot_utc`, actual run ID, delay, status (`success`, `failed`, `pending`,
+`duplicate`, or `missing`), a dated denominator, and out-of-window
+scheduled runs. Only real `event=schedule` main-branch collector runs can
+satisfy a slot; **neither Cloudflare nor manual `workflow_dispatch`** counts.
+Three recent successful cron run intervals alone no longer pass the
+operational gate: the latest three *eligible official slots* must also match
+those exact three run IDs. The existing strict 50/50 per-run artifact
+requirement remains unchanged. The 60-minute window changes **evidence
+classification**, **not** the 4h collector cron, 6h rescue threshold, or
+the provider's best-effort delivery guarantees.
+
+An absent GitHub `schedule` record cannot identify whether GitHub delayed
+or dropped an event at its source. It is reported as "not observed within
+the window," not evidence of a failing collector implementation.
 
 
 ## P0 scheduled-proof audit, 14 November 2026 at 18:42 WIB
