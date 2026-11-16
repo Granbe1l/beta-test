@@ -212,3 +212,43 @@ existing collector and check its dated source artifacts and publication
 using [the GitHub-only refresh playbook](GITHUB_ONLY_REFRESH_PLAYBOOK.md).
 Automated checks and manual runbooks are not evidence of a working hosted
 Streamlit URL. No Cloudflare deployment is part of this change.
+
+
+## P0 Queue-time evidence and safe pending-run handling (17 November 2026)
+
+The collector now runs a **read-only queue latency audit** before ingestion.
+Its per-run log `COLLECTOR QUEUE AUDIT` and uploaded
+`collector-queue-audit.json` record three provider timestamps: workflow
+`created_at`, refresh job `created_at`, and refresh job `started_at`.
+The separate metrics are **pre-job wait** and **runner-start wait**.
+They are not collector runtime and do not identify GitHub's root cause.
+If the GitHub API or job metadata is missing, the receipt says
+`status=unavailable`; it never invents a zero-minute queue or blocks
+legitimate source collection because an observability endpoint failed.
+
+Read-only operational severity thresholds are >=15 minutes (warning),
+>=60 minutes (incident), and >=120 minutes (escalation). They **do not**
+alter workflow dispatch, the 6-hour stale threshold, the 90-minute
+backoff, the existing 120-minute *last activity* rule for abandoned
+pending runs, or `cancel-in-progress: false`. The GitHub-only watchdog
+reports the ID, pending wait age, and severity whenever a stale snapshot
+is blocked by a pending collector. Missing timestamps still fail closed.
+
+**Real incident supporting this change:** GitHub collector #41
+(`workflow_dispatch`, 16 Nov 22:01:01 WIB) had no job until 22:54:11 WIB,
+then a runner started at 22:54:13 WIB and collection finished at
+22:58:38 WIB. The **53m10s run-to-job delay** is not evidence of a slow
+Python collector. The following scheduled collector #42 started its
+runner within seconds and both runs published real verified 50/50
+source and full-open Issue inventories.
+
+**Risk remaining:** An old `queued` record that the existing watchdog
+ignores after 120 minutes of no update could theoretically become
+runnable again. Cloudflare and GitHub watchdogs also have no proven
+single atomic cross-provider dispatch lock. Existing collector
+`public-snapshot-main` concurrency prevents overlapping active
+collectors but does not guarantee that two API dispatch requests cannot
+both be accepted or that provider queues are bounded. Do not claim that
+this evidence-only change eliminates all queue stalls. Never auto-cancel
+or repeatedly re-dispatch a recent queued collector without inspecting
+its real status, provider failures and last activity.
