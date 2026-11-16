@@ -41,6 +41,23 @@ def snapshot_generated(path: Path = SNAPSHOT):
     return parse_time(found.group(1).decode("ascii"))
 
 
+def pending_wait_metrics(run: dict, now: datetime) -> dict:
+    """Diagnose pending age, not why GitHub has queued the workflow."""
+    result = {"id": run.get("id"), "status": run.get("status")}
+    try:
+        started = parse_time(run.get("created_at"))
+    except (TypeError, ValueError, OverflowError):
+        started = None
+    if started is None or (now - started).total_seconds() < -900:
+        return {**result, "queue_wait_minutes": None, "queue_severity": "unknown"}
+    elapsed = max(0.0, (now - started).total_seconds() / 60)
+    severity = ("escalation" if elapsed >= 120 else
+                "incident" if elapsed >= 60 else
+                "warning" if elapsed >= 15 else "normal")
+    return {**result, "queue_wait_minutes": round(elapsed, 2),
+            "queue_severity": severity}
+
+
 def watchdog_decision(generated_at, now, runs: list[dict], *,
                       max_age_hours=MAX_AGE_HOURS,
                       backoff_minutes=BACKOFF_MINUTES):
@@ -76,7 +93,8 @@ def watchdog_decision(generated_at, now, runs: list[dict], *,
         except (ValueError, TypeError, OverflowError):
             last_activity = None
         if last_activity is None or (now - last_activity).total_seconds() / 60 < STALE_PENDING_MINUTES:
-            return {**data, "action": "skip", "reason": "collector_already_running"}
+            return {**data, "action": "skip", "reason": "collector_already_running",
+                    "blocking_run": pending_wait_metrics(run, now)}
         if run.get("id") is not None:
             ignored_stale_pending_ids.append(run["id"])
     # Do not start new rescue runs every hour when collection itself struggles.
@@ -125,6 +143,11 @@ def main():
     print("SNAPSHOT WATCHDOG:", json.dumps(decision, sort_keys=True), flush=True)
     if decision["action"] == "error":
         raise RuntimeError("Cannot verify committed snapshot freshness")
+    blocking = decision.get("blocking_run") or {}
+    if blocking.get("queue_severity") in {"warning", "incident", "escalation"}:
+        print(f"::warning::Collector {blocking.get('id')} pending for "
+              f"{blocking['queue_wait_minutes']} minutes "
+              f"({blocking['queue_severity']}); no duplicate dispatch requested.")
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as f:
