@@ -11,6 +11,12 @@ on:
     # Keep four-hour intervals; GitHub scheduled events remain best-effort.
     - cron: '23 1,5,9,13,17,21 * * *'
   workflow_dispatch:
+    inputs:
+      force_refresh:
+        description: 'Operator-only: deliberately refresh despite a fresh snapshot'
+        type: boolean
+        required: false
+        default: false
 permissions:
   contents: write
   actions: read
@@ -18,7 +24,48 @@ concurrency:
   group: public-snapshot-main
   cancel-in-progress: false
 jobs:
+  # A serial, GitHub-only check executed AFTER this workflow is admitted to
+  # concurrency. It fetches the newest main snapshot, not the old event SHA.
+  # Only a workflow_dispatch can be skipped when another run already published.
+  # 'schedule' and workflow-definition 'push' still collect and keep honest audit.
+  dispatch-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      should_collect: ${{ steps.decide.outputs.should_collect }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Fetch latest committed main snapshot for dispatch only
+        if: github.event_name == 'workflow_dispatch' && inputs.force_refresh != true
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin refs/heads/main
+          git show FETCH_HEAD:data/github_public_snapshot.json.gz > /tmp/p0-current-main-snapshot.json.gz
+      - name: Decide whether heavy collection is still required
+        id: decide
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          FORCE_REFRESH: ${{ inputs.force_refresh || 'false' }}
+        run: python scripts/collector_dispatch_preflight.py
+      - name: Preserve the real dispatch decision
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collector-dispatch-preflight
+          path: collector-dispatch-preflight.json
+          if-no-files-found: warn
+          retention-days: 14
   refresh:
+    needs: dispatch-preflight
+    if: needs.dispatch-preflight.outputs.should_collect == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
