@@ -140,8 +140,10 @@ A gap of approximately four hours between three `schedule` runs does **not**
 prove any official UTC cron slots actually fired. The read-only observer now
 also derives six daily UTC slots from the **checked-in collector workflow**
 (cron `23 1,5,9,13,17,21 * * *`) and checks the last 24 hours. Each
-fully elapsed slot is allowed an **explicit 60-minute observation window**;
-unmatured slots are excluded, not prematurely counted missing.
+slot is allowed an **explicit 60-minute observation window**;
+a slot without a run stays `awaiting_window` until its window closes,
+and is excluded from the success-rate denominator. A real successfully
+completed scheduled run counts immediately, even inside that window.
 
 The `slot_delivery` part of `schedule-reliability.json` reports each due
 `slot_utc`, actual run ID, delay, status (`success`, `failed`, `pending`,
