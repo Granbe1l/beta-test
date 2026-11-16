@@ -240,11 +240,9 @@ def test_collector_workflow_records_queue_evidence_before_ingestion():
     workflow = (Path(__file__).resolve().parents[1] /
                 ".github/workflows/public-snapshot.yml").read_text()
     assert "run: python scripts/audit_collector_queue.py" in workflow
-    assert workflow.index("run: python scripts/audit_collector_queue.py") < workflow.index(
-        "run: python scripts/run_sync.py") if "run: python scripts/run_sync.py" in workflow else (
-            workflow.index("run: python scripts/audit_collector_queue.py") <
-            workflow.index("python scripts/run_sync.py")
-        )
+    assert workflow.index("run: python scripts/audit_collector_queue.py") < (
+        workflow.index("python scripts/run_sync.py")
+    )
     assert "collector-queue-audit.json" in workflow
     assert "group: public-snapshot-main" in workflow
     assert "cancel-in-progress: false" in workflow
