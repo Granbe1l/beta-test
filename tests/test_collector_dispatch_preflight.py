@@ -116,7 +116,7 @@ def test_reads_only_committed_header_not_full_records(tmp_path):
 def test_exact_source_snapshot_does_not_need_github_api_or_token(tmp_path, monkeypatch):
     sample = tmp_path / "snapshot.json.gz"
     with gzip.open(sample, "wt", encoding="utf-8") as f:
-        f.write('{"generated_at":"2026-11-17T03:50:45+00:00"}')
+        f.write(json.dumps({"generated_at": datetime.now(timezone.utc).isoformat()}))
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("GITHUB_EVENT_NAME", "workflow_dispatch")
     monkeypatch.setenv("FORCE_REFRESH", "false")
