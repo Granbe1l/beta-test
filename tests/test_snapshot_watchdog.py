@@ -191,3 +191,60 @@ def test_successful_rescue_requires_204_acknowledgement(monkeypatch, tmp_path):
     with pytest.raises(RuntimeError, match="not acknowledged"):
         watchdog.main()
     assert seen == [{"branch": "main", "per_page": 50}]
+
+
+
+@pytest.mark.parametrize("elapsed,expected", [
+    (14, "normal"), (15, "warning"), (30, "warning"),
+    (53, "warning"), (60, "incident"), (90, "incident"),
+    (119, "incident"),
+])
+def test_pending_queue_age_exposed_while_dispatch_still_blocked(elapsed, expected):
+    queued = _run(elapsed, "queued")
+    queued["id"] = 43891870604
+    result = watchdog_decision(NOW-timedelta(hours=10), NOW, [queued])
+    assert result["action"] == "skip"
+    assert result["reason"] == "collector_already_running"
+    assert result["blocking_run"]["queue_wait_minutes"] == elapsed
+    assert result["blocking_run"]["queue_severity"] == expected
+    assert result["blocking_run"]["id"] == 43891870604
+
+
+def test_120min_queue_updated_recently_stays_protected_and_escalated():
+    queued = _run(121, "queued")
+    queued["updated_at"] = (NOW-timedelta(minutes=3)).isoformat()
+    result = watchdog_decision(NOW-timedelta(hours=10), NOW, [queued])
+    assert result["action"] == "skip"
+    assert result["blocking_run"]["queue_severity"] == "escalation"
+    assert result["blocking_run"]["queue_wait_minutes"] == 121
+
+
+def test_stale_old_queue_retains_proven_abandoned_queue_recovery():
+    queued = _run(121, "queued")
+    queued["id"] = 43096556666
+    result = watchdog_decision(NOW-timedelta(hours=10), NOW, [queued])
+    assert result["action"] == "dispatch"
+    assert result["ignored_stale_pending_run_ids"] == [43096556666]
+
+
+def test_pending_age_unknown_when_run_created_at_missing():
+    queued = _run(20, "queued")
+    queued.pop("created_at")
+    result = watchdog_decision(NOW-timedelta(hours=10), NOW, [queued])
+    assert result["action"] == "skip"
+    assert result["blocking_run"]["queue_wait_minutes"] is None
+    assert result["blocking_run"]["queue_severity"] == "unknown"
+
+
+def test_collector_workflow_records_queue_evidence_before_ingestion():
+    workflow = (Path(__file__).resolve().parents[1] /
+                ".github/workflows/public-snapshot.yml").read_text()
+    assert "run: python scripts/audit_collector_queue.py" in workflow
+    assert workflow.index("run: python scripts/audit_collector_queue.py") < workflow.index(
+        "run: python scripts/run_sync.py") if "run: python scripts/run_sync.py" in workflow else (
+            workflow.index("run: python scripts/audit_collector_queue.py") <
+            workflow.index("python scripts/run_sync.py")
+        )
+    assert "collector-queue-audit.json" in workflow
+    assert "group: public-snapshot-main" in workflow
+    assert "cancel-in-progress: false" in workflow
