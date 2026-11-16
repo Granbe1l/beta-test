@@ -5,9 +5,11 @@ token. Only actual schedule events can satisfy the consecutive-run gate.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 import json
 import os
+import re
 import sys
 
 import requests
@@ -80,14 +82,9 @@ def schedule_health(runs: list[dict], required: int = 3, *,
     return result
 
 
-
 # Scheduled-run spacing is necessary but not sufficient: successful runs can
 # happen on the WRONG four-hour slots while other slots never fire. Evaluate
 # real UTC cron slots separately, with an explicit grace window.
-from pathlib import Path
-import re
-from datetime import timedelta
-
 SLOT_REPORT_HOURS = 24
 SLOT_GRACE_MINUTES = 60
 REQUIRED_SLOT_CYCLES = 3
@@ -102,8 +99,7 @@ def configured_four_hour_cron(path: Path = WORKFLOW_PATH) -> str:
     )
     if len(lines) != 1:
         raise ValueError("primary_workflow_must_have_one_explicit_cron")
-    minute, hours = parse_four_hour_cron(lines[0])
-    assert 0 <= minute <= 59 and len(hours) == 6
+    parse_four_hour_cron(lines[0])
     return lines[0]
 
 
@@ -222,8 +218,14 @@ def schedule_health_with_slots(runs: list[dict], *, now: datetime,
     result = schedule_health(runs, now=now)
     slot_report = slot_delivery_report(runs, cron=cron, now=now)
     result["slot_delivery"] = slot_report
+    # The downstream per-run source gate must audit THESE same three slots.
+    # A green but unrelated fourth schedule event cannot substitute its ID.
+    matched_slot_run_ids = [item.get("run_id") for item in reversed(
+        slot_report["slots"][-REQUIRED_SLOT_CYCLES:]
+    )]
     if (result["status"] == "verified_recent_cycles" and
-            not slot_report["recent_required_slots_passed"]):
+            (not slot_report["recent_required_slots_passed"] or
+             result["run_ids"] != matched_slot_run_ids)):
         result["status"] = "needs_review"
         result["slot_gate_reason"] = "real_expected_slots_not_verified"
     return result
