@@ -21,7 +21,9 @@ def test_github_only_watchdog_does_not_pretend_to_be_external_scheduler():
     assert "cron: '47 * * * *'" in workflow
     assert "workflow_dispatch:" in workflow
     assert "NOT independent uptime proof" in workflow
-    assert "MAX_AGE_HOURS = 6" in script
+    assert "MAX_AGE_HOURS = 4" in script
+    # Separate providers: early GitHub 4h target, independent Cloudflare 6h fallback.
+    assert '"inputs": {"target_hours": "4"}' in script
     assert "BACKOFF_MINUTES = 90" in script
     # Long-idle queued runs must not permanently disable backup refresh.
     # Genuine in-progress work and uncertain pending timestamps still block.

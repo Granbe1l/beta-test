@@ -22,6 +22,8 @@ RECEIPT = Path("collector-dispatch-preflight.json")
 # Match the currently deployed, owner-managed Cloudflare 6h emergency policy.
 # Do not silently change this to a 4h new primary schedule.
 EMERGENCY_AGE_HOURS = 6
+GITHUB_EARLY_TARGET_HOURS = 4
+ALLOWED_DISPATCH_TARGET_HOURS = frozenset((GITHUB_EARLY_TARGET_HOURS, EMERGENCY_AGE_HOURS))
 FUTURE_TOLERANCE_MINUTES = 15
 EVENTS_WITH_ALWAYS_ON_INGESTION = frozenset({"push", "schedule"})
 
@@ -46,7 +48,7 @@ def read_generated_at(snapshot: Path) -> datetime:
 
 
 def decide(*, event: str, force_refresh: bool, generated_at: datetime | None,
-           now: datetime) -> dict:
+           now: datetime, target_hours: int = EMERGENCY_AGE_HOURS) -> dict:
     if now.tzinfo is None:
         raise ValueError("now_requires_timezone")
     now = now.astimezone(timezone.utc)
@@ -59,6 +61,8 @@ def decide(*, event: str, force_refresh: bool, generated_at: datetime | None,
         }
     if event != "workflow_dispatch":
         raise ValueError("unexpected_collector_trigger")
+    if target_hours not in ALLOWED_DISPATCH_TARGET_HOURS:
+        raise ValueError("unsupported_dispatch_target_hours")
     if force_refresh:
         return {
             "should_collect": True,
@@ -72,7 +76,7 @@ def decide(*, event: str, force_refresh: bool, generated_at: datetime | None,
     if age_minutes < -FUTURE_TOLERANCE_MINUTES:
         raise ValueError("committed_snapshot_timestamp_unreasonably_in_future")
     age_minutes = max(0, age_minutes)
-    stale = age_minutes > EMERGENCY_AGE_HOURS * 60
+    stale = age_minutes > target_hours * 60
     return {
         "should_collect": stale,
         "reason": "stale_current_main_snapshot" if stale else "fresh_current_main_snapshot",
@@ -81,7 +85,8 @@ def decide(*, event: str, force_refresh: bool, generated_at: datetime | None,
         "current_main_generated_at_utc": generated_at.astimezone(timezone.utc).isoformat(),
         "evaluated_at_utc": now.isoformat(),
         "snapshot_age_minutes": round(age_minutes, 2),
-        "threshold_minutes": EMERGENCY_AGE_HOURS * 60,
+        "threshold_minutes": target_hours * 60,
+        "dispatch_target_hours": target_hours,
         "note": "A skipped rescue is not a successful source scan or native scheduled run.",
     }
 
@@ -89,12 +94,13 @@ def decide(*, event: str, force_refresh: bool, generated_at: datetime | None,
 def main() -> None:
     event = os.environ.get("GITHUB_EVENT_NAME", "")
     forced = os.environ.get("FORCE_REFRESH", "false").lower() == "true"
+    target_hours = int(os.environ.get("GITHUB_DISPATCH_TARGET_HOURS", "6"))
     generated_at = (
         read_generated_at(Path(os.environ.get("P0_CURRENT_MAIN_SNAPSHOT", str(SNAPSHOT_PATH))))
         if event == "workflow_dispatch" and not forced else None
     )
     decision = decide(event=event, force_refresh=forced, generated_at=generated_at,
-                      now=datetime.now(timezone.utc))
+                      now=datetime.now(timezone.utc), target_hours=target_hours)
     RECEIPT.write_text(json.dumps(decision, sort_keys=True, indent=2) + "\n",
                        encoding="utf-8")
     output = os.getenv("GITHUB_OUTPUT")

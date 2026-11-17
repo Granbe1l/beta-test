@@ -31,20 +31,20 @@ def test_real_header_decoding_does_not_read_records_into_memory(tmp_path):
 
 
 def test_fresh_snapshot_never_dispatches():
-    result = watchdog_decision(NOW-timedelta(hours=5), NOW, [])
+    result = watchdog_decision(NOW-timedelta(hours=3), NOW, [])
     assert result["action"] == "skip"
     assert result["reason"] == "snapshot_fresh"
-    assert result["max_age_hours"] == 6
+    assert result["max_age_hours"] == 4
 
 
-def test_exact_six_hour_boundary_is_not_over_eager():
-    result = watchdog_decision(NOW-timedelta(hours=6), NOW, [])
+def test_exact_four_hour_boundary_is_not_over_eager():
+    result = watchdog_decision(NOW-timedelta(hours=4), NOW, [])
     assert result["action"] == "skip"
     assert result["reason"] == "snapshot_fresh"
 
 
-def test_six_hour_threshold_triggers_rescue_only_after_limit():
-    result = watchdog_decision(NOW-timedelta(hours=6, minutes=1), NOW, [_run(180)])
+def test_four_hour_threshold_triggers_early_rescue_only_after_limit():
+    result = watchdog_decision(NOW-timedelta(hours=4, minutes=1), NOW, [_run(180)])
     assert result["action"] == "dispatch"
     assert result["reason"] == "snapshot_exceeds_age_threshold"
 
@@ -246,3 +246,61 @@ def test_collector_workflow_records_queue_evidence_before_ingestion():
     assert "collector-queue-audit.json" in workflow
     assert "group: public-snapshot-main" in workflow
     assert "cancel-in-progress: false" in workflow
+
+
+
+def test_github_early_watchdog_dispatch_sets_explicit_four_hour_preflight_target(
+        monkeypatch, tmp_path):
+    """Cloudflare's untouched workflow_dispatch no-input path must still mean 6h."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GITHUB_TOKEN", "test-token-only")
+    monkeypatch.setattr(watchdog, "snapshot_generated",
+                        lambda: datetime.now(timezone.utc)-timedelta(hours=4, minutes=15))
+    class Response:
+        status_code = 204
+        def __init__(self, payload=None):
+            self.payload = payload
+        def raise_for_status(self):
+            pass
+        def json(self):
+            return self.payload
+    sent = []
+    monkeypatch.setattr(
+        watchdog.requests, "get",
+        lambda *args, **kwargs: Response({"workflow_runs": []})
+    )
+    def post(url, **kwargs):
+        sent.append({"url": url, **kwargs})
+        return Response()
+    monkeypatch.setattr(watchdog.requests, "post", post)
+    watchdog.main()
+    assert len(sent) == 1
+    assert sent[0]["json"] == {"ref": "main", "inputs": {"target_hours": "4"}}
+    decision = __import__("json").loads(
+        (tmp_path / "snapshot-watchdog-audit.json").read_text()
+    )
+    assert decision["action"] == "dispatch"
+    assert decision["max_age_hours"] == 4
+    assert decision["collector_preflight_target_hours"] == 4
+    assert "test-token-only" not in __import__("json").dumps(decision)
+
+
+def test_four_hour_target_still_preserves_running_and_recent_queue_guards():
+    for status in ("queued", "requested", "waiting", "pending", "in_progress"):
+        result = watchdog_decision(
+            NOW-timedelta(hours=5), NOW, [_run(30, status)]
+        )
+        assert result["action"] == "skip"
+        assert result["reason"] == "collector_already_running"
+    assert watchdog_decision(
+        NOW-timedelta(hours=5), NOW, [_run(60)]
+    )["reason"] == "recent_attempt_backoff"
+
+
+def test_cloudflare_worker_code_remains_six_hour_independent_fallback():
+    root = Path(__file__).resolve().parents[1]
+    worker = (root / "external_refresh/cloudflare/worker.mjs").read_text()
+    wrangler = (root / "external_refresh/cloudflare/wrangler.toml").read_text()
+    assert "const MAX_AGE_MS = 6 * 60 * 60 * 1000" in worker
+    assert "const RETRY_BACKOFF_MS = 90 * 60 * 1000" in worker
+    assert 'crons = ["0 * * * *"]' in wrangler

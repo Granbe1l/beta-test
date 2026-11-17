@@ -17,6 +17,14 @@ on:
         type: boolean
         required: false
         default: false
+      target_hours:
+        description: 'For rescue only: 4h GitHub early-watchdog, 6h Cloudflare/default'
+        type: choice
+        options:
+          - '6'
+          - '4'
+        required: false
+        default: '6'
 permissions:
   contents: write
   actions: read
@@ -54,6 +62,7 @@ jobs:
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           FORCE_REFRESH: ${{ inputs.force_refresh || 'false' }}
+          GITHUB_DISPATCH_TARGET_HOURS: ${{ inputs.target_hours || '6' }}
         run: python scripts/collector_dispatch_preflight.py
       - name: Preserve the real dispatch decision
         if: always()

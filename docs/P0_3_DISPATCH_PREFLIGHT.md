@@ -93,3 +93,49 @@ current main snapshot, and input context first. Revert the reviewed commit to
 restore the previous workflow behavior. Keep the currently committed snapshot
 and curated cohort intact throughout; do not revert or fabricate dataset
 observations to make a workflow appear successful.
+
+
+## 17 November 2026 — GH-only early 4h target (Cloudflare still 6h)
+
+**Observed incident:** native collector scheduled for 08:23 WIB was not observed
+by 10:37 WIB. The GitHub-only watchdog itself ran at 09:37 WIB and
+reported `skip / snapshot_fresh` because the last valid snapshot at 05:54
+was 3.72h old against its *former* 6h age policy. That is not proof
+Cloudflare was unhealthy: its independent rescue still uses 6h.
+
+This separate GitHub-only change makes the existing *best-effort*
+GitHub watchdog check at **snapshot age >4 hours** instead of >6h.
+It dispatches `public-snapshot.yml` with the explicit GitHub
+`workflow_dispatch` input `target_hours: '4'`. The collector's
+post-queue preflight interprets **only the accepted targets 4 or 6**:
+
+- GitHub watchdog sends `target_hours='4'`, meaning it may start costly
+  data collection after actual age passes 4h and existing pending-run,
+  active-run, and 90-minute backoff checks allow it.
+- Existing Cloudflare Worker dispatches **without inputs** and therefore
+  retains the **default target 6h** and exact original production code,
+  hourly cron, token, and configuration.
+- Regular native `schedule` and workflow-file `push` still collect,
+  preserving their independent source and punctuality audits.
+- The initial preflight still fetches newest main snapshot *after*
+  a queued rescue is admitted; a newly published fresh snapshot skips
+  redundant heavy collection with an explicit auditable receipt.
+- Explicit operator `force_refresh:true` still requires a deliberate
+  manual choice. Unsupported targets are rejected rather than allowing
+  arbitrary 1-hour repeat dispatch spam.
+
+**This is not two contradictory freshness metrics:** the 4h threshold is
+the **same-provider early recovery target**, whereas 6h remains the
+**independent Cloudflare fallback**. The GitHub watchdog itself depends
+on best-effort GitHub scheduled workflow delivery. As a result, neither
+this change nor another green push run proves *4h punctuality*. When
+Github Action cron delivery is absent, the Cloudflare fallback
+continues as-is. Current data remains the same pinned 50 repos and
+unchanged 28-day/12-hour correctness gates.
+
+Before accepting this change, require green PR CI, tests for 4/6h
+boundary and API errors, a real main collector scan with 50/50 source
+artifacts and publication, and a real `workflow_run` watchdog decision.
+Cloudflare production must not be redeployed or modified. A subsequent
+GH watchdog *scheduled* execution after >4h of snapshot age is useful
+operational evidence but not a guarantee for future slots.
