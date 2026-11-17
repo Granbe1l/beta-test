@@ -1,5 +1,7 @@
 # Independent refresh watchdog — deployed cron observed on 15 Nov 2026
 
+> **Branch-only candidate (17 November 2026):** The branch `fix/p0-3-cloudflare-4h-tdd` proposes an early independent rescue after **more than 4 hours** and sends GitHub `workflow_dispatch` with `inputs.target_hours="4"`. **NOT MERGED, NOT DEPLOYED.** The owner's Cloudflare production Worker still uses **6 hours** until a separately approved deployment. This document's historical production observations refer to that unchanged 6h Worker. The hourly Cron Trigger remains unchanged, so a four-hour age threshold is **not** a punctual four-hour completion guarantee. No token, dataset, repository cohort, or Verified status is changed.
+
 This is a second scheduler outside GitHub, not a replacement collector.
 The existing main-branch `public-snapshot.yml` GitHub schedule remains
 every four hours. If Github misses a cron slot, this Cloudflare Cron Trigger
