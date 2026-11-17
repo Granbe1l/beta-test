@@ -6,7 +6,8 @@ const OWNER = "Granbe1l";
 const REPO = "beta-test";
 const WORKFLOW = "public-snapshot.yml";
 const SNAPSHOT_PATH = "data/github_public_snapshot.json.gz";
-const MAX_AGE_MS = 6 * 60 * 60 * 1000;
+// Early independent rescue target; hourly cron remains best-effort.
+const MAX_AGE_MS = 4 * 60 * 60 * 1000;
 const RETRY_BACKOFF_MS = 90 * 60 * 1000;
 const STALE_PENDING_MS = 2 * 60 * 60 * 1000;
 // GitHub may retain abandoned "queued" runs for days (observed 12–15 Nov).
@@ -101,7 +102,8 @@ export async function checkSnapshot({ token, fetcher = fetch, nowMs = Date.now()
     token, fetcher, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ref: "main" }),
+      // GitHub preflight defaults to 6h without this explicit 4h target.
+      body: JSON.stringify({ ref: "main", inputs: { target_hours: "4" } }),
     }
   );
   // GitHub returns 204 for accepted workflow_dispatch; this is NOT proof of
