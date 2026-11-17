@@ -1,5 +1,7 @@
 # Independent refresh watchdog — deployed cron observed on 15 Nov 2026
 
+> **Current production status (18 November 2026):** The owner manually deployed the four-hour rescue Worker in Cloudflare as version `cd6b3e5d`, and real automatic cron + GitHub collector run #49 provide production end-to-end evidence below. This GitHub branch is still **draft / not merged**, so the `main` repository source remains at the former six-hour threshold until owner-approved merge. The hourly Cron Trigger is unchanged, and the >4-hour check is **not** a fixed four-hour completion SLA. No token, dataset, repository cohort, or Verified status was altered by this PR.
+
 This is a second scheduler outside GitHub, not a replacement collector.
 The existing main-branch `public-snapshot.yml` GitHub schedule remains
 every four hours. If Github misses a cron slot, this Cloudflare Cron Trigger
@@ -17,7 +19,19 @@ rescue but require a matching `dispatch_accepted` application log for
 conclusive attribution. No deployment or secret change is required
 just to reconcile documentation.
 
-**Fail-closed guardrails:** if the latest committed snapshot is <=6 hours old,
+**Production end-to-end evidence, 18 Nov 2026:** at 02:00:56 WIB, deployed
+Cloudflare version `cd6b3e5d` automatically recorded `scheduled` / `outcome=ok`
+and application `{"age_minutes":258,"action":"dispatch_accepted"}`.
+Five seconds later, [GitHub collector run #49](https://github.com/Granbe1l/beta-test/actions/runs/44154011237)
+started as `workflow_dispatch`. Its preflight recorded
+`dispatch_target_hours=4`, `snapshot_age_minutes=258.45` and
+`should_collect=true`. Collector completed around 02:05 WIB with
+50/50 source-specific 28-day Verified Issues/PR/CI, independent 50/50 complete
+full-open Issue inventories, and a published updated snapshot. Provider
+attribution is strongly supported by timing and matching snapshot age;
+this does not guarantee that future cron deliveries are punctual.
+
+**Fail-closed guardrails:** if the latest committed snapshot is <=4 hours old,
 no request is dispatched; if a collector is truly running, a pending run has activity within 2 hours,
 or a dispatched run was created within 90 minutes, no request is dispatched.
 Very old, unchanged GitHub `queued` entries (observed for >3 days) do
@@ -87,9 +101,7 @@ and snapshot publication. The unit test alone is not proof of production.
 The source files in this repository remain **optional for other installations**.
 For this project, the owner's Cloudflare screenshots dated 15 November
 2026 demonstrate that production is deployed and scheduled event
-invocations are succeeding. The token name is visible in encrypted
-settings, but its actual scope/expiry and the result of a specific
-stale-rescue request still require account-side validation.
+invocations are succeeding. The token name is visible in encrypted settings, but its actual scope/expiry still requires account-side validation. The real 18 November four-hour rescue outcome is documented above.
 Merging GitHub code does **not** redeploy the existing Worker.
 The checked-in Wrangler cron now matches the observed production
 minute 00; do not redeploy solely to reconcile this file.

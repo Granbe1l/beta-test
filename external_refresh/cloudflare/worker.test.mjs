@@ -52,7 +52,8 @@ test("stale, no active or recent dispatch: request only main workflow", async ()
   assert.equal(m.calls.length, 3);
   assert.equal(m.calls[2].method, "POST");
   assert.match(m.calls[2].url, /public-snapshot\.yml\/dispatches$/);
-  assert.deepEqual(JSON.parse(m.calls[2].body), { ref: "main" });
+  assert.deepEqual(JSON.parse(m.calls[2].body),
+    { ref: "main", inputs: { target_hours: "4" } });
 });
 test("do not dispatch when API, timestamp, token or body is invalid", async () => {
   const m = mock({ listStatus: 403 });
@@ -141,4 +142,42 @@ test("redirect response is rejected rather than followed with secret", async () 
   );
   assert.equal(requests.length, 1);
   assert.equal(requests[0].redirect, "manual");
+});
+
+test("four-hour boundary: 239m and 240m do not dispatch", async () => {
+  for (const minutes of [239, 240]) {
+    const m = mock({ hoursOld: minutes / 60 });
+    const result = await checkSnapshot({ token: "test", fetcher: m.fetcher, nowMs: NOW });
+    assert.equal(result.action, "skip_fresh");
+    assert.equal(m.calls.length, 1);
+  }
+});
+
+test("four-hour boundary: 241m, 359m and 361m dispatch explicitly at 4h", async () => {
+  for (const minutes of [241, 359, 361]) {
+    const m = mock({ hoursOld: minutes / 60 });
+    const result = await checkSnapshot({ token: "test", fetcher: m.fetcher, nowMs: NOW });
+    assert.equal(result.action, "dispatch_accepted");
+    assert.equal(m.calls.length, 3);
+    assert.deepEqual(JSON.parse(m.calls[2].body),
+      { ref: "main", inputs: { target_hours: "4" } });
+    assert.ok(m.calls.every(call => call.redirect === "manual"));
+  }
+});
+
+test("four-hour stale snapshot still refuses dispatch while collector is active", async () => {
+  const m = mock({ hoursOld: 250 / 60, runs: [{ status: "in_progress" }] });
+  assert.equal((await checkSnapshot({ token: "test", fetcher: m.fetcher,
+    nowMs: NOW })).action, "skip_active");
+  assert.equal(m.calls.length, 2);
+});
+
+test("four-hour stale snapshot still respects ninety-minute dispatch backoff", async () => {
+  const m = mock({ hoursOld: 250 / 60, runs: [{
+    event: "workflow_dispatch", status: "completed",
+    created_at: new Date(NOW - 25 * 60000).toISOString(),
+  }] });
+  assert.equal((await checkSnapshot({ token: "test", fetcher: m.fetcher,
+    nowMs: NOW })).action, "skip_backoff");
+  assert.equal(m.calls.length, 2);
 });

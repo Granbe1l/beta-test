@@ -297,10 +297,14 @@ def test_four_hour_target_still_preserves_running_and_recent_queue_guards():
     )["reason"] == "recent_attempt_backoff"
 
 
-def test_cloudflare_worker_code_remains_six_hour_independent_fallback():
+def test_cloudflare_candidate_four_hour_target_preserves_safe_guards():
+    """Branch-only candidate; deployed Worker remains 6h until owner approval."""
     root = Path(__file__).resolve().parents[1]
     worker = (root / "external_refresh/cloudflare/worker.mjs").read_text()
     wrangler = (root / "external_refresh/cloudflare/wrangler.toml").read_text()
-    assert "const MAX_AGE_MS = 6 * 60 * 60 * 1000" in worker
+    assert "const MAX_AGE_MS = 4 * 60 * 60 * 1000" in worker
+    assert 'inputs: { target_hours: "4" }' in worker
     assert "const RETRY_BACKOFF_MS = 90 * 60 * 1000" in worker
+    assert "const STALE_PENDING_MS = 2 * 60 * 60 * 1000" in worker
+    assert 'redirect: "manual"' in worker
     assert 'crons = ["0 * * * *"]' in wrangler
