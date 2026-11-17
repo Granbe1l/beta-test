@@ -11,10 +11,11 @@ from scripts import collector_dispatch_preflight as gate
 NOW = datetime(2026, 11, 17, 3, 50, tzinfo=timezone.utc)
 
 
-def choose(event="workflow_dispatch", *, age_hours=1, force=False):
+def choose(event="workflow_dispatch", *, age_hours=1, force=False, target_hours=6):
     generated = NOW - timedelta(hours=age_hours)
     return gate.decide(event=event, force_refresh=force,
-                       generated_at=generated, now=NOW)
+                       generated_at=generated, now=NOW,
+                       target_hours=target_hours)
 
 
 @pytest.mark.parametrize("age_hours", [0, 0.25, 1, 3, 4, 5.9, 6])
@@ -151,6 +152,80 @@ def test_workflow_keeps_six_hour_backup_and_native_schedule_audit():
     assert "name: collector-dispatch-preflight" in wf
     assert "name: github-50-repo-source-audit" in wf
     assert "python scripts/verify_collection.py" in wf
-    assert "MAX_AGE_HOURS = 6" in watchdog
+    assert "MAX_AGE_HOURS = 4" in watchdog
+    assert "GITHUB_DISPATCH_TARGET_HOURS" in wf
+    assert "target_hours:" in wf
     assert "BACKOFF_MINUTES = 90" in watchdog
     assert "STALE_PENDING_MINUTES = 120" in watchdog
+
+
+
+@pytest.mark.parametrize("age,expected", [
+    (3.5, False), (4, False), (4.01, True),
+    (4.5, True), (5.9, True), (6, True), (7, True),
+])
+def test_github_only_four_hour_early_target_is_respected(age, expected):
+    result = choose(age_hours=age, target_hours=4)
+    assert result["should_collect"] is expected
+    assert result["threshold_minutes"] == 240
+    assert result["dispatch_target_hours"] == 4
+
+
+@pytest.mark.parametrize("age", [4.01, 4.5, 5.9, 6])
+def test_cloudflare_no_inputs_default_six_hours_skips_early(age):
+    result = choose(age_hours=age)
+    assert result["should_collect"] is False
+    assert result["threshold_minutes"] == 360
+    assert result["dispatch_target_hours"] == 6
+
+
+def test_github_and_cloudflare_decisions_are_intentionally_distinct():
+    early = choose(age_hours=4.5, target_hours=4)
+    normal = choose(age_hours=4.5)
+    assert early["should_collect"] is True
+    assert normal["should_collect"] is False
+
+
+def test_unsupported_input_cannot_request_one_hour_spam():
+    for target in (0, 1, 2, 3, 5, 7, 100):
+        with pytest.raises(ValueError, match="unsupported_dispatch_target_hours"):
+            choose(age_hours=12, target_hours=target)
+
+
+def test_actual_github_workflow_dispatch_input_is_a_choice_of_four_or_six():
+    wf = (Path(__file__).resolve().parents[1] /
+          ".github/workflows/public-snapshot.yml").read_text()
+    assert "target_hours:" in wf
+    assert "type: choice" in wf
+    assert "default: '6'" in wf
+    assert "GITHUB_DISPATCH_TARGET_HOURS: " in wf
+    assert "inputs.target_hours || '6'" in wf
+    assert "group: public-snapshot-main" in wf
+
+
+def test_early_github_preflight_main_reads_explicit_target(tmp_path, monkeypatch):
+    snap = tmp_path / "latest-main.json.gz"
+    with gzip.open(snap, "wt", encoding="utf-8") as stream:
+        stamp = datetime.now(timezone.utc)-timedelta(hours=5)
+        stream.write(json.dumps({"generated_at": stamp.isoformat()}))
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "workflow_dispatch")
+    monkeypatch.setenv("FORCE_REFRESH", "false")
+    monkeypatch.setenv("GITHUB_DISPATCH_TARGET_HOURS", "4")
+    monkeypatch.setenv("P0_CURRENT_MAIN_SNAPSHOT", str(snap))
+    monkeypatch.setenv("GITHUB_OUTPUT", str(tmp_path / "output.txt"))
+    gate.main()
+    receipt = json.loads((tmp_path / "collector-dispatch-preflight.json").read_text())
+    assert receipt["should_collect"] is True
+    assert receipt["reason"] == "stale_current_main_snapshot"
+    assert receipt["threshold_minutes"] == 240
+    assert (tmp_path / "output.txt").read_text() == "should_collect=true\n"
+
+
+def test_early_rescue_late_in_queue_rechecks_latest_and_skips_if_fresh():
+    # A 5h snapshot triggered early rescue, but after a different collector
+    # published, it became 2 minutes old at admission.
+    original = choose(age_hours=5, target_hours=4)
+    later = choose(age_hours=2/60, target_hours=4)
+    assert original["should_collect"] is True
+    assert later["should_collect"] is False
