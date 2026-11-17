@@ -1,10 +1,10 @@
 """Conditional safety net for delayed or dropped GitHub Actions cron events.
 
-The primary four-hour scheduled collection is complemented by this watchdog. This hourly
-watchdog checks the *actual committed snapshot generated_at*, not the date a
-workflow started, and can dispatch one extra collector run when data age
-passes an independently documented threshold. It never fabricates a
-schedule event or upgrades any source's verified status.
+The native 4h collection is complemented by an early 4h Github-only watchdog.
+This best-effort same-provider watchdog runs independently of the collector cron,
+but does NOT guarantee punctual service. Cloudflare's independent 6h rescue
+remains unchanged. The watchdog checks committed snapshot generated_at,
+never fabricates a schedule event or upgrades verified coverage.
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ import requests
 
 SNAPSHOT = Path("data/github_public_snapshot.json.gz")
 API_WORKFLOW = "public-snapshot.yml"
-MAX_AGE_HOURS = 6
+MAX_AGE_HOURS = 4  # Early GitHub-only target. Cloudflare remains independently 6h.
 BACKOFF_MINUTES = 90
 STALE_PENDING_MINUTES = 120  # Match Cloudflare: ignore only abandoned, unchanged queues.
 PENDING_STATUSES = frozenset(("queued", "requested", "waiting", "pending"))
@@ -132,11 +132,12 @@ def main():
     decision = watchdog_decision(generated_at, now, payload["workflow_runs"])
     if decision["action"] == "dispatch":
         dispatched = requests.post(base + "/dispatches", headers=headers,
-                                   json={"ref": "main"}, timeout=20)
+                                   json={"ref": "main", "inputs": {"target_hours": "4"}}, timeout=20)
         dispatched.raise_for_status()
         if dispatched.status_code != 204:
             raise RuntimeError("Collector workflow dispatch was not acknowledged with HTTP 204")
         decision["dispatched_by"] = "conditional_watchdog_workflow_dispatch"
+        decision["collector_preflight_target_hours"] = MAX_AGE_HOURS
         decision["github_http_status"] = dispatched.status_code
     output = Path("snapshot-watchdog-audit.json")
     output.write_text(json.dumps(decision, indent=2, sort_keys=True), encoding="utf-8")
