@@ -14,7 +14,7 @@
 
 - Branch: `fix/p0-3-cloudflare-4h-tdd`; base `79e84bb8`.
 - No merge, Cloudflare production deployment, secret, data or Verified cohort changes without explicit owner approval.
-- Only Cloudflare `worker.mjs`, `worker.test.mjs`, `README.md` and Superpowers documentation in scope.
+- Only Cloudflare `worker.mjs`, `worker.test.mjs`, `README.md`, the affected Python contract `tests/test_snapshot_watchdog.py`, and Superpowers documentation in scope.
 
 ## Review focus
 
@@ -41,6 +41,7 @@
 - [x] Run local regression for the seven focused cases: **7 passed, 0 failed**.
 - [x] Commit to isolated branch, not main.
 - [ ] Confirm full existing `node --test external_refresh/cloudflare/worker.test.mjs` succeeds in GitHub CI at final branch head.
+- [x] Adjust the superseded Python *source-code* contract (which intentionally pinned the deployed 6h version on main) to test this separate 4h candidate; the owner's deployed six-hour Worker is unchanged.
 - [ ] Confirm complete GitHub Quality checks finish green at final head.
 
 ## Task 3 — Documentation, review and handoff
