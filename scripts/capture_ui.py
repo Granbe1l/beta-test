@@ -9,6 +9,7 @@ import sys
 import time
 import requests
 from playwright.sync_api import sync_playwright
+from capture_inspector import wait_for_inspection
 
 def assert_no_streamlit_exception(page, screen: str) -> None:
     """An attractive screenshot cannot hide a partially failed Streamlit page."""
@@ -380,9 +381,7 @@ try:
                 desktop.get_by_role(
                     "button", name="Inspect public project").click(
                         timeout=12000)
-                desktop.get_by_text(
-                    "What should the project manager inspect?",
-                    exact=True).wait_for(timeout=40000)
+                wait_for_inspection(desktop, timeout=40000)
                 desktop.get_by_text(
                     "External API observation:", exact=False).wait_for(
                         timeout=40000)
@@ -643,9 +642,7 @@ try:
                 url.fill("https://github.com/psf/requests")
                 mobile.get_by_role(
                     "button", name="Inspect public project").click(timeout=15000)
-                mobile.get_by_text(
-                    "What should the project manager inspect?",
-                    exact=True).wait_for(timeout=45000)
+                wait_for_inspection(mobile, timeout=45000)
                 mobile.get_by_text(
                     "External API observation:", exact=False).wait_for(
                         timeout=45000)
