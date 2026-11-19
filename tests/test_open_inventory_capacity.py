@@ -146,7 +146,7 @@ def test_production_catchup_scans_33_pending_without_exceeding_shared_budget(db,
         ))
     db.commit()
     assert len(backlog_priority_order(db, selected, cfg, NOW)) == 33
-    monkeypatch.setattr(sync, "refresh_repo_metadata", lambda *a, **k: False)
+    monkeypatch.setattr(sync, "refresh_repo_metadata", lambda *a, **k: True)
     monkeypatch.setattr(sync, "sync_one", lambda session, client, repo, source,
                         settings, **kw: {"repo": repo.full_name,
                                          "source": source, "status": "complete"})
@@ -172,7 +172,7 @@ def test_production_catchup_still_stops_before_api_reserve(db, cfg, monkeypatch)
             coverage_start=NOW - timedelta(days=32), last_success_at=NOW,
         ))
     db.commit()
-    monkeypatch.setattr(sync, "refresh_repo_metadata", lambda *a, **k: False)
+    monkeypatch.setattr(sync, "refresh_repo_metadata", lambda *a, **k: True)
     def simulated_source_scan(session, client, repo, source, settings, **kw):
         # Model paid API attempts for real source scans before backlog phase.
         client.request_count += 25

@@ -1,5 +1,6 @@
 """Real SQL aggregation: independent CTEs must not multiply record counts."""
 from datetime import timedelta
+import pytest
 
 from scripts.sql_insights import sql_delivery_signals
 from src.database.models import Issue, PullRequest, WorkflowRun, SyncCheckpoint
@@ -92,3 +93,33 @@ def test_sql_open_inventory_flag_requires_distinct_fresh_complete_checkpoint(db)
     cp.status = "partial"
     db.commit()
     assert sql_delivery_signals(db, now=NOW)[0]["open_inventory_verified"] == 0
+
+
+@pytest.mark.parametrize("hours,age,expected", [(4, 4, 1), (4, 5, 0), (12, 5, 1), (12, 12, 1), (12, 12.01, 0)])
+def test_sql_honors_configured_freshness_boundary(db, hours, age, expected):
+    for source in ("issues", "pull_requests", "workflow_runs", "open_backlog"):
+        db.add(SyncCheckpoint(repo_id=101, source=source, status="complete",
+            coverage_start=NOW-timedelta(days=29), last_success_at=NOW-timedelta(hours=age)))
+    db.commit()
+    row = sql_delivery_signals(db, now=NOW, stale_hours=hours)[0]
+    assert [row[k] for k in ("issues_verified_28d", "prs_verified_28d", "ci_verified_28d", "open_inventory_verified")] == [expected] * 4
+
+
+def test_integrity_entrypoint_uses_same_freshness_for_snapshot_sql_and_db(db, cfg, tmp_path, monkeypatch, capsys):
+    from datetime import datetime, timezone
+    from src.analytics.read import load_reports
+    from src.analytics import snapshot
+    from scripts import verify_kpi_integrity
+    now = datetime.now(timezone.utc)
+    for source in ("issues", "pull_requests", "workflow_runs", "open_backlog"):
+        db.add(SyncCheckpoint(repo_id=101, source=source, status="complete",
+            coverage_start=now-timedelta(days=29), last_success_at=now-timedelta(hours=5)))
+    db.commit()
+    path = tmp_path / "snapshot.json.gz"
+    snapshot.export_snapshot(path, load_reports(db, now=now), None, generated_at=now)
+    reader = snapshot.read_snapshot
+    monkeypatch.setattr(snapshot, "read_snapshot", lambda **kw: reader(path=path, **kw))
+    monkeypatch.setenv("DATABASE_URL", cfg.database_url)
+    monkeypatch.setenv("STALE_HOURS", "4")
+    verify_kpi_integrity.main()
+    assert '"status": "passed"' in capsys.readouterr().out

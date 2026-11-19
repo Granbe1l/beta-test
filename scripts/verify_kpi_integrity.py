@@ -139,12 +139,12 @@ def main():
     from scripts.sql_insights import sql_delivery_signals
 
     now = datetime.now(timezone.utc)
-    snapshot, _, meta = read_snapshot(now=now)
     settings = Settings.from_env()
+    snapshot, _, meta = read_snapshot(now=now, stale_hours=settings.stale_hours)
     engine = make_engine(settings.database_url)
     try:
         with session_factory(engine)() as session:
-            sql = sql_delivery_signals(session, now=now)
+            sql = sql_delivery_signals(session, now=now, stale_hours=settings.stale_hours)
             persisted = load_reports(session, now=now,
                                      stale_hours=settings.stale_hours)
         check = audit_consistency(snapshot, sql, now=now)

@@ -134,6 +134,8 @@ def load_reports(session: Session, now: datetime | None = None,
                 **{s: source_row(cp) if (cp := cps.get(s)) else None
                    for s in statuses},
                 "open_backlog": source_row(backlog_cp) if backlog_cp else None,
+                **({"public_visibility": source_row(cps["public_visibility"])}
+                   if "public_visibility" in cps else {}),
             },
         })
     return reports

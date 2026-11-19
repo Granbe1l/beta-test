@@ -148,7 +148,7 @@ def test_workflow_keeps_six_hour_backup_and_native_schedule_audit():
     assert "git fetch --no-tags --depth=1 origin refs/heads/main" in wf
     assert "git show FETCH_HEAD:data/github_public_snapshot.json.gz" in wf
     assert "needs: dispatch-preflight" in wf
-    assert "if: needs.dispatch-preflight.outputs.should_collect == 'true'" in wf
+    assert "if: github.ref == 'refs/heads/main' && needs.dispatch-preflight.outputs.should_collect == 'true'" in wf
     assert "name: collector-dispatch-preflight" in wf
     assert "name: github-50-repo-source-audit" in wf
     assert "python scripts/verify_collection.py" in wf

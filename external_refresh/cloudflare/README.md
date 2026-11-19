@@ -1,6 +1,6 @@
 # Independent refresh watchdog — deployed cron observed on 15 Nov 2026
 
-> **Current production status (18 November 2026):** The owner manually deployed the four-hour rescue Worker in Cloudflare as version `cd6b3e5d`, and real automatic cron + GitHub collector run #49 provide production end-to-end evidence below. This GitHub branch is still **draft / not merged**, so the `main` repository source remains at the former six-hour threshold until owner-approved merge. The hourly Cron Trigger is unchanged, and the >4-hour check is **not** a fixed four-hour completion SLA. No token, dataset, repository cohort, or Verified status was altered by this PR.
+> **Current production status (18 November 2026):** The owner manually deployed the four-hour rescue Worker in Cloudflare as version `cd6b3e5d`, and real automatic cron + GitHub collector run #49 provide production end-to-end evidence below. The four-hour source policy is present in baseline `b893c04`. The audit-remediation changes on `audit-menyeluruh` are local and have not been deployed; the historical evidence below does not validate those changes. The hourly Cron Trigger is unchanged, and the >4-hour check is **not** a fixed four-hour completion SLA. No token, dataset, repository cohort, or Verified status was altered by this PR.
 
 This is a second scheduler outside GitHub, not a replacement collector.
 The existing main-branch `public-snapshot.yml` GitHub schedule remains

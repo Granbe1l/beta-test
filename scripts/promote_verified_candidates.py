@@ -111,118 +111,13 @@ def archive_originals(swaps, now):
 
 
 def promote(proof, *, limit=6, request_limit=350):
-    now = datetime.now(timezone.utc)
-    cfg = Settings.from_env()
-    target = cfg.max_repos
-    previous, _, metadata = read_snapshot(now=now)
-    if len(previous) != target or metadata["stale"]:
-        raise ValueError("The active curated sample must be current before replacement")
-    verified_before = len(verified_joint_cohort(previous, 28, now))
-    proposal = proposed_swaps(previous, proof, now=now)
-    if not proposal["candidate_evidence_fresh"]:
-        raise ValueError("Candidate audit expired; cannot promote")
-    candidates = proposal["proposed_unapproved_swaps"][:limit]
-    if not candidates:
-        raise ValueError("No independently verified, diversity-matched candidates")
-    api = GitHubClient(cfg.github_token, cfg.timeout_seconds, cfg.max_retries,
-                       max_requests=request_limit)
-    engine = make_engine(cfg.database_url)
-    init_db(engine)
-    changes, skipped = [], []
-    try:
-        with sync_lock(engine):
-            with session_factory(engine)() as session:
-                active = list(session.scalars(select(Repository).where(Repository.selected.is_(True))))
-                if len(active) != target:
-                    raise ValueError("Wrong restored active cohort size")
-                original_ids = {r["repository"]["id"] for r in previous}
-                for item in candidates:
-                    name = item["candidate_name"]
-                    if not candidate_has_verified_proof(item, proof, now):
-                        skipped.append([name, "invalid 28-day source proof"])
-                        continue
-                    old = session.get(Repository, item["retain_original_github_id"])
-                    if not old or not old.selected or old.id not in original_ids or old.full_name != item["exclude_from_future_active_cohort_only"]:
-                        skipped.append([name, "original repository mismatch"])
-                        continue
-                    try:
-                        raw, _ = api.get("/repos/" + name)
-                    except Exception:
-                        skipped.append([name, "live metadata retrieval failed"])
-                        continue
-                    if not identity_matches(raw, item, now) or session.get(Repository, raw["id"]):
-                        skipped.append([name, "identity, category, size or eligibility changed"])
-                        continue
-                    r = Repository(
-                        id=raw["id"], full_name=raw["full_name"],
-                        owner=raw["owner"]["login"], name=raw["name"],
-                        url=raw["html_url"], language=raw["language"],
-                        category=category(raw), stars=raw["stargazers_count"],
-                        created_at=parse_dt(raw["created_at"]),
-                        pushed_at=parse_dt(raw["pushed_at"]),
-                        default_branch=raw.get("default_branch", "main"),
-                        is_fork=False, archived=False, selected=False,
-                    )
-                    session.add(r)
-                    session.commit()
-                    # Fetch 29 days, not 28, to leave a publication-time buffer.
-                    results = [sync_one(session, api, r, source, cfg, now=now,
-                                        min_window_days=29) for source in SOURCES]
-                    if not all(v["status"] == "complete" for v in results) or not recollected_complete(session, r.id, datetime.now(timezone.utc)):
-                        skipped.append([name, "real source re-collection incomplete"])
-                        continue
-                    old.selected = False
-                    r.selected = True
-                    r.selected_at = now
-                    session.commit()
-                    changes.append({"old_id": old.id, "old": old.full_name,
-                                    "new_id": r.id, "new": r.full_name,
-                                    "sources": results})
-                if not changes:
-                    raise ValueError("Zero safe replacements; original published dataset remains unchanged")
-                updated = load_reports(session, now=datetime.now(timezone.utc),
-                                       observation_days=cfg.comparison_days, stale_hours=cfg.stale_hours)
-                verified_after = len(verified_joint_cohort(updated, 28, datetime.now(timezone.utc)))
-                if len(updated) != target or verified_after < verified_before + len(changes):
-                    raise ValueError("Unverified swap or cohort count regression; refusing publication")
-                archive_originals(changes, now)
-                selection = SelectionRun(
-                    started_at=now, completed_at=datetime.now(timezone.utc),
-                    parameters={"method": "strict_verified_swap", "audit_at": proof["generated_at_utc"],
-                                "archived_data_path": str(ARCHIVE), "changes": changes},
-                    candidate_count=target + len(changes), accepted_count=target, status="complete",
-                    notes=("Previously nonverified sources remain in immutable historical archive. "
-                           "Replacing project identities changes the curated cohort; compare across "
-                           "versions only after accounting for composition changes."),
-                )
-                session.add(selection)
-                session.flush()
-                replaced_ids = {x["new_id"] for x in changes}
-                for row in session.scalars(select(Repository).where(Repository.selected.is_(True))):
-                    row.selection_run_id = selection.id
-                    session.add(Candidate(
-                        selection_run_id=selection.id, repo_id=row.id,
-                        full_name=row.full_name, url=row.url, category=row.category,
-                        stars=row.stars, decision="selected",
-                        reason="verified replacement" if row.id in replaced_ids else "retained",
-                    ))
-                session.commit()
-                receipt = {
-                    "at": datetime.now(timezone.utc).isoformat(),
-                    "proof_at": proof["generated_at_utc"],
-                    "active": target,
-                    "verified_before": verified_before,
-                    "verified_after": verified_after,
-                    "replacements": changes,
-                    "skipped": skipped,
-                    "request_count": api.request_count,
-                    "archive": str(ARCHIVE),
-                    "caveat": "Curated and composition-changing sample, not random or representative of all GitHub projects.",
-                }
-                RECEIPT.write_text(json.dumps(receipt, indent=2, default=str), encoding="utf-8")
-                return receipt
-    finally:
-        engine.dispose()
+    # The reviewed cohort is pinned. Candidate proofs do not authorize a
+    # membership change or revision of the historical cutover receipt.
+    raise ValueError(
+        "The 50-repository cohort is pinned; promotion requires an owner-approved "
+        "cohort migration with a versioned manifest and compatible refresh gates. "
+        "No data was changed. Use the read-only candidate audit workflows."
+    )
 
 
 if __name__ == "__main__":

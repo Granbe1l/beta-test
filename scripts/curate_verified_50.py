@@ -1,6 +1,7 @@
 """One-time, evidence-anchored 75 -> 50 curated public GitHub migration.
 
-Run BEFORE restoring the ephemeral SQLite database in the snapshot workflow.
+The snapshot workflow uses --validate-only before restoring its database.
+Migration/recovery mode is a separate, explicitly authorized operation.
 Only selected repository identities are retained in the active snapshot;
 25 removed, original report dictionaries are saved in a separate lossless
 archive and historical commit remains available.
@@ -223,11 +224,14 @@ def original_audit_blob() -> bytes:
         ) from None
 
 
-def main():
+def main(*, validate_only=False):
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     names = validate_manifest(manifest)
     raw = SNAPSHOT.read_bytes()
     payload = json.loads(gzip.decompress(raw))
+    if validate_only and (len(payload.get("reports") or []) != 50
+                          or not ARCHIVE.is_file() or not RECEIPT.is_file()):
+        raise ValueError("Refresh requires a completed 50-repository cutover and archive/receipt")
     previous_names = {r["repository"]["full_name"] for r in payload.get("reports") or []}
     if len(payload.get("reports") or []) == 50:
         if previous_names != set(names):
@@ -285,4 +289,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--validate-only", action="store_true",
+                        help="Require completed cutover; never migrate or recover files")
+    main(validate_only=parser.parse_args().validate_only)

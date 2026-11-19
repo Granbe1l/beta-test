@@ -64,7 +64,7 @@ def test_optional_historical_repair_cannot_preempt_expiring_verified(db, cfg, mo
         return {"repo": repo.full_name, "source": source, "status": "complete"}
 
     monkeypatch.setattr(sync, "sync_one", fake_sync)
-    monkeypatch.setattr(sync, "refresh_repo_metadata", lambda *args, **kwargs: False)
+    monkeypatch.setattr(sync, "refresh_repo_metadata", lambda *args, **kwargs: True)
     monkeypatch.setattr(sync, "record_observations", lambda *args, **kwargs: False)
     monkeypatch.setattr(sync, "coverage_repair_targets",
                         lambda *args, **kwargs: {105: {"issues"}})

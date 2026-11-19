@@ -18,8 +18,8 @@ function mock({ hoursOld = 7, runs = [], commitStatus = 200,
         date: new Date(NOW - hoursOld * 3600000).toISOString()
       } } }], commitStatus
     );
-    if (url.endsWith("/runs?per_page=30"))
-      return reply({ workflow_runs: runs }, listStatus);
+    if (new URL(url).pathname.endsWith("/runs"))
+      return reply({ workflow_runs: runs.map(r => ({ head_branch: "main", ...r })) }, listStatus);
     if (url.endsWith("/dispatches")) return reply(undefined, dispatchStatus);
     throw new Error("Unexpected URL " + url);
   };
@@ -30,6 +30,23 @@ test("fresh snapshot: no workflow lookup or dispatch", async () => {
   assert.equal((await checkSnapshot({ token: "test", fetcher: m.fetcher,
     nowMs: NOW })).action, "skip_fresh");
   assert.equal(m.calls.length, 1);
+});
+
+test("candidate branch history never suppresses main rescue", async () => {
+  for (const status of ["in_progress", "completed"]) {
+    const m = mock({ hoursOld: 5, runs: [{ head_branch: "candidate", status,
+      event: "workflow_dispatch", created_at: new Date(NOW - 600000).toISOString() }] });
+    const result = await checkSnapshot({ token: "test", fetcher: m.fetcher, nowMs: NOW });
+    assert.equal(result.action, "dispatch_accepted");
+    assert.equal(new URL(m.calls[0].url).searchParams.get("sha"), "main");
+    assert.equal(new URL(m.calls[1].url).searchParams.get("branch"), "main");
+  }
+});
+
+test("unknown workflow branch fails closed instead of ignoring an active run", async () => {
+  const m = mock({ runs: [{ head_branch: undefined, status: "in_progress" }] });
+  await assert.rejects(checkSnapshot({ token: "test", fetcher: m.fetcher, nowMs: NOW }), /branch/);
+  assert.equal(m.calls.some(c => c.method === "POST"), false);
 });
 test("stale snapshot and running collector: do not duplicate", async () => {
   const m = mock({ runs: [{ status: "in_progress" }] });

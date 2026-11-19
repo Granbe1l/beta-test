@@ -39,6 +39,12 @@ def _decode_json_object(obj: dict) -> dict:
 
 
 def export_snapshot(path: Path, reports: list[dict], selection: dict | None, generated_at=None):
+    # Refuse the entire export: never silently remove a pinned member or
+    # erase its history to make a public snapshot appear safe.
+    for report in reports:
+        visibility = (report.get("coverage") or {}).get("public_visibility")
+        if visibility and visibility.get("status") != "complete":
+            raise ValueError("Public export blocked by repository visibility quarantine")
     generated = utc(generated_at or datetime.now(timezone.utc))
     payload = {"schema_version":1,"generated_at":generated,
                "source":"Public GitHub REST API; links to original records",

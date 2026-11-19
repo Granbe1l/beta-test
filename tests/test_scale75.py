@@ -51,6 +51,9 @@ class DummyPage:
     items = []
 
 class SourceClient:
+    def get(self, path, params=None):
+        rid = 101 if path.endswith('/sample/project') else int(path.rsplit('repo', 1)[1])
+        return {'id': rid, 'private': False}, None
     def paginate(self, *args, **kwargs): return DummyPage()
 
 

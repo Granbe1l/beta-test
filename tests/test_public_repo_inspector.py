@@ -120,3 +120,20 @@ def test_rate_limited_source_does_not_masquerade_as_zero_or_full_window():
     assert report["issues_error"] == "rate-limited or restricted"
     assert report["sample_issues"] == []
     assert report["verified_28d"] is False
+
+
+def test_inspector_narrative_discloses_its_existing_ci_denominator():
+    from src.analytics.inspector_presenter import inspection_summary
+    mapping = sample_calls()
+    key = next(k for k in mapping if "/actions/runs?" in k)
+    mapping[key] = FakeResponse({"workflow_runs": [
+        {"status": "completed", "conclusion": outcome}
+        for outcome in ("failure", "success", "skipped", "neutral", "cancelled")
+    ] + [{"status": "queued", "conclusion": None}]})
+    data = inspect_public_repository("example/project", get=lambda url, **kw: mapping[url], now=NOW)
+    # Preserve the existing preview metric, not the main cohort CI definition.
+    assert data["sample_ci_completed"] == 3
+    assert data["sample_ci_failed"] == 1
+    finding = inspection_summary(data)["review_plan"][0]["explanation"]
+    assert "1 of 3" in finding
+    assert "excluding skipped and neutral" in finding

@@ -7,9 +7,24 @@ Do not claim byte-for-byte identical dependencies on every future install.
 
 ## Verify locally
 
+Code-quality CI uses `python scripts/audit_reviewer_evidence.py --reproducible`:
+it checks the unchanged stored evidence at its original capture instant. The
+receipt explicitly labels that instant and does not certify current freshness.
+Public snapshot publication separately runs `--require-fresh` using current
+time, and still requires collection progress and the unchanged main baseline.
+Neither command edits source timestamps or overrides Verified status.
+
+Collection requires explicit public-visibility metadata on every run. Private,
+internal or unknown visibility blocks source calls and the entire public export;
+the pinned cohort and retained history are not deleted. An older snapshot on a
+fresh runner cannot bypass this check. Metadata outages may delay refresh.
+Only explicit public revalidation releases quarantine; changing cohort policy
+remains an owner decision.
+
 ```bash
 python --version
 python -m venv .venv
+source .venv/bin/activate  # Windows PowerShell: .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python -m pytest -q
 python scripts/audit_comparison_readiness.py

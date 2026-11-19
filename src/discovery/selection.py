@@ -136,7 +136,9 @@ def select_repositories(client: GitHubClient, session: Session, settings: Settin
         reason = validate_candidate(repo, now, settings.freshness_days)
         if not reason:
             try: reason = probe_activity(client, repo["full_name"])
-            except GitHubAPIError: reason = "eligibility probe failed"
+            except GitHubAPIError:
+                reason = "eligibility probe failed"
+                errors.append(f"{repo['full_name']}: eligibility probe failed")
         if reason: reasons[repo["id"]] = reason
         else: filtered.append(repo)
     chosen = diversified_sample(filtered, additional_limit)

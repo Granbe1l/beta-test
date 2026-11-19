@@ -87,9 +87,9 @@ def evidence_examples(report: dict, kind: str, *, now=None, limit=3,
     return [item for _, item in candidates[:limit]]
 
 
-def findings_for_repo(report: dict) -> list[dict]:
+def findings_for_repo(report: dict, *, now=None) -> list[dict]:
     i, p, ci, c = report["issues"], report["prs"], report["ci"], report["closure"]
-    now = datetime.now(timezone.utc)
+    now = utc(now or datetime.now(timezone.utc))
     statuses = report.get("status") or {}
     coverage = report.get("coverage") or {}
 
@@ -225,14 +225,14 @@ def findings_for_repo(report: dict) -> list[dict]:
     return out
 
 
-def portfolio_findings(repo_reports: list[dict], max_findings=3) -> list[dict]:
+def portfolio_findings(repo_reports: list[dict], max_findings=3, *, now=None) -> list[dict]:
     """Select diverse, source-supported checks—not an algorithmic quality rank.
 
     Priority is a transparent review queue with evidence thresholds, not a
     developer-productivity or software-quality score. Keep one finding per
     evidence category before adding another project of the same type.
     """
-    pool = [item for report in repo_reports for item in findings_for_repo(report)]
+    pool = [item for report in repo_reports for item in findings_for_repo(report, now=now)]
     order = {"Review first": 0, "Review next": 1, "Explore context": 2}
     category = {"ci": 0, "issue-aging": 1, "closure-change": 2,
                 "merge-duration": 3}

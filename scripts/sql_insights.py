@@ -86,14 +86,14 @@ ORDER BY observed_aged_open_issues DESC, r.full_name
 )
 
 
-def sql_delivery_signals(session: Session, *, now=None) -> list[dict]:
+def sql_delivery_signals(session: Session, *, now=None, stale_hours=12) -> list[dict]:
     """Group each source before JOINs to avoid issue × PR × CI double counts."""
     now = utc(now or datetime.now(timezone.utc))
     params = {
         "now": now,
         "window_start": now - timedelta(days=28),
         "age_cutoff": now - timedelta(days=30),
-        "fresh_cutoff": now - timedelta(hours=12),
+        "fresh_cutoff": now - timedelta(hours=stale_hours),
     }
     return [dict(row) for row in session.execute(QUERY, params).mappings().all()]
 
@@ -101,10 +101,11 @@ def sql_delivery_signals(session: Session, *, now=None) -> list[dict]:
 def main():
     from src.config.settings import Settings
     from src.database.store import make_engine, session_factory
-    engine = make_engine(Settings.from_env().database_url)
+    settings = Settings.from_env()
+    engine = make_engine(settings.database_url)
     try:
         with session_factory(engine)() as session:
-            rows = sql_delivery_signals(session)
+            rows = sql_delivery_signals(session, stale_hours=settings.stale_hours)
         if not rows:
             raise SystemExit("No curated repository records: restore the real snapshot first")
         result = {

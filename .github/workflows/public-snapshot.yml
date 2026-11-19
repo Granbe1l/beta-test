@@ -18,7 +18,7 @@ on:
         required: false
         default: false
       target_hours:
-        description: 'For rescue only: 4h GitHub early-watchdog, 6h Cloudflare/default'
+        description: 'For rescue only: 4h watchdog target, 6h default manual rescue'
         type: choice
         options:
           - '6'
@@ -37,6 +37,7 @@ jobs:
   # Only a workflow_dispatch can be skipped when another run already published.
   # 'schedule' and workflow-definition 'push' still collect and keep honest audit.
   dispatch-preflight:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -74,7 +75,7 @@ jobs:
           retention-days: 14
   refresh:
     needs: dispatch-preflight
-    if: needs.dispatch-preflight.outputs.should_collect == 'true'
+    if: github.ref == 'refs/heads/main' && needs.dispatch-preflight.outputs.should_collect == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -93,6 +94,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: main
           persist-credentials: true
       - uses: actions/setup-python@v5
         with:
@@ -104,51 +106,15 @@ jobs:
       # Failed telemetry is written as unavailable and never blocks collection.
       - name: Record actual collector queue latency before ingestion
         run: python scripts/audit_collector_queue.py
-      - name: Fetch pinned pre-curation snapshot commit for archival recovery
+      - name: Bind collection to latest main data after queue admission
         shell: bash
         run: |
-          git fetch --no-tags origin 0b7e80867c76d1dd3ba824a8749742e6757ff431 || git fetch --no-tags --deepen=30 origin main
-          git cat-file -e '0b7e80867c76d1dd3ba824a8749742e6757ff431:data/github_public_snapshot.json.gz'
-      - name: Curate audited 50-project membership; losslessly archive 25 prior reports
-        run: python scripts/curate_verified_50.py
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          python scripts/verify_collection.py --capture-publication-baseline /tmp/publication-baseline.json
+      - name: Validate pinned 50-project membership and completed historical archive
+        run: python scripts/curate_verified_50.py --validate-only
       - name: Restore last validated public snapshot
         run: python scripts/restore_public_snapshot.py
-      - name: Publish a one-time archived 50-project cutover before expensive refresh
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ ! -f data/curated_50_transition_receipt.json ]; then
-            echo 'Already curated on main; normal refresh only'
-            exit 0
-          fi
-          cp data/github_public_snapshot.json.gz /tmp/curated_50_cutover.json.gz
-          cp data/archived_75_to_50_reports.json.gz /tmp/curated_50_removed_archive.json.gz
-          cp data/curated_50_transition_receipt.json /tmp/curated_50_receipt.json
-          git config user.name 'Candy Ristyan'
-          git config user.email '103526238+Granbe1l@users.noreply.github.com'
-          git fetch origin main
-          git reset --hard origin/main
-          # The receipt in the working tree is UNTRACKED and survives
-          # git reset --hard. Check origin/main's Git tree, not the file.
-          if git cat-file -e 'origin/main:data/curated_50_transition_receipt.json' 2>/dev/null; then
-            echo 'Another audited cutover was already published'
-            git cat-file -e 'origin/main:data/archived_75_to_50_reports.json.gz' || {
-              echo 'Receipt exists without original archive; refusing inconsistent cutover'
-              exit 1
-            }
-          else
-            cp /tmp/curated_50_cutover.json.gz data/github_public_snapshot.json.gz
-            cp /tmp/curated_50_removed_archive.json.gz data/archived_75_to_50_reports.json.gz
-            cp /tmp/curated_50_receipt.json data/curated_50_transition_receipt.json
-            git add data/github_public_snapshot.json.gz \
-                    data/archived_75_to_50_reports.json.gz \
-                    data/curated_50_transition_receipt.json
-            git commit -m 'data: curate 50 Verified projects, archive all 25 excluded reports [skip ci]'
-            git push origin HEAD:main
-          fi
-          # Main now contains the reviewed cutover; the checked-out files are
-          # restored to it before collecting and replaying the refreshed binary.
-
       - name: Capture baseline coverage before collection
         run: python scripts/audit.py > snapshot-audit-before.json
       # After two missed cron slots, actual audit found 33 overdue inventories,
@@ -195,6 +161,8 @@ jobs:
           retention-days: 14
       - name: Validate fresh collection progress before publishing
         run: python scripts/verify_collection.py snapshot-audit-before.json snapshot-audit.json
+      - name: Require current operational freshness before publication
+        run: python scripts/audit_reviewer_evidence.py --require-fresh
       - name: Benchmark validated real snapshot
         run: python scripts/benchmark_snapshot.py
       - name: Publish newest snapshot without binary rebase conflicts
@@ -204,10 +172,12 @@ jobs:
           git config user.name 'Candy Ristyan'
           git config user.email '103526238+Granbe1l@users.noreply.github.com'
           # Git cannot merge two independently generated .gz files. Instead
-          # replay only the newly collected artifact onto the latest main.
+          # Replay only if current main still has the data we restored.
+          # Fast-forward push rejects a race after the check; each retry rechecks.
           cp data/github_public_snapshot.json.gz /tmp/new_public_snapshot.json.gz
           for attempt in 1 2 3; do
-            git fetch origin main
+            git fetch origin main:refs/remotes/origin/main
+            python scripts/verify_collection.py --check-publication-baseline /tmp/publication-baseline.json
             git reset --hard origin/main
             cp /tmp/new_public_snapshot.json.gz data/github_public_snapshot.json.gz
             git add data/github_public_snapshot.json.gz
