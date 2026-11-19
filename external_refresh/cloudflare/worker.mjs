@@ -51,7 +51,7 @@ export async function checkSnapshot({ token, fetcher = fetch, nowMs = Date.now()
     throw new Error("Missing GITHUB_DISPATCH_TOKEN; fail closed");
   }
   const commitResponse = await request(
-    `/commits?path=${encodeURIComponent(SNAPSHOT_PATH)}&per_page=1`,
+    `/commits?sha=main&path=${encodeURIComponent(SNAPSHOT_PATH)}&per_page=1`,
     token, fetcher
   );
   const commits = await commitResponse.json();
@@ -67,14 +67,18 @@ export async function checkSnapshot({ token, fetcher = fetch, nowMs = Date.now()
 
   // Fail closed if we cannot inspect running or recently dispatched workflows.
   const runsResponse = await request(
-    `/actions/workflows/${WORKFLOW}/runs?per_page=30`,
+    `/actions/workflows/${WORKFLOW}/runs?branch=main&per_page=30`,
     token, fetcher
   );
   const body = await runsResponse.json();
   if (!Array.isArray(body?.workflow_runs)) {
     throw new Error("Workflow run history unavailable");
   }
-  const active = body.workflow_runs.find(r => blocksDispatch(r, nowMs));
+  if (body.workflow_runs.some(r => typeof r?.head_branch !== "string" || !r.head_branch)) {
+    throw new Error("Workflow run branch unavailable; fail closed");
+  }
+  const mainRuns = body.workflow_runs.filter(r => r.head_branch === "main");
+  const active = mainRuns.find(r => blocksDispatch(r, nowMs));
   if (active) {
     return {
       action: "skip_active",
@@ -82,12 +86,12 @@ export async function checkSnapshot({ token, fetcher = fetch, nowMs = Date.now()
       blocking_run: { id: active.id ?? null, status: active.status },
     };
   }
-  const ignoredStalePendingIds = body.workflow_runs.filter(r =>
+  const ignoredStalePendingIds = mainRuns.filter(r =>
     PENDING_STATUSES.has(r.status) &&
     Number.isFinite(pendingLastActivityMs(r)) &&
     nowMs - pendingLastActivityMs(r) >= STALE_PENDING_MS
   ).map(r => r.id).filter(id => id !== undefined);
-  const recentlyDispatched = body.workflow_runs.some(r =>
+  const recentlyDispatched = mainRuns.some(r =>
     r.event === "workflow_dispatch" &&
     Number.isFinite(Date.parse(r.created_at || "")) &&
     nowMs - Date.parse(r.created_at) >= 0 &&

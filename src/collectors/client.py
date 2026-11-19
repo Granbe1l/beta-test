@@ -21,6 +21,7 @@ class PageResult:
     complete: bool
     cap_reached: bool
     cutoff_reached: bool
+    error: str | None = None
 
 
 class GitHubClient:
@@ -58,7 +59,18 @@ class GitHubClient:
                 continue
             if res.status_code == 200:
                 return res.json(), res
-            if res.status_code in (403, 429, 500, 502, 503, 504) and attempt < self.max_retries:
+            retryable = res.status_code in (429, 500, 502, 503, 504)
+            if res.status_code == 403:
+                try:
+                    body = res.json()
+                    message = str(body.get("message", "")).lower() if isinstance(body, dict) else ""
+                except ValueError:
+                    message = ""
+                retryable = (res.headers.get("X-RateLimit-Remaining") == "0"
+                             or bool(res.headers.get("Retry-After"))
+                             or "secondary rate limit" in message
+                             or "abuse detection" in message)
+            if retryable and attempt < self.max_retries:
                 limit_reset = res.headers.get("X-RateLimit-Reset")
                 retry_after = res.headers.get("Retry-After")
                 limited = res.headers.get("X-RateLimit-Remaining") == "0"
@@ -86,24 +98,30 @@ class GitHubClient:
         items: list[dict] = []
         cutoff_reached = False
         exhausted = False
-        last_count = 0
         page_count = 0
         unfiltered_seen = 0
         reported_total = None
-        page_size = int(params.get("per_page", 100))
         for page in range(1, max_pages + 1):
-            data, response = self.get(path, {**params, "page": page})
+            try:
+                data, response = self.get(path, {**params, "page": page})
+            except GitHubAPIError as exc:
+                if not page_count:
+                    raise
+                return PageResult(items, page_count, False, False, False, str(exc))
             page_count += 1
-            batch = data.get(wrapper, []) if wrapper else data
+            if wrapper:
+                if (not isinstance(data, dict) or wrapper not in data
+                        or type(data.get("total_count")) is not int
+                        or data["total_count"] < 0):
+                    raise GitHubAPIError("Unexpected GitHub pagination response")
+                reported_total = data["total_count"]
+            batch = data[wrapper] if wrapper else data
             if not isinstance(batch, list):
                 raise GitHubAPIError("Unexpected GitHub pagination response")
             # GitHub Actions returns total_count and may suppress "next"
             # when it hits the API's 1,000-result search ceiling. A missing
             # Link header alone must NOT certify a whole date interval.
-            if wrapper and isinstance(data, dict) and isinstance(data.get("total_count"), int):
-                reported_total = data["total_count"]
             unfiltered_seen += len(batch)
-            last_count = len(batch)
             for item in batch:
                 if cutoff is not None:
                     iso = item.get(sort_key)
@@ -116,7 +134,7 @@ class GitHubClient:
             if cutoff_reached:
                 # Valid only for descending order by sort_key (caller responsibility).
                 break
-            if last_count < page_size or 'next' not in response.links:
+            if 'next' not in response.links:
                 # If the server advertised more matching results than the
                 # client received, this is a capped response—not an exhausted
                 # source. A valid timestamp cutoff is handled above.

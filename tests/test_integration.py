@@ -12,6 +12,8 @@ class Page:
     def __init__(self,items):self.items=items;self.pages=1;self.complete=True
 
 class IntegrationClient:
+    def get(self, path, params=None):
+        return {'id':101, 'private':False}, None
     def paginate(self,path,params,max_pages,**kwargs):
         if path.endswith('/issues'):
             issues=[]

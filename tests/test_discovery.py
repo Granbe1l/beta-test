@@ -45,3 +45,17 @@ def test_audited_selection(db,cfg):
     assert db.scalar(select(SelectionRun)).candidate_count==3
     assert len(db.scalars(select(Candidate)).all())==3
     assert db.scalar(select(Repository).where(Repository.id==1)).selected
+
+
+def test_failed_eligibility_probe_marks_selection_partial(db, cfg):
+    from src.collectors.client import GitHubAPIError
+    class BrokenProbe(SearchClient):
+        def get(self, path, params):
+            if path.startswith("/repos/org/repo1/"):
+                raise GitHubAPIError("GitHub HTTP 403")
+            return super().get(path, params)
+    result = select_repositories(BrokenProbe(), db, cfg, now=NOW)
+    run = db.get(SelectionRun, result["selection_run"])
+    assert run.status == "partial" and result["errors"]
+    assert "org/repo1" not in result["selected"]
+    assert "org/repo2" in result["selected"]

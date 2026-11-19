@@ -1,8 +1,12 @@
 """SQLAlchemy 2.x schema. Global GitHub IDs prevent duplicate source records."""
 from __future__ import annotations
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, Index
+from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, Index
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+# GitHub identifiers are 64-bit; preserve SQLite INTEGER primary-key semantics.
+GITHUB_ID = BigInteger().with_variant(Integer, "sqlite")
 
 
 def utcnow() -> datetime:
@@ -15,7 +19,7 @@ class Base(DeclarativeBase):
 
 class Repository(Base):
     __tablename__ = "repositories"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)  # GitHub repository id
+    id: Mapped[int] = mapped_column(GITHUB_ID, primary_key=True)  # GitHub repository id
     full_name: Mapped[str] = mapped_column(String(250), unique=True, nullable=False)
     owner: Mapped[str] = mapped_column(String(120), nullable=False)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
@@ -49,7 +53,7 @@ class Candidate(Base):
     __tablename__ = "selection_candidates"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     selection_run_id: Mapped[int] = mapped_column(ForeignKey("selection_runs.id"))
-    repo_id: Mapped[int] = mapped_column(Integer)
+    repo_id: Mapped[int] = mapped_column(GITHUB_ID)
     full_name: Mapped[str] = mapped_column(String(250))
     url: Mapped[str] = mapped_column(String(600))
     category: Mapped[str] = mapped_column(String(90))
@@ -61,8 +65,8 @@ class Candidate(Base):
 
 class Issue(Base):
     __tablename__ = "issues"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)  # global GitHub issue id
-    repo_id: Mapped[int] = mapped_column(Integer, ForeignKey("repositories.id"), nullable=False)
+    id: Mapped[int] = mapped_column(GITHUB_ID, primary_key=True)  # global GitHub issue id
+    repo_id: Mapped[int] = mapped_column(GITHUB_ID, ForeignKey("repositories.id"), nullable=False)
     number: Mapped[int] = mapped_column(Integer, nullable=False)
     url: Mapped[str] = mapped_column(String(600), nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
@@ -78,8 +82,8 @@ class Issue(Base):
 
 class PullRequest(Base):
     __tablename__ = "pull_requests"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    repo_id: Mapped[int] = mapped_column(Integer, ForeignKey("repositories.id"), nullable=False)
+    id: Mapped[int] = mapped_column(GITHUB_ID, primary_key=True)
+    repo_id: Mapped[int] = mapped_column(GITHUB_ID, ForeignKey("repositories.id"), nullable=False)
     number: Mapped[int] = mapped_column(Integer, nullable=False)
     url: Mapped[str] = mapped_column(String(600), nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
@@ -99,8 +103,8 @@ class PullRequest(Base):
 
 class WorkflowRun(Base):
     __tablename__ = "workflow_runs"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    repo_id: Mapped[int] = mapped_column(Integer, ForeignKey("repositories.id"), nullable=False)
+    id: Mapped[int] = mapped_column(GITHUB_ID, primary_key=True)
+    repo_id: Mapped[int] = mapped_column(GITHUB_ID, ForeignKey("repositories.id"), nullable=False)
     url: Mapped[str] = mapped_column(String(600), nullable=False)
     workflow_name: Mapped[str] = mapped_column(String(250), default="Unknown")
     status: Mapped[str] = mapped_column(String(40), nullable=False)
@@ -115,7 +119,7 @@ class WorkflowRun(Base):
 
 class SyncCheckpoint(Base):
     __tablename__ = "sync_checkpoints"
-    repo_id: Mapped[int] = mapped_column(Integer, ForeignKey("repositories.id"), primary_key=True)
+    repo_id: Mapped[int] = mapped_column(GITHUB_ID, ForeignKey("repositories.id"), primary_key=True)
     source: Mapped[str] = mapped_column(String(25), primary_key=True)
     last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     high_watermark: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -133,7 +137,7 @@ class SyncCheckpoint(Base):
 class SyncLog(Base):
     __tablename__ = "sync_logs"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    repo_id: Mapped[int] = mapped_column(Integer, ForeignKey("repositories.id"))
+    repo_id: Mapped[int] = mapped_column(GITHUB_ID, ForeignKey("repositories.id"))
     source: Mapped[str] = mapped_column(String(25))
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -146,7 +150,7 @@ class SyncLog(Base):
 class Observation(Base):
     __tablename__ = "observations"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    repo_id: Mapped[int] = mapped_column(Integer, ForeignKey("repositories.id"))
+    repo_id: Mapped[int] = mapped_column(GITHUB_ID, ForeignKey("repositories.id"))
     measured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     open_issues_observed: Mapped[int] = mapped_column(Integer)
     aged_issues_observed: Mapped[int] = mapped_column(Integer)

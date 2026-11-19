@@ -12,7 +12,7 @@ required. All workflow runs and collector results are public GitHub evidence.
   20:23, 00:23, 04:23). GitHub can delay or drop scheduled events.
 - **GitHub-only watchdog:** [Rescue stale public GitHub snapshot](https://github.com/Granbe1l/beta-test/actions/workflows/snapshot-watchdog.yml).
   Requested hourly at UTC minute 47. On successful main-branch push checks it
-  can also inspect snapshot freshness. After **more than six hours** since
+  can also inspect snapshot freshness. After **more than four hours** since
   the *committed snapshot's generated_at*, it may send a rescue
   `workflow_dispatch`, **only** if GitHub run history is readable, there
   is no active collector and no collector attempt in the last 90 minutes.
@@ -27,7 +27,10 @@ required. All workflow runs and collector results are public GitHub evidence.
 
 1. Open the [collector Actions page](https://github.com/Granbe1l/beta-test/actions/workflows/public-snapshot.yml)
    and select **Run workflow → Branch: main → Run workflow**. This action
-   requires owner/write access to the repository. Avoid launching a duplicate
+   requires owner/write access to the repository. The default preflight may skip
+   collection when the stored snapshot is fresh. Select **force_refresh** only
+   when deliberately requesting a new scan; a green skipped run is not a
+   new source audit. Avoid launching a duplicate
    if a collector is already queued or running.
 2. Open that exact new **workflow_dispatch** run. Confirm the **refresh** job
    actually finished with **success**. A green unit-test workflow or green

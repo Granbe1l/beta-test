@@ -1,5 +1,14 @@
 # P0.3 — independent scheduler decision and late-dispatch safety
 
+> Current policy at baseline `b893c04` (18 November 2026): both watchdogs
+> request a four-hour target; the dispatch input still defaults to six hours
+> for manual non-forced rescue. The dated six-hour Cloudflare descriptions
+> below describe the earlier proposal, not current source configuration.
+> Audit remediation additionally requires main-only publication, an unchanged
+> committed data baseline on every retry, and existing pinned-50 provenance.
+> Legacy promotion workflows refuse cohort replacement; migration needs owner approval.
+> These local remediation changes have not been deployed.
+
 Dated 17 November 2026. **Code changes in this PR are GitHub-only.**
 Cloudflare Worker code, Wrangler configuration, Cloudflare production/credentials,
 curated 50 repository manifest and published data are **not modified**.

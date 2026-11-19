@@ -183,12 +183,39 @@ def test_recover_missing_archive_after_50_snapshot_publication(tmp_path, monkeyp
     assert current.read_bytes() == new_raw
 
 
-def test_remote_receipt_guard_checks_git_tree_not_untracked_file():
-    source = (Path(__file__).resolve().parents[1] /
-              ".github/workflows/public-snapshot.yml").read_text()
-    assert "git cat-file -e 'origin/main:data/curated_50_transition_receipt.json'" in source
-    assert "git cat-file -e 'origin/main:data/archived_75_to_50_reports.json.gz'" in source
-    assert "git fetch --no-tags origin 0b7e80867c76d1dd3ba824a8749742e6757ff431" in source
+def test_inconsistent_historical_receipt_still_blocks_refresh(tmp_path, monkeypatch):
+    original, manifest = source_fixture()
+    snapshot, archive, receipt = curator.transition(
+        original, manifest, actual_snapshot_sha256=manifest["source_snapshot_sha256"])
+    receipt["selected_repositories"][0] = "unapproved/replacement"
+    paths = {name: tmp_path / name for name in ("MANIFEST", "SNAPSHOT", "ARCHIVE", "RECEIPT")}
+    paths["MANIFEST"].write_text(json.dumps(manifest), encoding="utf-8")
+    paths["SNAPSHOT"].write_bytes(gzip.compress(json.dumps(snapshot).encode()))
+    paths["ARCHIVE"].write_bytes(gzip.compress(json.dumps(archive).encode()))
+    paths["RECEIPT"].write_text(json.dumps(receipt), encoding="utf-8")
+    for name, path in paths.items():
+        monkeypatch.setattr(curator, name, path)
+    before = paths["SNAPSHOT"].read_bytes()
+    with pytest.raises(ValueError, match="archive or receipt"):
+        curator.main()
+    assert paths["SNAPSHOT"].read_bytes() == before
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_refresh_validation_never_recovers_or_transitions_data(tmp_path, monkeypatch, legacy):
+    original, manifest = source_fixture()
+    payload = original if legacy else curator.transition(
+        original, manifest, actual_snapshot_sha256=manifest["source_snapshot_sha256"])[0]
+    paths = {name: tmp_path / name for name in ("MANIFEST", "SNAPSHOT", "ARCHIVE", "RECEIPT")}
+    paths["MANIFEST"].write_text(json.dumps(manifest), encoding="utf-8")
+    raw = gzip.compress(json.dumps(payload).encode())
+    paths["SNAPSHOT"].write_bytes(raw)
+    for name, path in paths.items():
+        monkeypatch.setattr(curator, name, path)
+    with pytest.raises(ValueError, match="completed.*cutover"):
+        curator.main(validate_only=True)
+    assert paths["SNAPSHOT"].read_bytes() == raw
+    assert not paths["ARCHIVE"].exists() and not paths["RECEIPT"].exists()
 
 
 def test_actual_checked_in_binary_meets_exact_audited_manifest():

@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import sys
+from datetime import datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -18,14 +19,23 @@ from src.analytics.snapshot import read_snapshot
 from src.ui.observed import verified_joint_cohort
 
 
-def audit() -> dict:
-    reports, _, meta = read_snapshot()
-    cohort = verified_joint_cohort(reports, days=28)
+def audit(*, reproducible=False, now=None) -> dict:
+    now = now or datetime.now(timezone.utc)
+    reports, _, meta = read_snapshot(now=now)
+    evaluated_at = now
+    if reproducible:
+        # Historical evaluation only, never rewrite timestamps or claim
+        # current freshness. All calculation clocks use the same instant.
+        evaluated_at = meta["generated_at"]
+        reports, _, meta = read_snapshot(now=evaluated_at)
+    elif meta["stale"]:
+        raise AssertionError("Public snapshot must be fresh at operational validation time")
+    cohort = verified_joint_cohort(reports, days=28, now=evaluated_at)
     if not reports or not cohort:
         raise AssertionError("No real 28-day verified cohort in the snapshot")
 
     by_name = {r["repository"]["full_name"]: r for r in cohort}
-    findings = portfolio_findings(cohort, max_findings=10)
+    findings = portfolio_findings(cohort, max_findings=10, now=evaluated_at)
     types = {}
     verified_record_links = 0
     listing_fallbacks = 0
@@ -63,12 +73,15 @@ def audit() -> dict:
                 "Listing fallback must not claim an inspected individual record")
         types[item["type"]] = types.get(item["type"], 0) + 1
 
-    brief = executive_brief(cohort, findings=findings)
+    brief = executive_brief(cohort, findings=findings, now=evaluated_at)
     if brief["finding"]:
         assert brief["source_url"].startswith("https://github.com/")
         assert brief.get("next_check")
     return {
         "status": "passed",
+        "evaluation_mode": "reproducible_at_capture" if reproducible else "operational_current",
+        "evaluated_as_of_utc": evaluated_at.isoformat(),
+        "operational_freshness_verified": not reproducible,
         "audit_type": "automated snapshot reviewer evidence, not human usability",
         "snapshot_generated_at_utc": meta["generated_at"].isoformat(),
         "tracked_repositories": len(reports),
@@ -86,7 +99,15 @@ def audit() -> dict:
 
 
 if __name__ == "__main__":
-    result = audit()
+    import argparse
+    parser = argparse.ArgumentParser()
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--reproducible", action="store_true",
+                      help="Validate stored evidence at its capture instant; not current freshness")
+    mode.add_argument("--require-fresh", action="store_true",
+                      help="Require current operational freshness (default)")
+    args = parser.parse_args()
+    result = audit(reproducible=args.reproducible)
     output = Path("reviewer-evidence-audit.json")
     output.write_text(json.dumps(result, indent=2, sort_keys=True), encoding="utf-8")
     print("REAL-SNAPSHOT REVIEWER EVIDENCE:", json.dumps(result, sort_keys=True))

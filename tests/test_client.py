@@ -79,3 +79,42 @@ def test_complete_workflow_total_count_matches_retrieved_rows():
         "/repos/org/repo/actions/runs", {"per_page": 100},
         max_pages=1, wrapper="workflow_runs", sort_key="created_at")
     assert result.complete and len(result.items) == 2
+
+
+def test_permanent_forbidden_does_not_retry_or_sleep():
+    session = FakeSession([FakeResponse(status=403, data={"message": "Resource not accessible by integration"}, headers={"X-RateLimit-Remaining": "99"})])
+    waits = []
+    with pytest.raises(GitHubAPIError, match="HTTP 403"):
+        GitHubClient(session=session, sleeper=waits.append).get("/repos/org/repo")
+    assert len(session.calls) == 1 and waits == []
+
+
+@pytest.mark.parametrize("headers,message", [
+    ({"X-RateLimit-Remaining": "0"}, "API rate limit exceeded"),
+    ({"Retry-After": "1"}, "rate limited"),
+    ({"X-RateLimit-Remaining": "99"}, "You have exceeded a secondary rate limit"),
+])
+def test_rate_limited_forbidden_still_retries(headers, message):
+    session = FakeSession([FakeResponse(status=403, headers=headers, data={"message": message}), FakeResponse(data={"ok": True})])
+    waits = []
+    assert GitHubClient(session=session, sleeper=waits.append).get("/repos/org/repo")[0]["ok"]
+    assert len(waits) == 1
+
+
+@pytest.mark.parametrize("payload", [
+    {"total_count": 0}, {"workflow_runs": []},
+    {"workflow_runs": [], "total_count": -1},
+    {"workflow_runs": [], "total_count": "0"},
+    {"workflow_runs": [], "total_count": True}, [],
+])
+def test_invalid_actions_envelope_never_certifies_empty_complete(payload):
+    client = GitHubClient(session=FakeSession([FakeResponse(data=payload)]))
+    with pytest.raises(GitHubAPIError, match="pagination response"):
+        client.paginate("/repos/org/repo/actions/runs", {}, 2, wrapper="workflow_runs")
+
+
+def test_short_page_with_next_is_followed():
+    session = FakeSession([FakeResponse(data=[{"id": 1}], links={"next": {}}), FakeResponse(data=[{"id": 2}])])
+    result = GitHubClient(session=session).paginate("/repos/org/repo/issues", {"per_page": 100}, 2)
+    assert result.complete and result.pages == 2
+    assert [item["id"] for item in result.items] == [1, 2]

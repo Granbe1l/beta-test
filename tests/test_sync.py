@@ -1,4 +1,5 @@
 from datetime import timedelta
+import pytest
 from sqlalchemy import select, func
 from src.collectors.sync import sync_one, fetch_source, start_window, record_observations, refresh_repo_metadata
 from src.collectors.normalize import issue, pull_request, workflow_run
@@ -76,7 +77,7 @@ def test_repo_last_push_metadata_refresh_uses_real_github_id(db):
         def get(self, path):
             assert path == "/repos/sample/project"
             return {
-                "id": 101,
+                "id": 101, "private": False,
                 "pushed_at": "2026-11-12T10:00:00Z",
                 "stargazers_count": 238,
                 "language": "Go",
@@ -99,5 +100,54 @@ def test_metadata_failure_preserves_existing_push_date(db):
         def get(self, path):
             return {"id": 999, "pushed_at": "2026-11-12T10:00:00Z"}, None
 
-    assert not refresh_repo_metadata(db, WrongRepo(), repo)
+    from src.collectors.sync import RepositoryIdentityMismatch
+    with pytest.raises(RepositoryIdentityMismatch):
+        refresh_repo_metadata(db, WrongRepo(), repo)
     assert db.get(Repository, 101).pushed_at.date() == (NOW - timedelta(days=3)).date()
+
+
+def test_identity_mismatch_blocks_all_sources_and_open_inventory(db, cfg):
+    from src.collectors.sync import synchronize
+    from src.database.models import Observation
+    class ReusedSlug:
+        def get(self, path, params=None):
+            return {"id": 999, "full_name": "sample/project"}, None
+        def paginate(self, *args, **kwargs):
+            pytest.fail("Identity mismatch must stop all source/inventory requests")
+    result = synchronize(db, ReusedSlug(), cfg, run_at=NOW, audit_open_backlog=True)
+    assert result and all(r["status"] == "failed" for r in result)
+    assert db.scalar(select(func.count()).select_from(Issue)) == 0
+    assert db.scalar(select(func.count()).select_from(Observation)) == 0
+
+
+def test_backlog_only_repository_cannot_bypass_identity_check(db, cfg, monkeypatch):
+    from src.collectors.sync import synchronize
+    db.add(Repository(id=102, full_name="zzz/reused", owner="zzz", name="reused",
+                      url="https://github.com/zzz/reused", selected=True))
+    db.commit()
+    class Client(ScriptedClient):
+        def get(self, path, params=None):
+            return {"id": 999 if "zzz/reused" in path else 101, "private": False}, None
+    attempts = []
+    def backlog(session, client, repo, settings, **kwargs):
+        attempts.append(repo.id)
+        return {"status": "complete"}
+    monkeypatch.setattr("src.collectors.backlog.sync_open_backlog", backlog)
+    synchronize(db, Client({"issues": [], "pull_requests": [], "workflow_runs": []}),
+                cfg, initial_batch_size=1, run_at=NOW, audit_open_backlog=True)
+    assert 102 not in attempts
+    assert db.get(SyncCheckpoint, (102, "open_backlog")).status == "failed"
+
+
+def test_identity_quarantine_survives_transient_metadata_error(db, cfg):
+    from src.collectors.sync import synchronize
+    cp = SyncCheckpoint(repo_id=101, source="open_backlog", status="failed",
+                        last_error="RepositoryIdentityMismatch: GitHub repository ID mismatch")
+    db.add(cp); db.commit()
+    class Client:
+        def get(self, *args, **kwargs):
+            raise RuntimeError("temporary metadata outage")
+        def paginate(self, *args, **kwargs):
+            pytest.fail("Previously mismatched identity needs positive revalidation")
+    result = synchronize(db, Client(), cfg, run_at=NOW, audit_open_backlog=True)
+    assert result and all(r["status"] == "failed" for r in result)

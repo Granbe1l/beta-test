@@ -11,8 +11,40 @@ from datetime import datetime, timezone
 from pathlib import Path
 import json
 import sys
+import subprocess
 
 SOURCES = ("issues", "pull_requests", "workflow_runs")
+
+
+def _data_tree(repo: Path, revision: str) -> str:
+    return subprocess.check_output(
+        ["git", "-C", str(repo), "rev-parse", "--verify", revision + ":data"],
+        text=True, timeout=30,
+    ).strip()
+
+
+def verify_publication_baseline(repo: Path, baseline: dict) -> None:
+    """Compare committed data, not the newly generated working snapshot."""
+    if baseline.get("ref") != "refs/heads/main":
+        raise ValueError("Publication requires main")
+    if baseline.get("data_tree") != _data_tree(repo, "origin/main"):
+        raise ValueError("Publication baseline changed; recollect from current main")
+
+
+def capture_publication_baseline(repo: Path, ref: str) -> dict:
+    if ref != "refs/heads/main":
+        raise ValueError("Publication requires main")
+    baseline = {"ref": ref, "data_tree": _data_tree(repo, "HEAD")}
+    verify_publication_baseline(repo, baseline)
+    for name in ("github_public_snapshot.json.gz", "curated_50_manifest.json",
+                 "archived_75_to_50_reports.json.gz", "curated_50_transition_receipt.json"):
+        result = subprocess.run(
+            ["git", "-C", str(repo), "cat-file", "-t", "HEAD:data/" + name],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode or result.stdout.strip() != "blob":
+            raise ValueError("Missing committed cutover provenance: " + name)
+    return baseline
 
 
 def timestamp(value):
@@ -104,6 +136,18 @@ def verify_progress(before: dict, after: dict, expected_repositories=50, *,
 
 
 def main():
+    import os
+    if len(sys.argv) == 3 and sys.argv[1] in (
+        "--capture-publication-baseline", "--check-publication-baseline"
+    ):
+        receipt = Path(sys.argv[2])
+        root = Path(__file__).resolve().parents[1]
+        if sys.argv[1] == "--capture-publication-baseline":
+            receipt.write_text(json.dumps(capture_publication_baseline(
+                root, os.environ.get("GITHUB_REF", ""))), encoding="utf-8")
+        else:
+            verify_publication_baseline(root, json.loads(receipt.read_text(encoding="utf-8")))
+        return
     if len(sys.argv) != 3:
         raise SystemExit("Usage: verify_collection.py BEFORE.json AFTER.json")
     before = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))

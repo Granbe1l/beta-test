@@ -48,7 +48,7 @@ For implementation and caveats, use the technical sections below.
 [actual SQL optimization tests](https://github.com/Granbe1l/beta-test/pull/15) ·
 [CV-safe wording](docs/CV_EVIDENCE.md).
 
-**Refresh for a near-term demo:** [GitHub-only six-hour watchdog and manual pre-interview checklist](docs/GITHUB_ONLY_REFRESH_PLAYBOOK.md). A successful manual refresh is not evidence that the native four-hour cron is punctual.
+**Refresh for a near-term demo:** [GitHub-only four-hour watchdog and manual pre-interview checklist](docs/GITHUB_ONLY_REFRESH_PLAYBOOK.md). A successful manual refresh is not evidence that the native four-hour cron is punctual.
 
 **Live demo:** **not yet publicly verified**. Use the
 [deployment and verification guide](docs/PUBLIC_DEPLOYMENT.md).
@@ -146,6 +146,7 @@ unverified live database on each page load.
 
 ```bash
 python -m venv .venv
+source .venv/bin/activate  # Windows PowerShell: .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python -m pytest -q
 python -m streamlit run streamlit_app.py

@@ -16,10 +16,13 @@ permissions:
   contents: read
 jobs:
   schedule-proof:
-    # Ignore completed push/manual refreshes. Those never count as cron history.
+    # Rescue completion also re-evaluates missing cron slots; the audit still
+    # counts only native schedule events as cron evidence.
     if: >-
       github.event_name != 'workflow_run' ||
-      github.event.workflow_run.event == 'schedule'
+      (github.event.workflow_run.head_branch == 'main' &&
+       (github.event.workflow_run.event == 'schedule' ||
+        github.event.workflow_run.event == 'workflow_dispatch'))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

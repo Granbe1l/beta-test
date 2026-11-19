@@ -33,6 +33,15 @@ def _swap():
     return {"candidate_name": "acme/real", "candidate_github_id": 123}
 
 
+def test_pinned_cohort_refuses_promotion_before_reading_data(monkeypatch):
+    def unexpected_read(**kwargs):
+        pytest.fail("Pinned-cohort promotion must stop before reading or mutating data")
+
+    monkeypatch.setattr(promotion, "read_snapshot", unexpected_read)
+    with pytest.raises(ValueError, match="pinned.*owner-approved"):
+        promotion.promote(_audit())
+
+
 def test_proof_requires_all_three_complete_28d_sources():
     assert promotion.candidate_has_verified_proof(_swap(), _audit(), NOW)
     for source in promotion.SOURCES:

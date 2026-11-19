@@ -65,8 +65,8 @@ jobs:
           retention-days: 14
       - name: Generate CV evidence receipt from real GitHub snapshot
         run: python scripts/cv_evidence.py
-      - name: Audit reviewer findings against real GitHub source records
-        run: python scripts/audit_reviewer_evidence.py
+      - name: Reproduce reviewer findings at the stored snapshot capture time
+        run: python scripts/audit_reviewer_evidence.py --reproducible
       - name: Audit three conditional real-record case studies
         run: python scripts/audit_case_studies.py
       - name: Preserve case-study evidence receipt

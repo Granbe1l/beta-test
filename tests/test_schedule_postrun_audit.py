@@ -1,7 +1,23 @@
 """P1.3 audit must run after real scheduled ingestion completes."""
 from pathlib import Path
+from types import SimpleNamespace
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.mark.parametrize("event,branch,expected", [
+    ("schedule", "main", True), ("workflow_dispatch", "main", True),
+    ("push", "main", False), ("schedule", "candidate", False),
+    ("workflow_dispatch", "candidate", False),
+])
+def test_observer_admits_main_rescue_without_admitting_other_branches(event, branch, expected):
+    workflow = (ROOT / ".github/workflows/schedule-audit.yml").read_text()
+    expression = workflow.split("if: >-", 1)[1].split("runs-on:", 1)[0].strip()
+    expression = " ".join(expression.split()).replace("||", "or").replace("&&", "and")
+    github = SimpleNamespace(event_name="workflow_run", event=SimpleNamespace(
+        workflow_run=SimpleNamespace(event=event, head_branch=branch)))
+    assert eval(expression, {"__builtins__": {}}, {"github": github}) is expected
 
 
 def test_reliability_audit_runs_after_actual_completed_refresh_not_inside_it():

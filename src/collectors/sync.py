@@ -17,6 +17,14 @@ NORMALIZERS = {"issues": issue, "pull_requests": pull_request, "workflow_runs": 
 SOURCES = ("issues", "pull_requests", "workflow_runs")
 
 
+class RepositoryIdentityMismatch(ValueError):
+    """A slug no longer resolves to the selected GitHub repository ID."""
+
+
+class RepositoryVisibilityQuarantine(RepositoryIdentityMismatch):
+    """Public ingestion is suspended until explicit public revalidation."""
+
+
 def utc(dt):
     return dt.replace(tzinfo=timezone.utc) if dt and dt.tzinfo is None else dt
 
@@ -126,6 +134,16 @@ def fetch_ci_windowed(client: GitHubClient, repo: Repository,
     if isinstance(prior, list):  # Compatible with possible early checkpoints.
         prior = {d: "1970-01-01T00:00:00+00:00" for d in prior
                  if isinstance(d, str)}
+    prior_bounds = prior.get("_bounds", {})
+
+    def bucket_bounds(key):
+        day = datetime.fromisoformat(key[:10]).replace(tzinfo=timezone.utc)
+        if len(key) == 13:
+            day += timedelta(hours=int(key[11:]))
+            return day, day + timedelta(hours=6) - timedelta(seconds=1)
+        return day, day + timedelta(days=1) - timedelta(microseconds=1)
+
+    reused_bounds = {}
     # Recent completed UTC days or six-hour shards may be reused for 24
     # hours; earlier histories can be retained longer. The CURRENT UTC day
     # is ALWAYS fetched again because a saved shard cannot prove new runs
@@ -145,8 +163,19 @@ def fetch_ci_windowed(client: GitHubClient, repo: Repository,
             parsed = datetime.fromisoformat(str(last_verified).replace("Z", "+00:00"))
             if date >= now.date().isoformat():
                 continue
+            lower, upper = bucket_bounds(key)
+            bounds = prior_bounds.get(key)
+            if bounds:
+                covered_from, covered_to = map(datetime.fromisoformat, bounds)
+                if utc(covered_from) > max(since, lower) or utc(covered_to) < min(now, upper):
+                    continue
+            else:
+                # Legacy entries cannot prove either interval edge. Even
+                # yesterday may have been cached while it was still today.
+                continue
             if date < cutoff.isoformat() or utc(parsed) >= now - timedelta(hours=24):
                 (reusable_shards if is_shard else reusable)[key] = str(last_verified)
+                reused_bounds[key] = bounds
         except (ValueError, TypeError):
             continue
     all_dates = [(since.date() + timedelta(days=i)).isoformat()
@@ -156,15 +185,17 @@ def fetch_ci_windowed(client: GitHubClient, repo: Repository,
     records = {}
     pages_total = 0
     interval_count = 0
+    collection_error = None
 
     def load(start_day, end_day, *, precise_bounds=None):
-        nonlocal pages_total, interval_count
+        nonlocal pages_total, interval_count, collection_error
         remaining = pages_cap - pages_total
         if remaining <= 0:
             return None
         budget = getattr(client, "max_requests", None)
         used = getattr(client, "request_count", 0)
         if budget is not None and used + 2 >= budget:
+            collection_error = "GitHub API request budget reserve reached"
             return None
         if precise_bounds is not None:
             lower = max(since, precise_bounds[0])
@@ -180,13 +211,16 @@ def fetch_ci_windowed(client: GitHubClient, repo: Repository,
         # pagination cap or the global GitHub API request budget.
         from dataclasses import replace
         bounded_settings = replace(settings, max_pages=min(settings.max_pages, remaining))
+        interval_count += 1
         rows, pagination = fetch_source(
             client, repo, "workflow_runs", lower, bounded_settings, upper,
             precise_created=precise_bounds is not None)
         pages_total += pagination.pages
-        interval_count += 1
         for row in rows:
             records[row["id"]] = row
+        if getattr(pagination, "error", None):
+            collection_error = pagination.error
+            return None
         return pagination
 
     end = now.date()
@@ -208,7 +242,8 @@ def fetch_ci_windowed(client: GitHubClient, repo: Repository,
         if len(missing) == len(days) and len(days) > 1 and not has_shard_progress:
             try:
                 weekly = load(begin, end)
-            except Exception:
+            except Exception as exc:
+                collection_error = safe_error(exc)
                 weekly = None
             if weekly is None:
                 break
@@ -223,7 +258,8 @@ def fetch_ci_windowed(client: GitHubClient, repo: Repository,
             if not old_shards:
                 try:
                     daily = load(day_value, day_value)
-                except Exception:
+                except Exception as exc:
+                    collection_error = safe_error(exc)
                     daily = None
                 if daily is None:
                     unfinished = True
@@ -249,7 +285,8 @@ def fetch_ci_windowed(client: GitHubClient, repo: Repository,
                 try:
                     segment = load(day_value, day_value,
                                    precise_bounds=(lower, upper))
-                except Exception:
+                except Exception as exc:
+                    collection_error = safe_error(exc)
                     segment = None
                 if segment is None:
                     unfinished = True
@@ -267,13 +304,20 @@ def fetch_ci_windowed(client: GitHubClient, repo: Repository,
     complete = required.issubset(set(verified))
     result = PageResult(
         items=[], pages=pages_total, complete=complete,
-        cap_reached=not complete, cutoff_reached=False)
+        cap_reached=not complete and collection_error is None, cutoff_reached=False)
+    result.error = collection_error
     # Additional provenance is preserved by sync_one in SyncCheckpoint.
     result.verified_days = {
         key: stamp for key, stamp in sorted({**partial_shards, **verified}.items())
         if key[:10] >= (now.date() - timedelta(days=120)).isoformat()
         and (len(key) == 10 or key[:10] not in verified)
     }
+    if result.verified_days:
+        result.verified_days["_bounds"] = {
+            key: reused_bounds.get(key) or [max(since, bucket_bounds(key)[0]).isoformat(),
+                                           min(now, bucket_bounds(key)[1]).isoformat()]
+            for key in result.verified_days
+        }
     return list(records.values()), result, since, interval_count, pages_total
 
 
@@ -313,15 +357,17 @@ def fetch_source_adaptive(client: GitHubClient, repo: Repository, source: str,
         budget = getattr(client, "max_requests", None)
         used = getattr(client, "request_count", 0)
         if attempts and budget is not None and used + settings.max_pages + 1 > budget:
+            result.error = "GitHub API request budget reserve reached"
             break
         try:
             rows, attempt_result = fetch_source(client, repo, source,
                                                 candidate, settings, now)
-        except Exception:
+        except Exception as exc:
             if not attempts:
                 raise
             # A failed narrower retry must not discard a successful
             # previous bounded-but-partial page set.
+            result.error = safe_error(exc)
             break
         attempts += 1
         total_pages += attempt_result.pages
@@ -329,7 +375,7 @@ def fetch_source_adaptive(client: GitHubClient, repo: Repository, source: str,
         result = attempt_result
         for row in rows:
             merged[row["id"]] = row
-        if result.complete:
+        if result.complete or getattr(result, "error", None):
             break
     if result is None:
         raise RuntimeError("No GitHub source response was available")
@@ -356,7 +402,11 @@ def sync_one(session: Session, client: GitHubClient, repo: Repository, source: s
             verified_days=getattr(cp, "verified_days", None) if source == "workflow_runs" else None)
         write_records(session, source, rows)
         status = "complete" if pagination.complete else "partial"
+        collection_error = getattr(pagination, "error", None)
+        if collection_error and total_pages == 0:
+            status = "failed"
         log.status = status
+        log.error = collection_error
         log.finished_at = utcnow()
         log.record_count = len(rows)
         log.page_count = total_pages
@@ -379,7 +429,7 @@ def sync_one(session: Session, client: GitHubClient, repo: Repository, source: s
             cp.verified_days = pagination.verified_days
         cp.last_error = (
             None if pagination.complete else
-            "Page cap reached; source remains partial for requested window"
+            collection_error or "Page cap reached; source remains partial for requested window"
         )
         if pagination.complete:
             # Read the OLD checkpoint before advancing its success timestamp.
@@ -426,16 +476,32 @@ def refresh_repo_metadata(session: Session, client, repo: Repository, now=None) 
     """Refresh last-push metadata without changing the selected cohort.
 
     A recent GitHub push is a signal of repository activity, not evidence of
-    a new feature. Failed lookups preserve the last known metadata and do
-    not invalidate independently collected issues/PR records.
+    a new feature. Failed lookups retain history but suspend collection and
+    public export until public visibility can be positively revalidated.
     """
     get = getattr(client, "get", None)
-    if get is None:  # Simple deterministic clients in unit tests
-        return False
+    def block_visibility():
+        visibility = get_checkpoint(session, repo.id, "public_visibility")
+        visibility.status = "failed"
+        visibility.last_error = "Repository visibility requires public revalidation"
+        session.commit()
+        return RepositoryVisibilityQuarantine(visibility.last_error)
+
+    if get is None:
+        raise block_visibility()
     try:
         data, _ = get(f"/repos/{repo.full_name}")
         if not isinstance(data, dict) or int(data.get("id", -1)) != repo.id:
-            raise ValueError("GitHub repository ID mismatch")
+            raise RepositoryIdentityMismatch("GitHub repository ID mismatch")
+        nonpublic = data.get("private") is True or data.get("visibility") in ("private", "internal")
+        public = (data.get("private") is False or data.get("visibility") == "public") and not nonpublic
+        if not public:
+            raise block_visibility()
+        if public:
+            visibility = get_checkpoint(session, repo.id, "public_visibility")
+            visibility.status = "complete"
+            visibility.last_success_at = now or utcnow()
+            visibility.last_error = None
         pushed = data.get("pushed_at")
         if pushed:
             repo.pushed_at = datetime.fromisoformat(pushed.replace("Z", "+00:00"))
@@ -449,10 +515,12 @@ def refresh_repo_metadata(session: Session, client, repo: Repository, now=None) 
             repo.category = category({"language": repo.language})
         session.commit()
         return True
+    except RepositoryIdentityMismatch:
+        session.rollback()
+        raise
     except Exception as exc:
         session.rollback()
-        print(f"Repository metadata unavailable for {repo.full_name}: {type(exc).__name__}")
-        return False
+        raise block_visibility() from exc
 
 def record_observations(session: Session, repo_id: int, now=None):
     now = now or utcnow()
@@ -646,6 +714,33 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
             for r in repos if r.id in repair_targets
         })
     visited = []
+    quarantined = set()
+    identity_verified = set()
+
+    def identity_allowed(repo):
+        if repo.id in identity_verified:
+            return True
+        try:
+            verified = refresh_repo_metadata(session, client, repo, now=run_at or utcnow())
+            if verified:
+                identity_verified.add(repo.id)
+            else:
+                raise RepositoryVisibilityQuarantine("Repository visibility requires public revalidation")
+        except RepositoryIdentityMismatch as exc:
+            quarantined.add(repo.id)
+            if isinstance(exc, RepositoryVisibilityQuarantine):
+                visibility = get_checkpoint(session, repo.id, "public_visibility")
+                visibility.status, visibility.last_error = "failed", safe_error(exc)
+            for source in (*SOURCES, "open_backlog"):
+                cp = get_checkpoint(session, repo.id, source)
+                cp.status, cp.last_error = "failed", safe_error(exc)
+            session.commit()
+            result.extend({"repo": repo.full_name, "source": source,
+                           "status": "failed", "records": 0, "pages": 0,
+                           "error": safe_error(exc)} for source in SOURCES)
+            return False
+        return True
+
     for repo in repos:
         # Stop before exhausting the allocated API quota; never mark unvisited
         # repositories as failed or advance their last-success timestamps.
@@ -653,7 +748,8 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
         if budget is not None and getattr(client, "request_count", 0) + 3 * settings.max_pages * 3 + 6 >= budget:
             print("Collector request budget reached: unvisited repositories retain prior checkpoints")
             break
-        refresh_repo_metadata(session, client, repo, now=run_at or utcnow())
+        if not identity_allowed(repo):
+            continue
         # Rotate source order per four-hour slot; a high-volume Actions
         # scan should not always be last and starved by Issues/PRs.
         slot = int((run_at or utcnow()).timestamp() // (4 * 3600))
@@ -678,7 +774,7 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
         all_selected = list(session.scalars(
             select(Repository).where(Repository.selected.is_(True))
         ))
-        ordered = backlog_priority_order(session, all_selected, settings, now)
+        ordered = backlog_priority_order(session, [r for r in all_selected if r.id not in quarantined], settings, now)
         processed = 0
         completed = 0
         partial_or_failed = 0
@@ -702,6 +798,8 @@ def synchronize(session: Session, client: GitHubClient, settings: Settings, reco
                     budget - getattr(client, "request_count", 0) < reserve):
                 stop_reason = "remaining_api_budget"
                 break
+            if not identity_allowed(repo):
+                continue
             observed = sync_open_backlog(
                 session, client, repo, settings, now=now)
             result.append(observed)

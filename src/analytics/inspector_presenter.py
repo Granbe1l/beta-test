@@ -79,7 +79,7 @@ def preview_review_plan(data: dict) -> list[dict]:
             "title": "Inspect unsuccessful automated checks",
             "explanation": (
                 f"{failed} of {completed} observed completed CI runs with known "
-                "outcomes failed or timed out. Read the most recent run logs "
+                "outcomes, excluding skipped and neutral, failed or timed out. Read the most recent run logs "
                 "and determine whether any failure is still relevant."),
             "url": data.get("last_failed_run_url"),
         })

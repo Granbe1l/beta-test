@@ -5,6 +5,14 @@ The default is **SQLite**, accessed through Python's **SQLAlchemy ORM**.
 **PostgreSQL** is supported when DATABASE_URL is configured, but is not
 necessary for the public Streamlit demonstration.
 
+New schemas use 64-bit GitHub identifiers (PostgreSQL BIGINT; SQLite INTEGER).
+Existing PostgreSQL schemas created with 32-bit IDs require an explicitly reviewed
+schema migration before restoring current GitHub data. `create_all` does not alter
+existing column types. No production migration is performed by this change;
+back up and test the migration on a copy, including every repository foreign key.
+Local regression verifies PostgreSQL DDL and SQLite roundtrips; a live PostgreSQL
+restore remains a separate deployment check.
+
 ## Actual architecture
 
 1. GitHub REST API responses are normalized in Python.

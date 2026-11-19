@@ -2,7 +2,7 @@
 
 The native 4h collection is complemented by an early 4h Github-only watchdog.
 This best-effort same-provider watchdog runs independently of the collector cron,
-but does NOT guarantee punctual service. Cloudflare's independent 6h rescue
+but does NOT guarantee punctual service. Cloudflare's independent 4h rescue
 remains unchanged. The watchdog checks committed snapshot generated_at,
 never fabricates a schedule event or upgrades verified coverage.
 """
@@ -18,7 +18,7 @@ import requests
 
 SNAPSHOT = Path("data/github_public_snapshot.json.gz")
 API_WORKFLOW = "public-snapshot.yml"
-MAX_AGE_HOURS = 4  # Early GitHub-only target. Cloudflare remains independently 6h.
+MAX_AGE_HOURS = 4  # Early GitHub-only target. Cloudflare also requests a 4h target.
 BACKOFF_MINUTES = 90
 STALE_PENDING_MINUTES = 120  # Match Cloudflare: ignore only abandoned, unchanged queues.
 PENDING_STATUSES = frozenset(("queued", "requested", "waiting", "pending"))
