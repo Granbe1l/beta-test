@@ -1,0 +1,66 @@
+diff --git a/docs/PRD_UIUX_REINTEGRATION_V9_5_52.md b/docs/PRD_UIUX_REINTEGRATION_V9_5_52.md
+--- a/docs/PRD_UIUX_REINTEGRATION_V9_5_52.md
++++ b/docs/PRD_UIUX_REINTEGRATION_V9_5_52.md
+@@ -1,6 +1,6 @@
+ # PRD & Runbook Integrasi Ulang — Project Delivery Monitor V9.5.52
+ 
+-**Versi:** 1.0 · 26 November 2026 WIB  
++**Versi:** 1.1 (GOV-1.1) · 26 November 2026 WIB\
+ **Repository:** Granbe1l/beta-test  
+ **Branch kerja:** `codex/uiux-redesign`  
+ **Branch sumber kebenaran:** `main`  
+@@ -271,4 +271,53 @@
+ 
+ **Definition of Done branch:** Gate 0–9 terpenuhi, review lengkap, bukti traceable dan keputusan siap merge disampaikan kepada pemilik. Merge bukan bagian otomatis dari DoD branch. **Definition of Done produksi:** persetujuan terpisah, tahap 10 dan validasi hosting/security/operasional terpenuhi. 
+ 
+-**Instruksi pertama bagi pelaksana:** baca PRD ini dan laporan eksekusi V9.5.52, lakukan tahap 0 read-only dan backup; hentikan bila bukti/artefak tidak tersedia. Jangan menyentuh main, scheduler, dataset atau token. Jangan menerapkan desain lama hanya karena ada di worktree. Laporkan gerbang sebelum bergerak, bukan menebak atau mengejar skor.
++## 11. Engineering Governance, Quality Assurance & Token Efficiency (GOV-1.1)
++
++**Kedudukan normatif:** persyaratan ini berlaku permanen untuk pengerjaan, review dan handover. Bersifat aditif terhadap §§1–10; tidak mengganti scope produk, desain V9.5.52, R01–R06, AU/UX/C/AS, kontrak §4, gate §6, matriks §7, risk register §8 atau otorisasi §9. Persyaratan gate yang lebih ketat selalu tetap berlaku; konflik dilaporkan kepada pemilik, bukan diselesaikan sepihak. Efisiensi token dan pilihan plugin tidak mengurangi standar kelulusan.
++
++**Pembagian kerja:** pemilik repository adalah Product Owner dan pemberi keputusan. ChatGPT membantu diskusi, kritik, rekomendasi, penyusunan/revisi PRD dan review bukti; Codex melakukan inspeksi teknis, implementasi, testing/debugging dan laporan berdasarkan PRD serta izin aktif. Temuan atau usulan Codex yang mengubah persyaratan dibawa kembali untuk diskusi dan persetujuan pemilik sebelum diterapkan. Agent bukan fitur produk dan self-review tidak disebut review independen. PRD ini menjadi rujukan bersama; percakapan agent tidak dianggap otomatis tersinkronisasi.
++
++### 11.1 Persyaratan dan bukti minimum
++
++| ID | Ketentuan permanen | Acceptance criteria / bukti |
++|---|---|---|
++| GOV-01 | Patuh pada PRD, ADR, baseline main terpin dan izin aktif. | Identifikasi ref/worktree dan requirement terdampak; mapping requirement → diff → test/evidence dalam ledger existing. Konflik dilaporkan. |
++| GOV-02 | Hemat konteks tanpa mengorbankan kualitas, keamanan atau tes wajib. | Pencarian simbol/dependensi dan diff terarah, perluas inspeksi jika bukti kurang; ringkas log rutin tanpa menghapus bukti mentah; jangan mengklaim penghematan tanpa pengukuran. |
++| GOV-03 | Pilih alat secara selektif, bukan semua skill sekaligus. | Catat alasan, ketersediaan, kompatibilitas, izin dan risiko; fallback manual ekuivalen diperbolehkan. Tidak menginstal alat atau mengirim data ke provider baru tanpa persetujuan. |
++| GOV-04 | Audit berbasis risiko, perubahan dan bukti; tidak mengejar jumlah putaran. | Severity dan penutupan mengikuti §8; audit ulang jika area/input berubah, ada risiko baru atau bukti invalid. Seluruh tes wajib §6–7 tetap dijalankan sesuai gate. |
++| GOV-05 | Hindari AI slop, duplikasi, abstraksi prematur, dekorasi berlebih dan refactor tanpa manfaat. | Review diff minimal, hierarki, konsistensi, responsivitas, aksesibilitas dan performa sesuai §§5, 6 tahap 7, 7; desain yang disetujui tetap. |
++| GOV-06 | Pertahankan kontrak data dan perilaku §4. | Cohort 50 identitas, Verified sesuai eligibility aktual (bukan memaksa 50), KPI, denominator, periode, freshness, temuan, CSV, pipeline dan oracle main tetap sesuai kontrak. Uji parity dan edge cases sebagaimana gate. |
++| GOV-07 | QA, regresi dan TDD sesuai ruang lingkup dan gate. | RED→GREEN→regresi untuk bug sebagaimana §6; catat command, exit, pass/fail/skip, SHA, lingkungan dan bukti. Fixture bukan bukti runtime produksi; jangan melemahkan assertion. |
++| GOV-08 | Checkpoint sebelum interupsi, pergantian agent atau limit. | Gunakan checkpoint §9: ref/SHA, worktree, gate, bukti, perubahan, risiko, tindakan selanjutnya. Lanjut dari titik terakhir yang terbukti; jangan membuat commit/push otomatis tanpa izin yang berlaku. |
++| GOV-09 | Jujur mengenai data, timestamp, Verified, screenshot, tes, skor dan gate. | Ikuti status resmi §6–10 (PASS/FAIL/BLOCKED/N/A, N/T bila belum diuji); N/A harus beralasan. Jangan memanipulasi bukti atau nilai; laporkan keterbatasan dan fixture. |
++| GOV-10 | Kontrol perubahan dan otorisasi mengikuti §9. | Tidak mengubah scope, protected path, cohort, scheduler, Cloudflare, secrets, biaya, merge/push/deploy di luar izin. Tidak ada dua agent penulis di worktree sama. |
++| GOV-11 | Standar vendor-neutral; dapat dilanjutkan agent lain. | PRD, ADR, ledger, checkpoint dan bukti tetap dapat dibaca Codex/Antigravity atau agent lain; pergantian agent tidak mengubah gate. |
++| GOV-12 | Privasi dan keamanan sesuai §§4, 6 tahap 8, 9. | Izin minimal, log teredaksi, review secret/private leakage; jangan menaruh token/credential/data privat di prompt, log, screenshot, commit, browser, artefak publik atau provider tanpa otorisasi. |
++
++### 11.2 Alat bantu yang dipilih (bukan dependency runtime)
++
++Keputusan pemilik: pertahankan lima alat yang telah dipilih sebelumnya, tambah hanya Vercel. Ketersediaan/kompatibilitas harus diperiksa, bukan diasumsikan. Tidak perlu mengaktifkan semuanya sekaligus.
++
++| Alat | Penggunaan | Pagar |
++|---|---|---|
++| Graphify | Penelusuran simbol/dependensi dan impact analysis | Validasi indeks terhadap ref; baca sumber jika indeks stale atau belum lengkap. |
++| Superpowers | Perubahan kompleks, debugging sistematis dan TDD | Ikuti gate dan ledger existing; jangan membuat siklus audit redundan. |
++| Ponytail | Kesederhanaan implementasi | Jangan menghapus validasi, fallback, error handling, aksesibilitas, dokumentasi atau tes wajib. |
++| UI/UX Pro Max | Konsistensi desain dan komponen | Ikuti V9.5.52 dan keputusan yang disetujui. |
++| Impeccable | Kritik visual, polish, anti-slop | Tidak memperluas scope atau mengorbankan kontrak/tes. |
++| Vercel (plugin/skill resmi pilihan pemilik) | Kajian kompatibilitas dan kesiapan hosting | Mengikuti ADR dan tahap 10; tidak memaksa framework, tidak mengubah runtime, tidak membuat resource/deploy otomatis. |
++| Playwright/test suite existing | QA browser dan regresi | Pertahankan semua pengujian wajib yang berlaku; tidak memasang CLI tambahan. |
++
++RTK, OpenSpec, Serena dan Playwright CLI tambahan tidak dipersyaratkan maupun diotorisasi untuk instalasi/aktivasi baru. RTK yang mungkin sudah terdaftar secara global adalah urusan konfigurasi lokal pemilik, bukan pekerjaan integrasi; jangan mengubah hook atau sandbox secara otomatis. Gunakan pencarian bawaan, Git diff dan bukti mentah untuk efisiensi. Jika alat pilihan tidak tersedia, gunakan metode ekuivalen tanpa melemahkan acceptance criteria. Tidak ada instalasi baru, provider baru atau perubahan konfigurasi agent yang dipicu oleh revisi ini.
++
++### 11.3 Prosedur kelanjutan dan review
++
++- Preflight: baca PRD ini, checkpoint terbaru, ADR/ledger dan instruksi agent yang relevan; verifikasi worktree, branch, baseline, kandidat dan status gate aktual secara read-only. Jangan mencetak secrets. Mulai dari gate yang sedang dikerjakan, bukan dari awal.
++- Implementasi dan review: gunakan diff dan analisis risiko terarah; petakan setiap perubahan; periksa log mentah untuk kegagalan/kasus kritis. Gunakan kembali bukti hanya bila masih sah terhadap SHA/input/lingkungan dan aturan gate. Jika SHA atau input berubah, ikuti revalidasi §6/§9; revisi dokumen bukan bukti lulus atau alasan melewati exact-candidate tests. Jangan menambah putaran tanpa hipotesis.
++- Laporan: gunakan format §10, sertakan alasan pemilihan alat, keterbatasan dan langkah berikutnya; tidak menyalin semua transkrip ke konteks baru. Jika AGENTS.md perlu diselaraskan, lakukan sebagai tindakan dokumentasi terpisah yang diizinkan; PRD tetap normatif.
++- **Transisi GOV-1.1 saat Gate 4 berjalan:** jangan mengubah hasil, checklist, bukti atau status Gate 0–4 secara retroaktif. Periksa checkpoint aktual; lanjutkan item Gate 4 yang belum terbukti (shell enam rute, vertical slice nyata, kontrak adapter/loading/error/freshness, protected-path diff). Gate 5 hanya setelah Gate 4 PASS menurut §6. Jika ada bukti lama yang invalid, revalidasi sesuai aturan yang sudah berlaku, bukan reset seluruh integrasi.
++- **Acceptance revisi dokumentasi ini:** hanya PRD berubah; seluruh §§1–10, requirement ID lama, kontrak, gate dan bukti historis dipertahankan. Verifikasi diff dan worktree aktual; tidak ada perubahan kode, test suite, dataset, workflow, konfigurasi, checkpoint atau status gate. Tidak ada push, merge atau deploy dalam penerapan revisi ini.
++
++**Riwayat revisi 1.1:** integrasi GOV-1.1 dan pembagian peran ChatGPT/Codex; Vercel satu-satunya tambahan pilihan pemilik; tool lain opsional, standar QA tetap. Instruksi pelaksana di bawah diperjelas agar membedakan mulai proyek dari melanjutkan checkpoint.
++
++**Instruksi bagi pelaksana:** baca PRD ini dan laporan eksekusi V9.5.52. Untuk pekerjaan baru tanpa checkpoint valid, lakukan tahap 0 read-only dan backup; untuk pekerjaan yang sedang berlangsung, verifikasi checkpoint dan lanjutkan sesuai §9 dan §11.3 tanpa menandai gate lulus atau mengulang seluruh integrasi secara otomatis. Hentikan bila bukti/artefak wajib tidak tersedia. Jangan menyentuh main, scheduler, dataset atau token. Jangan menerapkan desain lama hanya karena ada di worktree. Laporkan gerbang sebelum bergerak, bukan menebak atau mengejar skor.
